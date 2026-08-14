@@ -13,7 +13,13 @@ return new class extends Migration
     {
         Schema::create('movimentacao_estoques', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('produto_id')->constrained('produtos')->CascadeOnDelete();
+            $table->enum('tipo_movimentacao', ['entrada', 'saida']);
+            $table->integer('quantidade');
+            $table->string('motivo', 255);
+            $table->dateTime('data_movimentacao');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
