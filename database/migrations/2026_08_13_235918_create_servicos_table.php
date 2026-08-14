@@ -12,8 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('servicos', function (Blueprint $table) {
-            $table->id();
+            $table->id()->autoIncrement();
+            $table->string('nome', 255);
+            $table->string('descricao', 255);
+            $table->decimal('preco_base', 10, 2);
+            $table->integer('tempo_estimado');
+            $table->enum('status', ['ativo', 'inativo']);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
