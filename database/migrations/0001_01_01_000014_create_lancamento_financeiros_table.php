@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('lancamentos_financeiros', function (Blueprint $table) {
             $table->id();
-            $table->id();
             $table->foreignId('tarefa_id')->nullable()->unique()->constrained('tarefas')->nullOnDelete();
             $table->foreignId('usuario_id')->nullable()->constrained('users')->nullOnDelete();
             $table->enum('tipo', ['receita', 'despesa']);

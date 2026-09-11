@@ -20,7 +20,6 @@ return new class extends Migration
             $table->boolean('ativo')->default(true);
             $table->timestamps();
             $table->index('ativo');
-            $table->timestamps();
             
         });
     }
