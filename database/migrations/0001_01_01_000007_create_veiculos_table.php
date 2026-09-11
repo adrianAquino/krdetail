@@ -12,17 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('veiculos', function (Blueprint $table) {
-            $table->id()->autoIncrement();
-            $table->foreignId('cliente_id')->constrained('clientes')->CascadeOnDelete();
+            $table->id();
+            $table->foreignId('cliente_id')->constrained('clientes')->restrictOnDelete();
             $table->string('placa', 10)->unique();
-            $table->string('marca', 255);
-            $table->string('modelo', 255);
-            $table->integer('ano');
-            $table->string('cor', 50);
-            $table->enum('tipo_veiculo', ['carro', 'moto', 'caminhao', 'outro']);
+            $table->string('marca');
+            $table->string('modelo');
+            $table->year('ano')->nullable();
+            $table->string('cor', 50)->nullable();
             $table->text('observacoes')->nullable();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

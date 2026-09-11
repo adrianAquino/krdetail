@@ -13,7 +13,14 @@ return new class extends Migration
     {
         Schema::create('ordem_servicos', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('agendamento_id')->unique()->constrained('agendamentos')->restrictOnDelete();
+            $table->string('numero')->unique();
+            $table->dateTime('data_inicio');
+            $table->dateTime('data_fim')->nullable();
+            $table->enum('status', ['aberta', 'em_andamento', 'concluida', 'cancelada'])->default('aberta');
+            $table->text('observacoes')->nullable();
             $table->timestamps();
+            $table->index('status');
         });
     }
 
