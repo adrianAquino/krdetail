@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Cliente;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -15,9 +16,9 @@ class ClienteController extends Controller
             $busca = $request->input('busca');
             $query->where(function ($q) use ($busca) {
                 $q->where('nome', 'like', "%{$busca}%")
-                  ->orWhere('telefone', 'like', "%{$busca}%")
-                  ->orWhere('email', 'like', "%{$busca}%")
-                  ->orWhere('cpf_cnpj', 'like', "%{$busca}%");
+                    ->orWhere('telefone', 'like', "%{$busca}%")
+                    ->orWhere('email', 'like', "%{$busca}%")
+                    ->orWhere('cpf_cnpj', 'like', "%{$busca}%");
             });
         }
 
@@ -70,7 +71,11 @@ class ClienteController extends Controller
             }
         ]);
 
-        return view('clientes.show', compact('cliente'));
+       
+
+        return view('clientes.show', compact(
+            'cliente'
+        ));
     }
 
     public function edit(Cliente $cliente)

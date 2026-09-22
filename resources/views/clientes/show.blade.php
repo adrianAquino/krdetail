@@ -19,66 +19,7 @@
         </x-slot:actions>
     </x-header>
 
-    @php
-        $clienteObj = $cliente ?? (object)[
-            'id' => 1,
-            'nome' => 'Lucas Guimarães',
-            'cpf_cnpj' => '345.890.123-45',
-            'telefone' => '(11) 98765-4321',
-            'email' => 'lucas.guimaraes@email.com',
-            'cep' => '01310-100',
-            'logradouro' => 'Avenida Paulista',
-            'numero' => '1578',
-            'complemento' => 'Apto 102',
-            'bairro' => 'Bela Vista',
-            'cidade' => 'São Paulo',
-            'estado' => 'SP',
-            'user_id' => 10,
-            'created_at' => now()->subMonths(6),
-        ];
 
-        $veiculosCliente = $veiculos ?? [
-            (object)[
-                'id' => 1,
-                'marca' => 'BMW',
-                'modelo' => '320i M Sport',
-                'placa' => 'BRA2E19',
-                'ano' => 2023,
-                'cor' => 'Azul Portimão',
-                'observacoes' => 'Pintura original sem repinturas, cliente exige microfibra específica.'
-            ],
-            (object)[
-                'id' => 2,
-                'marca' => 'Toyota',
-                'modelo' => 'Corolla Cross XRX Hybrid',
-                'placa' => 'TOY4X99',
-                'ano' => 2022,
-                'cor' => 'Branco Pérola',
-                'observacoes' => 'Uso diário urbano.'
-            ],
-        ];
-
-        $historicoAgendamentos = $agendamentos ?? [
-            (object)[
-                'id' => 101,
-                'data_inicio' => now()->subDays(2),
-                'status' => 'concluido',
-                'veiculo' => (object)['marca' => 'BMW', 'modelo' => '320i M Sport', 'placa' => 'BRA2E19'],
-                'servicos_nomes' => 'Polimento Técnico + Vitrificação 3 Anos',
-                'ordem_servico' => (object)['id' => 15, 'numero' => 'OS-00015', 'status' => 'concluida'],
-                'valor_total' => 1200.00
-            ],
-            (object)[
-                'id' => 84,
-                'data_inicio' => now()->subMonths(2),
-                'status' => 'concluido',
-                'veiculo' => (object)['marca' => 'Toyota', 'modelo' => 'Corolla Cross', 'placa' => 'TOY4X99'],
-                'servicos_nomes' => 'Higienização Interna Completa + Oxi-Sanitização',
-                'ordem_servico' => (object)['id' => 9, 'numero' => 'OS-00009', 'status' => 'concluida'],
-                'valor_total' => 450.00
-            ],
-        ];
-    @endphp
 
     <div class="grid gap-6 lg:grid-cols-3">
         <!-- Coluna Esquerda: Dados do Cliente e Conta -->
@@ -87,12 +28,12 @@
             <x-card>
                 <div class="flex items-center gap-3.5 mb-5 pb-5 border-b border-border">
                     <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold text-xl">
-                        {{ strtoupper(substr($clienteObj->nome, 0, 2)) }}
+                        {{ strtoupper(substr($cliente->nome, 0, 2)) }}
                     </div>
                     <div>
-                        <h2 class="text-lg font-bold text-foreground">{{ $clienteObj->nome }}</h2>
+                        <h2 class="text-lg font-bold text-foreground">{{ $cliente->nome }}</h2>
                         <div class="mt-1">
-                            @if($clienteObj->user_id)
+                            @if($cliente->user_id)
                                 <x-badge-status status="acesso_ativo" label="Acesso Ativo" />
                             @else
                                 <x-badge-status status="sem_acesso" label="Sem Acesso" />
@@ -104,14 +45,14 @@
                 <div class="space-y-3.5 text-sm">
                     <div>
                         <span class="text-xs text-muted-foreground uppercase font-semibold">CPF / CNPJ</span>
-                        <p class="font-medium text-foreground mt-0.5">{{ $clienteObj->cpf_cnpj ?? 'Não informado' }}</p>
+                        <p class="font-medium text-foreground mt-0.5">{{ $cliente->cpf_cnpj ?? 'Não informado' }}</p>
                     </div>
 
                     <div>
                         <span class="text-xs text-muted-foreground uppercase font-semibold">Telefone / WhatsApp</span>
                         <p class="font-medium text-foreground mt-0.5 flex items-center gap-2">
                             <x-icon name="phone" class="w-4 h-4 text-primary" />
-                            {{ $clienteObj->telefone }}
+                            {{ $cliente->telefone }}
                         </p>
                     </div>
 
@@ -119,35 +60,35 @@
                         <span class="text-xs text-muted-foreground uppercase font-semibold">E-mail</span>
                         <p class="font-medium text-foreground mt-0.5 flex items-center gap-2">
                             <x-icon name="mail" class="w-4 h-4 text-primary" />
-                            {{ $clienteObj->email ?? 'Não informado' }}
+                            {{ $cliente->email ?? 'Não informado' }}
                         </p>
                     </div>
 
                     <div class="pt-3 border-t border-border">
                         <span class="text-xs text-muted-foreground uppercase font-semibold">Endereço</span>
                         <p class="font-medium text-foreground mt-0.5">
-                            {{ $clienteObj->logradouro }}, {{ $clienteObj->numero }}
-                            @if($clienteObj->complemento) - {{ $clienteObj->complemento }} @endif
+                            {{ $cliente->logradouro }}, {{ $cliente->numero }}
+                            @if($cliente->complemento) - {{ $cliente->complemento }} @endif
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            {{ $clienteObj->bairro }} • {{ $clienteObj->cidade }}/{{ $clienteObj->estado }}
-                            @if($clienteObj->cep) • CEP {{ $clienteObj->cep }} @endif
+                            {{ $cliente->bairro }} • {{ $cliente->cidade }}/{{ $cliente->estado }}
+                            @if($cliente->cep) • CEP {{ $cliente->cep }} @endif
                         </p>
                     </div>
 
                     <div class="pt-3 border-t border-border text-xs text-muted-foreground">
-                        Cliente desde {{ \Carbon\Carbon::parse($clienteObj->created_at)->format('d/m/Y') }}
+                        Cliente desde {{ \Carbon\Carbon::parse($cliente->created_at)->format('d/m/Y') }}
                     </div>
                 </div>
             </x-card>
 
             <!-- Card Conta de Acesso -->
             <x-card title="Acesso ao Sistema" description="Permissões e login do cliente">
-                @if($clienteObj->user_id)
+                @if($cliente->user_id)
                     <div class="space-y-3 text-sm">
                         <div class="flex items-center gap-2 text-success font-medium">
                             <x-icon name="check-circle" class="w-4 h-4" />
-                            <span>Conta de Usuário Ativa (#{{ $clienteObj->user_id }})</span>
+                            <span>Conta de Usuário Ativa (#{{ $cliente->user_id }})</span>
                         </div>
                         <p class="text-xs text-muted-foreground">
                             O cliente pode visualizar o histórico de seus veículos e o status dos agendamentos através do login de cliente.
@@ -158,7 +99,7 @@
                         <p class="text-muted-foreground text-xs">
                             Este cliente ainda não possui uma conta de usuário vinculada.
                         </p>
-                        <x-button href="{{ route('clientes.edit', $clienteObj->id) }}" variant="outline" size="sm" class="w-full">
+                        <x-button href="{{ route('clientes.edit', $cliente->id) }}" variant="outline" size="sm" class="w-full">
                             Criar Conta de Acesso
                         </x-button>
                     </div>
@@ -178,14 +119,14 @@
                             </div>
                             <h3 class="text-base font-semibold text-foreground">Veículos do Cliente</h3>
                         </div>
-                        <x-button href="{{ route('veiculos.create', ['cliente_id' => $clienteObj->id]) }}" variant="ghost" size="sm" icon="plus">
+                        <x-button href="{{ route('veiculos.create', ['cliente_id' => $cliente->id]) }}" variant="ghost" size="sm" icon="plus">
                             Adicionar Veículo
                         </x-button>
                     </div>
                 </x-slot:header>
 
                 <div class="grid gap-3 sm:grid-cols-2">
-                    @forelse($veiculosCliente as $veiculo)
+                    @forelse($cliente->veiculos as $veiculo)
                         <div class="rounded-xl border border-border bg-secondary/20 p-4 hover:border-primary/50 transition-colors">
                             <div class="flex items-start justify-between mb-2">
                                 <div>
@@ -232,7 +173,7 @@
                 </x-slot:header>
 
                 <div class="space-y-3">
-                    @forelse($historicoAgendamentos as $hist)
+                    @forelse($cliente->agendamentos as $hist)
                         <div class="p-4 rounded-xl border border-border bg-secondary/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
                                 <div class="flex items-center gap-2">
