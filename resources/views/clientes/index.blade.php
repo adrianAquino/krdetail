@@ -42,70 +42,6 @@
         </div>
     </div>
 
-    @php
-        $clientesDemo = $clientes ?? [
-            (object)[
-                'id' => 1,
-                'nome' => 'Lucas Guimarães',
-                'telefone' => '(11) 98765-4321',
-                'email' => 'lucas.guimaraes@email.com',
-                'cpf_cnpj' => '345.890.123-45',
-                'cidade' => 'São Paulo',
-                'estado' => 'SP',
-                'user_id' => 10, // possui conta de usuário
-                'veiculos_count' => 2,
-                'agendamentos_count' => 5,
-            ],
-            (object)[
-                'id' => 2,
-                'nome' => 'Marina Silveira',
-                'telefone' => '(11) 97123-8890',
-                'email' => 'marina.silveira@email.com',
-                'cpf_cnpj' => '456.789.012-34',
-                'cidade' => 'Campinas',
-                'estado' => 'SP',
-                'user_id' => null, // sem conta de usuário
-                'veiculos_count' => 1,
-                'agendamentos_count' => 2,
-            ],
-            (object)[
-                'id' => 3,
-                'nome' => 'Roberto Medeiros',
-                'telefone' => '(11) 99345-1234',
-                'email' => 'roberto.medeiros@empresa.com.br',
-                'cpf_cnpj' => '12.345.678/0001-90',
-                'cidade' => 'São Paulo',
-                'estado' => 'SP',
-                'user_id' => 12,
-                'veiculos_count' => 3,
-                'agendamentos_count' => 8,
-            ],
-            (object)[
-                'id' => 4,
-                'nome' => 'Juliana Ferreira',
-                'telefone' => '(11) 98456-7890',
-                'email' => 'juliana.ferreira@email.com',
-                'cpf_cnpj' => '234.567.890-12',
-                'cidade' => 'São Caetano do Sul',
-                'estado' => 'SP',
-                'user_id' => null,
-                'veiculos_count' => 1,
-                'agendamentos_count' => 3,
-            ],
-            (object)[
-                'id' => 5,
-                'nome' => 'Eduardo Castilho',
-                'telefone' => '(11) 99876-5432',
-                'email' => 'eduardo.castilho@email.com',
-                'cpf_cnpj' => '567.890.123-88',
-                'cidade' => 'Santo André',
-                'estado' => 'SP',
-                'user_id' => 14,
-                'veiculos_count' => 2,
-                'agendamentos_count' => 4,
-            ],
-        ];
-    @endphp
 
     <!-- Clientes Table Card -->
     <x-card class="p-0">
@@ -120,7 +56,7 @@
                 </tr>
             </x-slot:header>
 
-            @forelse($clientesDemo as $cliente)
+            @forelse($clientes as $cliente)
                 <tr class="hover:bg-secondary/25 transition-colors">
                     <td class="py-3.5 px-4">
                         <a href="{{ route('clientes.show', $cliente->id) }}" class="flex items-center gap-3 group">
