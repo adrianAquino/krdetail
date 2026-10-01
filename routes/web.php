@@ -61,6 +61,8 @@ Route::get('/servicos/{servico}/edit', [ServicoController::class, 'edit'])->name
 Route::put('/servicos/{servico}', [ServicoController::class, 'update'])->name('servicos.update');
 Route::delete('/servicos/{servico}', [ServicoController::class, 'destroy'])->name('servicos.destroy');
 
+// Insumos & Produtos (Resource)
+Route::resource('produtos', ProdutoController::class);
 
 //Agendamentos
 Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
