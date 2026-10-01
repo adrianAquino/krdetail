@@ -52,6 +52,16 @@ Route::get('/veiculos/{veiculo}/edit', [VeiculoController::class, 'edit'])->name
 Route::put('/veiculos/{veiculo}', [VeiculoController::class, 'update'])->name('veiculos.update');
 Route::delete('/veiculos/{veiculo}', [VeiculoController::class, 'destroy'])->name('veiculos.destroy');
 
+
+//Serviços
+Route::get('/servicos', [ServicoController::class, 'index'])->name('servicos.index');
+Route::get('/servicos/create', [ServicoController::class, 'create'])->name('servicos.create');
+Route::post('/servicos', [ServicoController::class, 'store'])->name('servicos.store');
+Route::get('/servicos/{servico}/edit', [ServicoController::class, 'edit'])->name('servicos.edit');
+Route::put('/servicos/{servico}', [ServicoController::class, 'update'])->name('servicos.update');
+Route::delete('/servicos/{servico}', [ServicoController::class, 'destroy'])->name('servicos.destroy');
+
+
 //Agendamentos
 Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
 Route::get('/agendamentos/create', [AgendamentoController::class, 'create'])->name('agendamentos.create');
