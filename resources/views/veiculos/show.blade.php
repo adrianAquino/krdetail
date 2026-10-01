@@ -94,21 +94,21 @@
                             </div>
                             <h3 class="text-base font-semibold text-foreground">Histórico de Manutenções e Estética</h3>
                         </div>
-                        <span class="text-xs text-muted-foreground">{{ count($historicoServicos) }} intervenção(ões)</span>
+                        <span class="text-xs text-muted-foreground">{{ $veiculo->agendamentos->count() }} intervenção(ões)</span>
                     </div>
                 </x-slot:header>
 
                 <div class="space-y-4">
-                    @forelse($historicoServicos as $hist)
+                    @forelse($veiculo->agendamentos as $hist)
                         <div class="rounded-xl border border-border bg-secondary/20 p-4">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                 <div class="flex items-center gap-2">
                                     <span class="font-mono text-xs font-bold text-foreground bg-secondary px-2 py-0.5 rounded border border-border">
-                                        {{ $hist->os_numero }}
+                                        {{ $hist->ordemServico->numero ?? 'N/D' }}
                                     </span>
                                     <x-badge-status :status="$hist->status" />
                                     <span class="text-xs text-muted-foreground">
-                                        {{ \Carbon\Carbon::parse($hist->data)->format('d/m/Y') }}
+                                        {{ \Carbon\Carbon::parse($hist->data_inicio)->format('d/m/Y') }}
                                     </span>
                                 </div>
                                 <span class="text-sm font-bold text-primary">
@@ -125,7 +125,7 @@
                             @endif
 
                             <div class="flex justify-end pt-3 mt-3 border-t border-border/50">
-                                <x-button href="{{ route('ordens-servico.show', $hist->os_id) }}" variant="ghost" size="sm" icon="eye">
+                                <x-button href="{{ route('ordens-servico.show', $hist->ordemServico->id) }}" variant="ghost" size="sm" icon="eye">
                                     Ver Ordem de Serviço
                                 </x-button>
                             </div>
