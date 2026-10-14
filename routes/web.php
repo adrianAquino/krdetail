@@ -64,6 +64,14 @@ Route::delete('/servicos/{servico}', [ServicoController::class, 'destroy'])->nam
 // Insumos & Produtos (Resource)
 Route::resource('produtos', ProdutoController::class);
 
+
+// Controle de Estoque
+Route::prefix('estoque')->name('estoque.')->group(function () {
+    Route::get('/', [EstoqueController::class, 'index'])->name('index');
+    Route::post('/movimentar', [EstoqueController::class, 'movimentar'])->name('movimentar');
+});
+
+
 //Agendamentos
 Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
 Route::get('/agendamentos/create', [AgendamentoController::class, 'create'])->name('agendamentos.create');
