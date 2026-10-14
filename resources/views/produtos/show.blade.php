@@ -1,19 +1,13 @@
 <x-layouts.app :title="'Produto: ' . ($produto->nome ?? 'Insumo')">
-    <x-header
-        :title="$produto->nome ?? 'Composto Polidor Médio V40'"
-        subtitle="Ficha técnica do produto, consumo em ordens de serviço e histórico de movimentações."
-    >
+    <x-header :title="$produto->nome ?? 'Composto Polidor Médio V40'"
+        subtitle="Ficha técnica do produto, consumo em ordens de serviço e histórico de movimentações.">
         <x-slot:actions>
-            <x-button
-                type="button"
-                onclick="window.openModal('modal-movimentacao')"
-                variant="primary"
-                size="sm"
-                icon="arrow-up-circle"
-            >
+            <x-button type="button" onclick="window.openModal('modal-movimentacao')" variant="primary" size="sm"
+                icon="arrow-up-circle">
                 Registrar Movimentação
             </x-button>
-            <x-button href="{{ route('produtos.edit', $produto->id ?? 1) }}" variant="secondary" size="sm" icon="pencil">
+            <x-button href="{{ route('produtos.edit', $produto->id ?? 1) }}" variant="secondary" size="sm"
+                icon="pencil">
                 Editar
             </x-button>
             <x-button href="{{ route('produtos.index') }}" variant="ghost" size="sm" icon="chevron-left">
@@ -23,43 +17,14 @@
     </x-header>
 
     @php
-        $prodObj = $produto ?? (object)[
-            'id' => 1,
-            'nome' => 'Composto Polidor Médio V40',
-            'descricao' => 'Composto polidor à base de água para refino e corte leve em vernizes médios e macios.',
-            'unidade_medida' => 'L',
-            'quantidade_estoque' => 0.800,
-            'estoque_minimo' => 2.000,
-            'custo_unitario' => 120.00,
-            'ativo' => true,
-            'created_at' => now()->subMonths(3),
-        ];
 
-        $movimentacoesDemo = $movimentacoes ?? [
-            (object)[
-                'id' => 1,
-                'data' => now()->subDays(1),
-                'tipo_movimentacao' => 'saida',
-                'quantidade' => 0.250,
-                'quantidade_anterior' => 1.050,
-                'quantidade_posterior' => 0.800,
-                'motivo' => 'Consumo na OS-00015 (Polimento BMW 320i)',
-                'usuario' => (object)['name' => 'Carlos Alberto']
-            ],
-            (object)[
-                'id' => 2,
-                'data' => now()->subDays(12),
-                'tipo_movimentacao' => 'entrada',
-                'quantidade' => 2.000,
-                'quantidade_anterior' => 0.500,
-                'quantidade_posterior' => 2.500,
-                'motivo' => 'Compra NF-e 4432 (Fornecedor Vonixx)',
-                'usuario' => (object)['name' => 'Administrador']
-            ],
-        ];
-
-        $isBaixo = $prodObj->quantidade_estoque <= $prodObj->estoque_minimo;
-        $progressoEstoque = ($prodObj->quantidade_estoque / max($prodObj->estoque_minimo, 1)) * 100;
+        $isBaixo = $produto->quantidade_estoque <= $produto->estoque_minimo;
+        $progressoEstoque = $produto->estoque_minimo > 0
+            ? min(
+                ($produto->quantidade_estoque / $produto->estoque_minimo) * 100,
+                100
+            )
+            : 100;
     @endphp
 
     <div class="grid gap-6 lg:grid-cols-3">
@@ -77,41 +42,43 @@
 
                 <div class="text-center p-4 rounded-xl bg-secondary/30 border border-border mb-4">
                     <span class="text-3xl font-extrabold {{ $isBaixo ? 'text-destructive' : 'text-foreground' }}">
-                        {{ $prodObj->quantidade_estoque }} {{ $prodObj->unidade_medida }}
+                        {{ $produto->quantidade_estoque }} {{ $produto->unidade_medida }}
                     </span>
-                    <p class="text-xs text-muted-foreground mt-1">Estoque Mínimo: {{ $prodObj->estoque_minimo }} {{ $prodObj->unidade_medida }}</p>
+                    <p class="text-xs text-muted-foreground mt-1">Estoque Mínimo: {{ $produto->estoque_minimo }}
+                        {{ $produto->unidade_medida }}</p>
                 </div>
 
                 <div class="space-y-1.5 mb-5">
                     <div class="w-full bg-secondary h-2.5 rounded-full overflow-hidden border border-border">
-                        <div
-                            class="h-full rounded-full transition-all duration-500 {{ $isBaixo ? 'bg-destructive' : 'bg-success' }}"
-                            style="width: {{ min($progressoEstoque, 100) }}%"
-                        ></div>
+                        <div class="h-full rounded-full transition-all duration-500 {{ $isBaixo ? 'bg-destructive' : 'bg-success' }}"
+                            style="width: {{ min($progressoEstoque, 100) }}%"></div>
                     </div>
                 </div>
 
                 <div class="space-y-3 text-xs pt-3 border-t border-border/60">
                     <div class="flex items-center justify-between">
                         <span class="text-muted-foreground">Custo Unitário:</span>
-                        <span class="font-bold text-foreground">R$ {{ number_format($prodObj->custo_unitario, 2, ',', '.') }} / {{ $prodObj->unidade_medida }}</span>
+                        <span class="font-bold text-foreground">R$
+                            {{ number_format($produto->custo_unitario, 2, ',', '.') }} /
+                            {{ $produto->unidade_medida }}</span>
                     </div>
 
                     <div class="flex items-center justify-between">
                         <span class="text-muted-foreground">Valor Total em Estoque:</span>
-                        <span class="font-extrabold text-primary text-sm">R$ {{ number_format($prodObj->quantidade_estoque * $prodObj->custo_unitario, 2, ',', '.') }}</span>
+                        <span class="font-extrabold text-primary text-sm">R$
+                            {{ number_format($produto->quantidade_estoque * $produto->custo_unitario, 2, ',', '.') }}</span>
                     </div>
 
                     <div class="flex items-center justify-between">
                         <span class="text-muted-foreground">Situação no Catálogo:</span>
-                        <x-badge-status :status="$prodObj->ativo ? 'ativo' : 'inativo'" />
+                        <x-badge-status :status="$produto->ativo ? 'ativo' : 'inativo'" />
                     </div>
                 </div>
             </x-card>
 
             <x-card title="Descrição do Produto">
                 <p class="text-xs text-muted-foreground leading-relaxed">
-                    {{ $prodObj->descricao ?? 'Sem descrição técnica cadastrada.' }}
+                    {{ $produto->descricao ?? 'Sem descrição técnica cadastrada.' }}
                 </p>
             </x-card>
         </div>
@@ -132,7 +99,8 @@
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-secondary/40 text-muted-foreground uppercase font-semibold border-b border-border">
+                        <thead
+                            class="bg-secondary/40 text-muted-foreground uppercase font-semibold border-b border-border">
                             <tr>
                                 <th class="py-2.5 px-3">Data / Hora</th>
                                 <th class="py-2.5 px-3 text-center">Tipo</th>
@@ -143,7 +111,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-border/60">
-                            @forelse($movimentacoesDemo as $mov)
+                            @forelse($produto->movimentacoes as $mov)
                                 <tr>
                                     <td class="py-2.5 px-3 text-muted-foreground font-medium">
                                         {{ \Carbon\Carbon::parse($mov->data)->format('d/m/Y H:i') }}
@@ -152,10 +120,12 @@
                                         <x-badge-status :status="$mov->tipo_movimentacao" />
                                     </td>
                                     <td class="py-2.5 px-3 text-center font-bold text-foreground">
-                                        {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ $mov->quantidade }} {{ $prodObj->unidade_medida }}
+                                        {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ $mov->quantidade }}
+                                        {{ $produto->unidade_medida }}
                                     </td>
                                     <td class="py-2.5 px-3 text-center text-muted-foreground">
-                                        {{ $mov->quantidade_anterior }} ➔ <strong class="text-foreground">{{ $mov->quantidade_posterior }}</strong>
+                                        {{ $mov->quantidade_anterior }} ➔ <strong
+                                            class="text-foreground">{{ $mov->quantidade_posterior }}</strong>
                                     </td>
                                     <td class="py-2.5 px-3 text-foreground font-medium">
                                         {{ $mov->motivo }}
@@ -179,10 +149,10 @@
     </div>
 
     <!-- Modal Registrar Movimentação -->
-    <x-modal id="modal-movimentacao" :title="'Nova Movimentação: ' . $prodObj->nome">
+    <x-modal id="modal-movimentacao" :title="'Nova Movimentação: ' . $produto->nome">
         <form method="POST" action="{{ route('estoque.movimentar') }}" class="space-y-4">
             @csrf
-            <input type="hidden" name="produto_id" value="{{ $prodObj->id }}" />
+            <input type="hidden" name="produto_id" value="{{ $produto->id }}" />
 
             <div>
                 <x-select name="tipo_movimentacao" label="Tipo de Movimentação" required>
@@ -193,33 +163,18 @@
             </div>
 
             <div>
-                <x-input
-                    type="number"
-                    step="0.001"
-                    min="0.001"
-                    name="quantidade"
-                    label="Quantidade (em {{ $prodObj->unidade_medida }})"
-                    placeholder="Ex: 1.000"
-                    required
-                />
+                <x-input type="number" step="0.001" min="0.001" name="quantidade"
+                    label="Quantidade (em {{ $produto->unidade_medida }})" placeholder="Ex: 1.000" required />
             </div>
 
             <div>
-                <x-input
-                    name="motivo"
-                    label="Motivo da Movimentação"
-                    placeholder="Ex: Compra NF-e 1234, inventário mensal, etc..."
-                    required
-                />
+                <x-input name="motivo" label="Motivo da Movimentação"
+                    placeholder="Ex: Compra NF-e 1234, inventário mensal, etc..." required />
             </div>
 
             <div>
-                <x-textarea
-                    name="observacoes"
-                    label="Observações Adicionais (Opcional)"
-                    placeholder="Detalhes complementares..."
-                    rows="2"
-                />
+                <x-textarea name="observacoes" label="Observações Adicionais (Opcional)"
+                    placeholder="Detalhes complementares..." rows="2" />
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
