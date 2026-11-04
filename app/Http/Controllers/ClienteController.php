@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\User;
+use App\Rules\CpfCnpj;
 use Illuminate\Http\Request;
 
 class ClienteController extends Controller
@@ -46,7 +47,7 @@ class ClienteController extends Controller
             'nome' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'telefone' => 'required|string|max:30',
-            'cpf_cnpj' => 'nullable|string|max:30',
+            'cpf_cnpj' => ['nullable', 'string', 'max:30', new CpfCnpj],
             'cep' => 'nullable|string|max:20',
             'logradouro' => 'nullable|string|max:255',
             'numero' => 'nullable|string|max:20',
@@ -89,7 +90,7 @@ class ClienteController extends Controller
             'nome' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'telefone' => 'required|string|max:30',
-            'cpf_cnpj' => 'nullable|string|max:30',
+            'cpf_cnpj' => ['nullable', 'string', 'max:30', new CpfCnpj],
             'cep' => 'nullable|string|max:20',
             'logradouro' => 'nullable|string|max:255',
             'numero' => 'nullable|string|max:20',
