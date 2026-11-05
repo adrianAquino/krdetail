@@ -45,4 +45,19 @@ class Tarefa extends Model
     {
         return $this->hasOne(LancamentoFinanceiro::class);
     }
+
+    public function getServicoNomeAttribute(): string
+    {
+        return $this->agendamentoServico?->servico?->nome ?? 'Execução de Detalhamento';
+    }
+
+    public function getServicoDescricaoAttribute(): string
+    {
+        return $this->agendamentoServico?->servico?->descricao ?? '';
+    }
+
+    public function getValorServicoAttribute(): float
+    {
+        return (float) ($this->agendamentoServico?->valor_servico ?? $this->agendamentoServico?->servico?->preco_base ?? 0);
+    }
 }

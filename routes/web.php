@@ -89,3 +89,21 @@ Route::prefix('ordens-servico')->name('ordens-servico.')->group(function () {
     Route::match(['post', 'patch'], '/{ordemServico}/concluir', [OrdemServicoController::class, 'concluir'])->name('concluir');
 });
 
+// Tarefas de Detalhamento
+Route::prefix('tarefas')->name('tarefas.')->group(function () {
+    Route::get('/{tarefa}', [TarefaController::class, 'show'])->name('show');
+    Route::match(['post', 'patch'], '/{tarefa}/iniciar', [TarefaController::class, 'iniciar'])->name('iniciar');
+    Route::match(['post', 'patch'], '/{tarefa}/concluir', [TarefaController::class, 'concluir'])->name('concluir');
+    Route::match(['post', 'patch'], '/{tarefa}/atribuir', [TarefaController::class, 'atribuir'])->name('atribuir');
+    Route::post('/{tarefa}/produtos', [TarefaController::class, 'adicionarProduto'])->name('adicionar-produto');
+    Route::post('/{tarefa}/adicionar-produto', [TarefaController::class, 'adicionarProduto'])->name('adicionarProduto');
+    Route::delete('/{tarefa}/produtos/{tarefaProduto}', [TarefaController::class, 'removerProduto'])->name('remover-produto');
+});
+
+// Relatórios Financeiros & Operacionais
+Route::get('/relatorios', [RelatorioController::class, 'index'])->name('relatorios.index');
+Route::get('/relatorios/geral', [RelatorioController::class, 'index'])->name('relatorios');
+
+// Configurações do Sistema
+Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');
+Route::get('/configuracoes/geral', [ConfiguracaoController::class, 'index'])->name('configuracoes');
