@@ -12,8 +12,8 @@
         type="email" 
         name="email" 
         label="E-mail" 
-        placeholder="seu.email@krausdetail.com.br" 
-        value="{{ old('email', 'admin@krausdetail.com.br') }}" 
+        placeholder="Insira seu e-mail" 
+        value="{{ old('email') }}" 
         required 
         autofocus 
     />
@@ -22,8 +22,8 @@
         type="password" 
         name="password" 
         label="Senha" 
-        placeholder="••••••••" 
-        value="password" 
+        placeholder="Insira sua senha" 
+        value="{{ old('password') }}" 
         required 
     />
 

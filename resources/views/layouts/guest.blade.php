@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Acesso ao Sistema') - Kraus Detail</title>
+    <title>@yield('title', 'Acesso ao Sistema') - KR Detail</title>
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,10 +28,10 @@
             </div>
             <div class="text-left">
                 <span class="text-xl font-bold tracking-tight text-foreground block">
-                    KRAUS <span class="text-primary font-black">DETAIL</span>
+                    KR <span class="text-primary font-black">DETAIL</span>
                 </span>
                 <span class="text-[10px] text-muted-foreground tracking-widest uppercase block -mt-1 font-medium">
-                    Estética Automotiva Pro
+                    Estética Automotiva
                 </span>
             </div>
         </a>
@@ -62,7 +62,7 @@
         </div>
 
         <p class="text-center text-xs text-muted-foreground mt-8">
-            &copy; {{ date('Y') }} Kraus Detail. Todos os direitos reservados.
+            &copy; {{ date('Y') }} KR Detail. Todos os direitos reservados.
         </p>
     </div>
 </body>

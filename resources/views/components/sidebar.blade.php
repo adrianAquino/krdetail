@@ -9,6 +9,12 @@
         ['route' => 'estoque.index', 'label' => 'Estoque', 'icon' => 'package', 'active' => request()->routeIs('estoque*') || request()->routeIs('produtos*')],
         ['route' => 'relatorios.index', 'label' => 'Relatórios', 'icon' => 'bar-chart-3', 'active' => request()->routeIs('relatorios*')],
     ];
+
+    $usuarioLogado = \Illuminate\Support\Facades\Auth::user();
+    $nomeUsuario = $usuarioLogado?->name ?? 'Usuário';
+    $emailUsuario = $usuarioLogado?->email ?? '';
+    $configUrl = \Illuminate\Support\Facades\Route::has('configuracoes.index') ? route('configuracoes.index') : '#';
+    $configActive = request()->routeIs('configuracoes*');
 @endphp
 
 <!-- Mobile Header -->
@@ -68,30 +74,55 @@
         @endforeach
     </nav>
 
-    <!-- Footer Links -->
-    <div class="border-t border-sidebar-border p-3 space-y-1">
-        @php
-            $configUrl = \Illuminate\Support\Facades\Route::has('configuracoes.index') ? route('configuracoes.index') : '#';
-            $configActive = request()->routeIs('configuracoes*');
-        @endphp
-        <a
-            href="{{ $configUrl }}"
-            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors {{ $configActive ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground' }}"
+    <!-- User Menu Footer -->
+    <div class="relative border-t border-sidebar-border p-3" id="user-menu-container">
+        <!-- Dropdown Menu (abre acima do botão) -->
+        <div
+            id="user-menu-dropdown"
+            class="hidden absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-border bg-card shadow-lg p-1.5 z-50 space-y-1"
         >
-            <x-icon name="settings" class="h-5 w-5 shrink-0" />
-            <span>Configurações</span>
-        </a>
-
-        <form method="POST" action="{{ \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : '#' }}" class="w-full">
-            @csrf
-            <button
-                type="submit"
-                class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+            <a
+                href="{{ $configUrl }}"
+                class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $configActive ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-secondary hover:text-foreground' }}"
             >
-                <x-icon name="log-out" class="h-5 w-5 shrink-0" />
-                <span>Sair</span>
-            </button>
-        </form>
+                <x-icon name="settings" class="h-4 w-4 shrink-0" />
+                <span>Configurações</span>
+            </a>
+
+            <div class="border-t border-border/60 my-1"></div>
+
+            <form method="POST" action="{{ \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : '#' }}" class="w-full">
+                @csrf
+                <button
+                    type="submit"
+                    class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                >
+                    <x-icon name="log-out" class="h-4 w-4 shrink-0" />
+                    <span>Sair</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Botão do Usuário Logado -->
+        <button
+            type="button"
+            id="user-menu-button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent cursor-pointer border border-transparent hover:border-border"
+            aria-expanded="false"
+        >
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary border border-primary/30">
+                    <x-icon name="user" class="h-4 w-4" />
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-sidebar-foreground truncate">{{ $nomeUsuario }}</p>
+                    @if($emailUsuario)
+                        <p class="text-[11px] text-muted-foreground truncate">{{ $emailUsuario }}</p>
+                    @endif
+                </div>
+            </div>
+            <x-icon name="chevron-down" id="user-menu-chevron" class="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 rotate-180" />
+        </button>
     </div>
 </aside>
 
@@ -121,6 +152,34 @@
         if (toggle && sidebar && backdrop) {
             toggle.addEventListener('click', toggleMenu);
             backdrop.addEventListener('click', toggleMenu);
+        }
+
+        // Menu do Usuário Logado no Rodapé da Sidebar
+        const userMenuBtn = document.getElementById('user-menu-button');
+        const userMenuDropdown = document.getElementById('user-menu-dropdown');
+        const userMenuContainer = document.getElementById('user-menu-container');
+        const userMenuChevron = document.getElementById('user-menu-chevron');
+
+        if (userMenuBtn && userMenuDropdown) {
+            userMenuBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const isHidden = userMenuDropdown.classList.contains('hidden');
+                userMenuDropdown.classList.toggle('hidden', !isHidden);
+                userMenuBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+                if (userMenuChevron) {
+                    userMenuChevron.classList.toggle('rotate-180', !isHidden);
+                }
+            });
+
+            document.addEventListener('click', function (e) {
+                if (userMenuContainer && !userMenuContainer.contains(e.target)) {
+                    userMenuDropdown.classList.add('hidden');
+                    userMenuBtn.setAttribute('aria-expanded', 'false');
+                    if (userMenuChevron) {
+                        userMenuChevron.classList.add('rotate-180');
+                    }
+                }
+            });
         }
     });
 </script>

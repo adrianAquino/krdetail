@@ -172,17 +172,10 @@
                     </thead>
                     <tbody class="divide-y divide-border text-xs">
                         @php
-                            $usuariosExemplo = $usuarios ?? [
-                                ['nome' => 'Kauan Kraus', 'email' => 'admin@krausdetail.com.br', 'telefone' => '(11) 98765-4321', 'tipo' => 'administrador', 'ativo' => true],
-                                ['nome' => 'Carlos Andrade', 'email' => 'carlos@krausdetail.com.br', 'telefone' => '(11) 97711-2233', 'tipo' => 'funcionario', 'ativo' => true],
-                                ['nome' => 'Lucas Silva', 'email' => 'lucas@krausdetail.com.br', 'telefone' => '(11) 96622-3344', 'tipo' => 'funcionario', 'ativo' => true],
-                                ['nome' => 'Matheus Ramos', 'email' => 'matheus@krausdetail.com.br', 'telefone' => '(11) 95533-4455', 'tipo' => 'funcionario', 'ativo' => true],
-                                ['nome' => 'Fernando Martins', 'email' => 'fernando.martins@email.com', 'telefone' => '(11) 99887-1122', 'tipo' => 'cliente', 'ativo' => true],
-                                ['nome' => 'Juliana Costa', 'email' => 'juliana.costa@email.com', 'telefone' => '(11) 99112-3344', 'tipo' => 'cliente', 'ativo' => false],
-                            ];
+                            $usuariosLista = $usuarios ?? collect();
                         @endphp
 
-                        @foreach($usuariosExemplo as $user)
+                        @forelse($usuariosLista as $user)
                         <tr class="hover:bg-secondary/20 transition-colors">
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
@@ -228,15 +221,66 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-right whitespace-nowrap">
-                                <button type="button" class="p-1 text-muted-foreground hover:text-foreground transition-colors" title="Editar Usuário">
-                                    <x-icon name="edit" class="w-4 h-4" />
-                                </button>
-                                <button type="button" class="p-1 text-muted-foreground hover:text-rose-400 transition-colors ml-1" title="Desativar Acesso">
-                                    <x-icon name="user-x" class="w-4 h-4" />
-                                </button>
+                                @if(!empty($user['id']))
+                                    <button
+                                        type="button"
+                                        onclick="openModal('modal-editar-usuario-{{ $user['id'] }}')"
+                                        class="p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                        title="Editar Usuário"
+                                    >
+                                        <x-icon name="edit" class="w-4 h-4" />
+                                    </button>
+
+                                    <form method="POST" action="{{ route('configuracoes.usuarios.toggle-status', $user['id']) }}" class="inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button
+                                            type="submit"
+                                            class="p-1 text-muted-foreground {{ $user['ativo'] ? 'hover:text-rose-400' : 'hover:text-emerald-400' }} transition-colors ml-1 cursor-pointer"
+                                            title="{{ $user['ativo'] ? 'Desativar Acesso' : 'Ativar Acesso' }}"
+                                        >
+                                            <x-icon :name="$user['ativo'] ? 'user-x' : 'user-check'" class="w-4 h-4" />
+                                        </button>
+                                    </form>
+
+                                    <!-- Modal Editar Usuário -->
+                                    <x-modal id="modal-editar-usuario-{{ $user['id'] }}" :title="'Editar Usuário: ' . $user['nome']">
+                                        <form action="{{ route('configuracoes.usuarios.update', $user['id']) }}" method="POST" class="space-y-4 text-left">
+                                            @csrf
+                                            @method('PUT')
+                                            <x-input name="name" label="Nome Completo" :value="$user['nome']" required />
+                                            <x-input type="email" name="email" label="E-mail" :value="$user['email']" required />
+                                            <x-input name="telefone" label="Telefone / WhatsApp" :value="$user['telefone'] !== '-' ? $user['telefone'] : ''" />
+
+                                            <x-select name="tipo_usuario" label="Perfil de Acesso" required>
+                                                <option value="funcionario" {{ $user['tipo'] === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
+                                                <option value="administrador" {{ $user['tipo'] === 'administrador' ? 'selected' : '' }}>Administrador Geral</option>
+                                                <option value="cliente" {{ $user['tipo'] === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
+                                            </x-select>
+
+                                            <x-input type="password" name="password" label="Nova Senha (deixe em branco para manter a atual)" placeholder="••••••••" />
+
+                                            <div class="flex justify-end gap-3 pt-4 border-t border-border">
+                                                <x-button type="button" variant="outline" onclick="closeModal('modal-editar-usuario-{{ $user['id'] }}')">
+                                                    Cancelar
+                                                </x-button>
+                                                <x-button type="submit" variant="primary" class="gap-1.5">
+                                                    <x-icon name="save" class="w-4 h-4" />
+                                                    Salvar Alterações
+                                                </x-button>
+                                            </div>
+                                        </form>
+                                    </x-modal>
+                                @endif
                             </td>
                         </tr>
-                        @endforeach
+                        @empty
+                        <tr>
+                            <td colspan="5" class="px-4 py-6 text-center text-muted-foreground">
+                                Nenhum usuário cadastrado até o momento.
+                            </td>
+                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -409,7 +453,7 @@
 
 <!-- Modal Novo Usuário -->
 <x-modal id="modal-novo-usuario" title="Cadastrar Novo Usuário">
-    <form action="#" method="POST" class="space-y-4">
+    <form action="{{ route('configuracoes.usuarios.store') }}" method="POST" class="space-y-4">
         @csrf
         <x-input name="name" label="Nome Completo" placeholder="Ex: Rodrigo Fonseca" required />
         <x-input type="email" name="email" label="E-mail" placeholder="usuario@krausdetail.com.br" required />
@@ -421,7 +465,7 @@
             <option value="cliente">Cliente (Acesso ao Portal)</option>
         </x-select>
 
-        <x-input type="password" name="password" label="Senha Temporária" placeholder="••••••••" required />
+        <x-input type="password" name="password" label="Senha Temporária (mín. 6 caracteres)" placeholder="••••••••" required />
 
         <div class="flex justify-end gap-3 pt-4 border-t border-border">
             <x-button type="button" variant="outline" onclick="closeModal('modal-novo-usuario')">
@@ -454,5 +498,13 @@ function switchConfigTab(tab) {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const params = new URLSearchParams(window.location.search);
+    const activeTab = params.get('tab');
+    if (activeTab && ['empresa', 'equipe', 'preferencias', 'sistema'].includes(activeTab)) {
+        switchConfigTab(activeTab);
+    }
+});
 </script>
 @endsection
