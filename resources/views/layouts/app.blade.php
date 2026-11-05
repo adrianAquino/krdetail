@@ -8,6 +8,17 @@
     <title>{{ isset($title) ? $title . ' - Kraus Detail' : 'Kraus Detail - Sistema de Gestão de Estética Automotiva' }}</title>
     <meta name="description" content="Sistema de gestão e agendamento para estética automotiva profissional">
 
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('krdetail-theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
@@ -17,7 +28,7 @@
 
     @stack('styles')
 </head>
-<body class="font-sans antialiased bg-background text-foreground min-h-screen selection:bg-primary/20 selection:text-primary">
+<body class="font-sans antialiased bg-background text-foreground min-h-screen selection:bg-primary/20 selection:text-primary transition-colors duration-200">
     <!-- Sidebar Navigation -->
     <x-sidebar />
 

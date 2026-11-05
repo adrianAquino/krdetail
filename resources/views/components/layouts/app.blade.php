@@ -5,8 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ isset($title) ? $title . ' - KR Detail' : 'KR Detail - Sistema de Gestão de Estética Automotiva' }}</title>
+    <title>{{ isset($title) ? $title . ' - Kraus Detail' : 'Kraus Detail - Sistema de Gestão de Estética Automotiva' }}</title>
     <meta name="description" content="Sistema de gestão e agendamento para estética automotiva profissional">
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('krdetail-theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -17,7 +28,7 @@
 
     @stack('styles')
 </head>
-<body class="font-sans antialiased bg-background text-foreground min-h-screen selection:bg-primary/20 selection:text-primary">
+<body class="font-sans antialiased bg-background text-foreground min-h-screen selection:bg-primary/20 selection:text-primary transition-colors duration-200">
     <!-- Sidebar Navigation -->
     <x-sidebar />
 
@@ -66,7 +77,7 @@
 
         <!-- Footer -->
         <footer class="border-t border-border/50 py-4 px-6 text-center text-xs text-muted-foreground mt-auto">
-            <p>&copy; {{ date('Y') }} KR Detail - Gestão de Estética Automotiva. Todos os direitos reservados.</p>
+            <p>&copy; {{ date('Y') }} Kraus Detail - Gestão de Estética Automotiva. Todos os direitos reservados.</p>
         </footer>
     </main>
 

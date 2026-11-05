@@ -7,6 +7,17 @@
 
     <title>@yield('title', 'Acesso ao Sistema') - KR Detail</title>
 
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('krdetail-theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +25,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-background text-foreground antialiased min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-primary selection:text-primary-foreground relative overflow-x-hidden">
+<body class="bg-background text-foreground antialiased min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-primary selection:text-primary-foreground relative overflow-x-hidden transition-colors duration-200">
     <!-- Efeito de brilho de fundo (radial gradient) -->
     <div class="fixed inset-0 pointer-events-none -z-10 flex items-center justify-center opacity-30">
         <div class="w-[600px] h-[600px] bg-primary/20 rounded-full blur-[140px]"></div>
@@ -23,7 +34,7 @@
     <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <!-- Logo -->
         <a href="/" class="inline-flex items-center gap-3 group">
-            <div class="w-12 h-12 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary shadow-[0_0_25px_rgba(16,185,129,0.25)] group-hover:scale-105 transition-transform duration-300">
+            <div class="w-12 h-12 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary shadow-[0_0_25px_rgba(59,130,246,0.35)] group-hover:scale-105 transition-transform duration-300">
                 <x-icon name="sparkles" class="w-6 h-6" />
             </div>
             <div class="text-left">

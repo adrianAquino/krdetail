@@ -74,8 +74,25 @@
         @endforeach
     </nav>
 
-    <!-- User Menu Footer -->
-    <div class="relative border-t border-sidebar-border p-3" id="user-menu-container">
+    <!-- User Menu & Theme Toggle Footer -->
+    <div class="relative border-t border-sidebar-border p-3 space-y-1.5" id="user-menu-container">
+        <!-- Botão de Alternar Tema (Claro / Escuro) -->
+        <button
+            type="button"
+            id="theme-toggle-btn"
+            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground cursor-pointer"
+            title="Alternar entre tema claro e escuro"
+        >
+            <span class="flex items-center gap-2.5">
+                <x-icon name="sun" id="theme-icon-sun" class="h-4 w-4 text-primary hidden" />
+                <x-icon name="moon" id="theme-icon-moon" class="h-4 w-4 text-primary" />
+                <span id="theme-label-text">Tema Escuro</span>
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-foreground border border-border">
+                Alternar
+            </span>
+        </button>
+
         <!-- Dropdown Menu (abre acima do botão) -->
         <div
             id="user-menu-dropdown"
@@ -152,6 +169,31 @@
         if (toggle && sidebar && backdrop) {
             toggle.addEventListener('click', toggleMenu);
             backdrop.addEventListener('click', toggleMenu);
+        }
+
+        // Alternância de Tema (Claro / Escuro)
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const themeIconSun = document.getElementById('theme-icon-sun');
+        const themeIconMoon = document.getElementById('theme-icon-moon');
+        const themeLabelText = document.getElementById('theme-label-text');
+
+        function syncThemeUI() {
+            const isDark = document.documentElement.classList.contains('dark');
+            if (themeIconSun && themeIconMoon && themeLabelText) {
+                themeIconSun.classList.toggle('hidden', isDark);
+                themeIconMoon.classList.toggle('hidden', !isDark);
+                themeLabelText.textContent = isDark ? 'Tema Escuro' : 'Tema Claro';
+            }
+        }
+
+        syncThemeUI();
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', function () {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('krdetail-theme', isDark ? 'dark' : 'light');
+                syncThemeUI();
+            });
         }
 
         // Menu do Usuário Logado no Rodapé da Sidebar
