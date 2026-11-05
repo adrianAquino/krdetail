@@ -5,114 +5,127 @@ namespace App\Http\Controllers;
 use App\Models\Agendamento;
 use App\Models\AgendamentoServico;
 use App\Models\Cliente;
-use App\Models\OrdemServico;
 use App\Models\Servico;
-use App\Models\Tarefa;
-use Carbon\Carbon;
+use App\Models\Veiculo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Validation\ValidationException;
 
 class AgendamentoController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Agendamento::with(['cliente', 'veiculo', 'servicos', 'ordemServico']);
+        $user = Auth::user();
+        $query = Agendamento::with(['cliente', 'veiculo', 'servicos', 'ordemServico.tarefas']);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+        if ($user && $user->isCliente()) {
+            $cliente = $user->ensureClienteProfile();
+            $query->where('cliente_id', $cliente->id);
         }
 
-        if ($request->filled('data')) {
-            $query->whereDate('data_inicio', $request->input('data'));
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
         }
 
         if ($request->filled('busca')) {
-            $busca = $request->input('busca');
-            $query->where(function ($q) use ($busca) {
-                $q->whereHas('cliente', function ($qc) use ($busca) {
-                    $qc->where('nome', 'like', "%{$busca}%");
-                })->orWhereHas('veiculo', function ($qv) use ($busca) {
-                    $qv->where('placa', 'like', "%{$busca}%")
-                       ->orWhere('modelo', 'like', "%{$busca}%");
-                });
+            $busca = $request->busca;
+            $query->where(function ($q) use ($busca, $user) {
+                $q->whereHas('veiculo', fn ($vq) => $vq->where('placa', 'like', "%{$busca}%")
+                    ->orWhere('modelo', 'like', "%{$busca}%")
+                    ->orWhere('marca', 'like', "%{$busca}%"));
+
+                if (! $user || ! $user->isCliente()) {
+                    $q->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
+                }
             });
         }
 
-        $agendamentos = $query->orderBy('data_inicio', 'desc')->paginate(10)->withQueryString();
+        $agendamentos = $query->orderByDesc('data_inicio')->paginate(15);
 
         return view('agendamentos.index', compact('agendamentos'));
     }
 
     public function create(Request $request)
     {
-        $clientes = Cliente::with('veiculos')->orderBy('nome', 'asc')->get();
-        $servicos = Servico::where('ativo', true)->orderBy('nome', 'asc')->get();
+        $user = Auth::user();
 
-        $selectedClienteId = $request->query('cliente_id');
-        $selectedVeiculoId = $request->query('veiculo_id');
+        if ($user && $user->isCliente()) {
+            $cliente = $user->ensureClienteProfile();
+            $clientes = Cliente::with('veiculos')->where('id', $cliente->id)->get();
+        } else {
+            $clientes = Cliente::with('veiculos')->orderBy('nome')->get();
+        }
 
-        return view('agendamentos.create', compact('clientes', 'servicos', 'selectedClienteId', 'selectedVeiculoId'));
+        $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
+
+        return view('agendamentos.create', compact('clientes', 'servicos'));
     }
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+
+        if ($user && $user->isCliente()) {
+            $cliente = $user->ensureClienteProfile();
+            $request->merge([
+                'cliente_id' => $cliente->id,
+                'status' => 'agendado',
+                'origem' => 'Site',
+            ]);
+        }
+
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
             'veiculo_id' => 'required|exists:veiculos,id',
             'data_inicio' => 'required|date',
             'data_fim' => 'nullable|date|after_or_equal:data_inicio',
-            'status' => 'required|in:agendado,confirmado,em_andamento,concluido,cancelado',
+            'status' => 'nullable|in:agendado,confirmado,em_andamento,concluido,cancelado',
             'origem' => 'nullable|string|max:50',
             'observacoes' => 'nullable|string',
             'servicos' => 'required|array|min:1',
-            'servicos.*' => 'exists:servicos,id',
+            'servicos.*.servico_id' => 'required|exists:servicos,id',
+        ], [
+            'servicos.required' => 'Selecione pelo menos um serviço para o agendamento.',
+            'servicos.min' => 'Selecione pelo menos um serviço para o agendamento.',
         ]);
 
-        $agendamento = DB::transaction(function () use ($validated, $request) {
-            $agendamento = Agendamento::create([
+        if ($user && $user->isCliente()) {
+            $validated['cliente_id'] = $user->ensureClienteProfile()->id;
+            $validated['status'] = 'agendado';
+            $validated['origem'] = 'Site';
+        }
+
+        $veiculo = Veiculo::findOrFail($validated['veiculo_id']);
+        if ((int) $veiculo->cliente_id !== (int) $validated['cliente_id']) {
+            throw ValidationException::withMessages([
+                'veiculo_id' => 'O veículo selecionado não pertence ao cliente informado.',
+            ]);
+        }
+
+        $agendamento = DB::transaction(function () use ($validated) {
+            $ag = Agendamento::create([
                 'cliente_id' => $validated['cliente_id'],
                 'veiculo_id' => $validated['veiculo_id'],
                 'data_inicio' => $validated['data_inicio'],
                 'data_fim' => $validated['data_fim'] ?? null,
-                'status' => $validated['status'],
-                'origem' => $validated['origem'] ?? 'presencial',
+                'status' => $validated['status'] ?? 'agendado',
+                'origem' => $validated['origem'] ?? 'Balcão',
                 'observacoes' => $validated['observacoes'] ?? null,
             ]);
 
-            $servicos = Servico::whereIn('id', $validated['servicos'])->get();
-
-            foreach ($servicos as $servico) {
+            foreach ($validated['servicos'] as $item) {
+                $servico = Servico::findOrFail($item['servico_id']);
                 AgendamentoServico::create([
-                    'agendamento_id' => $agendamento->id,
+                    'agendamento_id' => $ag->id,
                     'servico_id' => $servico->id,
                     'valor_servico' => $servico->preco_base,
                     'tempo_estimado_minutos' => $servico->tempo_estimado_minutos,
+                    'observacoes' => $item['observacoes'] ?? null,
                 ]);
             }
 
-            // Se for confirmado ou em andamento, cria a Ordem de Serviço e Tarefas automaticamente
-            if (in_array($agendamento->status, ['confirmado', 'em_andamento'])) {
-                $numeroOS = 'OS-' . str_pad($agendamento->id, 5, '0', STR_PAD_LEFT);
-                $os = OrdemServico::create([
-                    'agendamento_id' => $agendamento->id,
-                    'numero' => $numeroOS,
-                    'data_inicio' => Carbon::now(),
-                    'status' => $agendamento->status === 'em_andamento' ? 'em_andamento' : 'aberta',
-                    'observacoes' => $agendamento->observacoes,
-                ]);
-
-                foreach ($agendamento->agendamentosServicos as $as) {
-                    Tarefa::create([
-                        'ordem_servico_id' => $os->id,
-                        'agendamento_servico_id' => $as->id,
-                        'funcionario_id' => null,
-                        'status' => 'pendente',
-                    ]);
-                }
-            }
-
-            return $agendamento;
+            return $ag;
         });
 
         return redirect()->route('agendamentos.show', $agendamento)->with('success', 'Agendamento registrado com sucesso!');
@@ -120,23 +133,47 @@ class AgendamentoController extends Controller
 
     public function show(Agendamento $agendamento)
     {
-        $agendamento->load(['cliente', 'veiculo', 'servicos', 'agendamentosServicos.servico', 'ordemServico.tarefas']);
+        $user = Auth::user();
+
+        if ($user && $user->isCliente()) {
+            $cliente = $user->ensureClienteProfile();
+            if ((int) $agendamento->cliente_id !== (int) $cliente->id) {
+                abort(403, 'Você não tem permissão para visualizar este agendamento.');
+            }
+        }
+
+        $agendamento->load([
+            'cliente',
+            'veiculo',
+            'agendamentosServicos.servico',
+            'ordemServico.tarefas.servico',
+            'ordemServico.tarefas.funcionario',
+        ]);
 
         return view('agendamentos.show', compact('agendamento'));
     }
 
     public function edit(Agendamento $agendamento)
     {
-        $clientes = Cliente::with('veiculos')->orderBy('nome', 'asc')->get();
-        $servicos = Servico::where('ativo', true)->orderBy('nome', 'asc')->get();
+        $user = Auth::user();
+        if ($user && $user->isCliente()) {
+            abort(403);
+        }
 
-        $agendamento->load(['servicos']);
+        $agendamento->load(['agendamentosServicos']);
+        $clientes = Cliente::with('veiculos')->orderBy('nome')->get();
+        $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
 
         return view('agendamentos.edit', compact('agendamento', 'clientes', 'servicos'));
     }
 
     public function update(Request $request, Agendamento $agendamento)
     {
+        $user = Auth::user();
+        if ($user && $user->isCliente()) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
             'veiculo_id' => 'required|exists:veiculos,id',
@@ -146,6 +183,13 @@ class AgendamentoController extends Controller
             'origem' => 'nullable|string|max:50',
             'observacoes' => 'nullable|string',
         ]);
+
+        $veiculo = Veiculo::findOrFail($validated['veiculo_id']);
+        if ((int) $veiculo->cliente_id !== (int) $validated['cliente_id']) {
+            throw ValidationException::withMessages([
+                'veiculo_id' => 'O veículo selecionado não pertence ao cliente informado.',
+            ]);
+        }
 
         $agendamento->update($validated);
 
@@ -154,11 +198,11 @@ class AgendamentoController extends Controller
 
     public function destroy(Agendamento $agendamento)
     {
-        if ($agendamento->ordemServico) {
-            return redirect()->route('agendamentos.index')->with('error', 'Não é possível excluir um agendamento com Ordem de Serviço vinculada.');
+        $user = Auth::user();
+        if ($user && $user->isCliente()) {
+            abort(403);
         }
 
-        $agendamento->servicos()->detach();
         $agendamento->delete();
 
         return redirect()->route('agendamentos.index')->with('success', 'Agendamento removido com sucesso!');

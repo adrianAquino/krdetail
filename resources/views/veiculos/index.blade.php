@@ -1,7 +1,11 @@
-<x-layouts.app title="Veículos">
+@php
+    $isCliente = auth()->check() && auth()->user()->isCliente();
+@endphp
+
+<x-layouts.app :title="$isCliente ? 'Meus Veículos' : 'Veículos'">
     <x-header
-        title="Veículos"
-        subtitle="Controle de veículos cadastrados na oficina, histórico de cuidados e clientes proprietários."
+        :title="$isCliente ? 'Meus Veículos' : 'Veículos'"
+        :subtitle="$isCliente ? 'Gerencie seus veículos cadastrados e consulte o histórico completo de estética e manutenção.' : 'Controle de veículos cadastrados na oficina, histórico de cuidados e clientes proprietários.'"
     >
         <x-slot:actions>
             <x-button href="{{ route('veiculos.create') }}" icon="plus" size="md">
@@ -16,7 +20,7 @@
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
-                placeholder="Buscar por placa, modelo, marca ou cliente..."
+                :placeholder="$isCliente ? 'Buscar por placa, modelo ou marca...' : 'Buscar por placa, modelo, marca ou cliente...'"
                 icon="search"
             />
             @if(request('busca'))
@@ -27,15 +31,15 @@
         </form>
     </div>
 
-
-
     <x-card class="p-0">
         <x-table>
             <x-slot:header>
                 <tr>
                     <th class="py-3.5 px-4">Veículo</th>
                     <th class="py-3.5 px-4">Placa</th>
-                    <th class="py-3.5 px-4">Proprietário</th>
+                    @if(!$isCliente)
+                        <th class="py-3.5 px-4">Proprietário</th>
+                    @endif
                     <th class="py-3.5 px-4">Cor / Ano</th>
                     <th class="py-3.5 px-4 text-center">Histórico</th>
                     <th class="py-3.5 px-4 text-right">Ações</th>
@@ -64,17 +68,19 @@
                         </span>
                     </td>
 
-                    <td class="py-3.5 px-4">
-                        @if(isset($veiculo->cliente))
-                            <a href="{{ route('clientes.show', $veiculo->cliente->id) }}" class="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1.5">
-                                <x-icon name="user" class="w-3.5 h-3.5 text-muted-foreground" />
-                                {{ $veiculo->cliente->nome }}
-                            </a>
-                            <p class="text-xs text-muted-foreground ml-5">{{ $veiculo->cliente->telefone }}</p>
-                        @else
-                            <span class="text-xs text-muted-foreground">Não vinculado</span>
-                        @endif
-                    </td>
+                    @if(!$isCliente)
+                        <td class="py-3.5 px-4">
+                            @if(isset($veiculo->cliente))
+                                <a href="{{ route('clientes.show', $veiculo->cliente->id) }}" class="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1.5">
+                                    <x-icon name="user" class="w-3.5 h-3.5 text-muted-foreground" />
+                                    {{ $veiculo->cliente->nome }}
+                                </a>
+                                <p class="text-xs text-muted-foreground ml-5">{{ $veiculo->cliente->telefone }}</p>
+                            @else
+                                <span class="text-xs text-muted-foreground">Não vinculado</span>
+                            @endif
+                        </td>
+                    @endif
 
                     <td class="py-3.5 px-4">
                         <p class="text-sm font-medium text-foreground">{{ $veiculo->cor ?? 'Não informada' }}</p>
@@ -95,19 +101,21 @@
                             <x-button href="{{ route('veiculos.edit', $veiculo->id) }}" variant="ghost" size="icon-sm" title="Editar Veículo">
                                 <x-icon name="pencil" class="w-4 h-4" />
                             </x-button>
-                            <form method="POST" action="{{ route('veiculos.destroy', $veiculo->id) }}" onsubmit="return confirm('Tem certeza que deseja remover este veículo?');" class="inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer" title="Excluir">
-                                    <x-icon name="trash-2" class="w-4 h-4" />
-                                </button>
-                            </form>
+                            @if(!$isCliente)
+                                <form method="POST" action="{{ route('veiculos.destroy', $veiculo->id) }}" onsubmit="return confirm('Tem certeza que deseja remover este veículo?');" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer" title="Excluir">
+                                        <x-icon name="trash-2" class="w-4 h-4" />
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="py-8 text-center text-muted-foreground text-sm">
+                    <td colspan="{{ $isCliente ? 5 : 6 }}" class="py-8 text-center text-muted-foreground text-sm">
                         Nenhum veículo cadastrado.
                     </td>
                 </tr>

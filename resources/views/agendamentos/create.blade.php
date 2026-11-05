@@ -1,7 +1,19 @@
+@php
+    $isCliente = auth()->check() && auth()->user()->isCliente();
+    $clienteUnico = $isCliente ? $clientes->first() : null;
+
+    // Mapeamento cliente -> veículos para o script JS de dependência
+    $clientesVeiculosJson = json_encode(
+        collect($clientes)->mapWithKeys(function ($cli) {
+            return [$cli->id => $cli->veiculos ?? []];
+        })
+    );
+@endphp
+
 <x-layouts.app title="Novo Agendamento">
     <x-header
         title="Novo Agendamento"
-        subtitle="Selecione o cliente, o veículo correspondente e os serviços a serem contratados."
+        :subtitle="$isCliente ? 'Escolha um dos seus veículos, a data desejada e os serviços de estética automotiva.' : 'Selecione o cliente, o veículo correspondente e os serviços a serem contratados.'"
     >
         <x-slot:actions>
             <x-button href="{{ route('agendamentos.index') }}" variant="outline" size="sm" icon="chevron-left">
@@ -10,86 +22,37 @@
         </x-slot:actions>
     </x-header>
 
-    @php
-        $clientesDemo = $clientes ?? [
-            (object)[
-                'id' => 1,
-                'nome' => 'Lucas Guimarães',
-                'telefone' => '(11) 98765-4321',
-                'veiculos' => [
-                    (object)['id' => 1, 'placa' => 'BRA2E19', 'marca' => 'BMW', 'modelo' => '320i M Sport'],
-                    (object)['id' => 5, 'placa' => 'TOY4X99', 'marca' => 'Toyota', 'modelo' => 'Corolla Cross'],
-                ]
-            ],
-            (object)[
-                'id' => 2,
-                'nome' => 'Marina Silveira',
-                'telefone' => '(11) 97123-8890',
-                'veiculos' => [
-                    (object)['id' => 2, 'placa' => 'KRX8A42', 'marca' => 'Audi', 'modelo' => 'Q3 Black Edition'],
-                ]
-            ],
-            (object)[
-                'id' => 3,
-                'nome' => 'Roberto Medeiros',
-                'telefone' => '(11) 99345-1234',
-                'veiculos' => [
-                    (object)['id' => 3, 'placa' => 'GTS9F99', 'marca' => 'Porsche', 'modelo' => 'Macan GTS'],
-                ]
-            ],
-            (object)[
-                'id' => 4,
-                'nome' => 'Juliana Ferreira',
-                'telefone' => '(11) 98456-7890',
-                'veiculos' => [
-                    (object)['id' => 4, 'placa' => 'VOL6C30', 'marca' => 'Volvo', 'modelo' => 'XC60 Recharge'],
-                ]
-            ],
-        ];
-
-        $servicosAtivos = $servicos ?? [
-            (object)['id' => 1, 'nome' => 'Polimento Técnico Comercial', 'preco_base' => 650.00, 'tempo_estimado_minutos' => 240, 'descricao' => 'Correção de verniz com remoção de swirls'],
-            (object)['id' => 2, 'nome' => 'Vitrificação Cerâmica 9H (Pintura)', 'preco_base' => 1200.00, 'tempo_estimado_minutos' => 360, 'descricao' => 'Proteção 3 anos de durabilidade'],
-            (object)['id' => 3, 'nome' => 'Higienização Interna Completa + Ozônio', 'preco_base' => 380.00, 'tempo_estimado_minutos' => 210, 'descricao' => 'Limpeza detalhada de estofados e teto'],
-            (object)['id' => 4, 'nome' => 'Lavagem Detalhada Premium', 'preco_base' => 180.00, 'tempo_estimado_minutos' => 90, 'descricao' => 'Lavagem dois baldes com descontaminação'],
-            (object)['id' => 5, 'nome' => 'Limpeza e Condicionamento de Couro', 'preco_base' => 220.00, 'tempo_estimado_minutos' => 75, 'descricao' => 'Hidratação profunda'],
-        ];
-
-        // Mapeamento cliente -> veículos para o script JS de dependência
-        $clientesVeiculosJson = json_encode(
-            collect($clientes)->mapWithKeys(function ($cli) {
-                return [$cli->id => $cli->veiculos ?? []];
-            })
-        );
-    @endphp
-
     <form method="POST" action="{{ route('agendamentos.store') }}" id="form-agendamento">
         @csrf
 
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Coluna Principal (2 cols): Cliente, Veículo, Horário, Serviços -->
             <div class="lg:col-span-2 space-y-6">
-                <!-- Seção 1: Cliente e Veículo (com dependência dinâmica estrita) -->
-                <x-card title="Cliente & Veículo" description="Selecione o cliente para visualizar apenas os veículos pertencentes a ele">
+                <!-- Seção 1: Cliente e Veículo -->
+                <x-card :title="$isCliente ? 'Meu Veículo' : 'Cliente & Veículo'" :description="$isCliente ? 'Selecione qual dos seus veículos receberá o atendimento' : 'Selecione o cliente para visualizar apenas os veículos pertencentes a ele'">
                     <div class="space-y-4">
-                        <div>
-                            <x-select
-                                name="cliente_id"
-                                id="cliente_select"
-                                label="Cliente Responsável"
-                                required
-                            >
-                                @foreach($clientes as $cli)
-                                    <option value="{{ $cli->id }}" {{ old('cliente_id', request('cliente_id')) == $cli->id ? 'selected' : '' }}>
-                                        {{ $cli->nome }} — {{ $cli->telefone }}
-                                    </option>
-                                @endforeach
-                            </x-select>
-                        </div>
+                        @if($isCliente && $clienteUnico)
+                            <input type="hidden" name="cliente_id" id="cliente_select" value="{{ $clienteUnico->id }}" />
+                        @else
+                            <div>
+                                <x-select
+                                    name="cliente_id"
+                                    id="cliente_select"
+                                    label="Cliente Responsável"
+                                    required
+                                >
+                                    @foreach($clientes as $cli)
+                                        <option value="{{ $cli->id }}" {{ old('cliente_id', request('cliente_id')) == $cli->id ? 'selected' : '' }}>
+                                            {{ $cli->nome }} — {{ $cli->telefone }}
+                                        </option>
+                                    @endforeach
+                                </x-select>
+                            </div>
+                        @endif
 
                         <div>
                             <label for="veiculo_select" class="block text-xs font-medium text-foreground mb-1.5">
-                                Veículo do Cliente <span class="text-destructive">*</span>
+                                {{ $isCliente ? 'Selecione seu Veículo' : 'Veículo do Cliente' }} <span class="text-destructive">*</span>
                             </label>
                             <div class="relative">
                                 <select
@@ -98,14 +61,14 @@
                                     required
                                     class="block w-full rounded-lg bg-input/40 border border-border focus:border-ring focus:ring-ring/40 px-3 py-2 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
                                 >
-                                    <option value="">Selecione primeiro o cliente acima</option>
+                                    <option value="">Selecione um veículo</option>
                                 </select>
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-muted-foreground">
                                     <x-icon name="chevron-down" class="w-4 h-4" />
                                 </div>
                             </div>
                             <p id="veiculo_aviso" class="text-[11px] text-muted-foreground mt-1">
-                                O veículo deve obrigatoriamente pertencer ao cliente selecionado.
+                                {{ $isCliente ? 'Não encontrou seu veículo? Você pode cadastrar um novo.' : 'O veículo deve obrigatoriamente pertencer ao cliente selecionado.' }}
                             </p>
                         </div>
                     </div>
@@ -118,44 +81,47 @@
                             <x-input
                                 type="datetime-local"
                                 name="data_inicio"
-                                label="Data e Horário de Início"
-                                :value="now()->addDay()->setHour(9)->setMinute(0)->format('Y-m-d\TH:i')"
+                                label="Data e Horário Desejados"
+                                :value="old('data_inicio', now()->addDay()->setHour(9)->setMinute(0)->format('Y-m-d\TH:i'))"
                                 required
                             />
                         </div>
 
-                        <div>
-                            <x-input
-                                type="datetime-local"
-                                name="data_fim"
-                                label="Previsão de Conclusão (Opcional)"
-                                :value="now()->addDay()->setHour(13)->setMinute(0)->format('Y-m-d\TH:i')"
-                            />
-                        </div>
+                        @if(!$isCliente)
+                            <div>
+                                <x-input
+                                    type="datetime-local"
+                                    name="data_fim"
+                                    label="Previsão de Conclusão (Opcional)"
+                                    :value="old('data_fim', now()->addDay()->setHour(13)->setMinute(0)->format('Y-m-d\TH:i'))"
+                                />
+                            </div>
 
-                        <div>
-                            <x-select name="origem" label="Canal de Origem do Agendamento">
-                                <option value="WhatsApp" selected>WhatsApp</option>
-                                <option value="Telefone">Telefone</option>
-                                <option value="Presencial">Presencial / Balcão</option>
-                                <option value="Site">Site / Formulário</option>
-                                <option value="Outro">Outro</option>
-                            </x-select>
-                        </div>
+                            <div>
+                                <x-select name="origem" label="Canal de Origem do Agendamento">
+                                    <option value="WhatsApp" selected>WhatsApp</option>
+                                    <option value="Telefone">Telefone</option>
+                                    <option value="Presencial">Presencial / Balcão</option>
+                                    <option value="Site">Site / Formulário</option>
+                                    <option value="Outro">Outro</option>
+                                </x-select>
+                            </div>
 
-                        <div>
-                            <x-select name="status" label="Status Inicial">
-                                <option value="agendado" selected>Agendado</option>
-                                <option value="confirmado">Confirmado</option>
-                                <option value="em_andamento">Em Andamento</option>
-                            </x-select>
-                        </div>
+                            <div>
+                                <x-select name="status" label="Status Inicial">
+                                    <option value="agendado" selected>Agendado</option>
+                                    <option value="confirmado">Confirmado</option>
+                                    <option value="em_andamento">Em Andamento</option>
+                                </x-select>
+                            </div>
+                        @endif
 
                         <div class="sm:col-span-2">
                             <x-textarea
                                 name="observacoes"
                                 label="Observações do Agendamento"
-                                placeholder="Recomendações passadas pelo cliente, restrições de horário, etc..."
+                                placeholder="Recomendações especiais, detalhes sobre o veículo ou preferência de horário..."
+                                :value="old('observacoes')"
                                 rows="2"
                             />
                         </div>
@@ -163,7 +129,7 @@
                 </x-card>
 
                 <!-- Seção 3: Seleção de Serviços Contratados (com cálculo dinâmico) -->
-                <x-card title="Serviços Contratados" description="Selecione um ou mais procedimentos para o atendimento">
+                <x-card title="Serviços Desejados" description="Selecione um ou mais procedimentos para o atendimento">
                     <div class="space-y-3" id="servicos-container">
                         @foreach($servicos as $servico)
                             @php
@@ -239,10 +205,6 @@
                         </div>
 
                         <div class="pt-3 border-t border-border/60">
-                            <p class="text-[11px] text-muted-foreground mb-4 leading-relaxed">
-                                Os valores e tempos estimados serão congelados em <strong class="text-foreground">AgendamentoServico</strong> preservando a fidelidade histórica do serviço.
-                            </p>
-
                             <x-button type="submit" variant="primary" size="lg" class="w-full shadow-md" icon="check">
                                 Confirmar Agendamento
                             </x-button>
@@ -275,9 +237,9 @@
                 if (veiculos.length === 0) {
                     const opt = document.createElement('option');
                     opt.value = '';
-                    opt.textContent = 'Nenhum veículo cadastrado para este cliente';
+                    opt.textContent = 'Nenhum veículo cadastrado';
                     veiculoSelect.appendChild(opt);
-                    veiculoAviso.innerHTML = '⚠ Este cliente não tem veículos cadastrados. <a href="{{ route('veiculos.create') }}?cliente_id=' + clienteId + '" class="text-primary underline">Cadastrar veículo agora</a>';
+                    veiculoAviso.innerHTML = '⚠ Nenhum veículo cadastrado. <a href="{{ route('veiculos.create') }}?cliente_id=' + clienteId + '" class="text-primary underline">Cadastrar veículo agora</a>';
                 } else {
                     const optDefault = document.createElement('option');
                     optDefault.value = '';
@@ -294,7 +256,11 @@
                         veiculoSelect.appendChild(opt);
                     });
 
-                    veiculoAviso.textContent = 'Veículo validado para o cliente selecionado.';
+                    if (veiculos.length === 1 && !targetVeiculoPre) {
+                        veiculoSelect.value = veiculos[0].id;
+                    }
+
+                    veiculoAviso.innerHTML = 'Não encontrou seu veículo? <a href="{{ route('veiculos.create') }}" class="text-primary underline">Cadastrar novo veículo</a>.';
                 }
             }
 

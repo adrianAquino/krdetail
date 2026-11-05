@@ -77,7 +77,7 @@
 
         <!-- Footer -->
         <footer class="border-t border-border/50 py-4 px-6 text-center text-xs text-muted-foreground mt-auto">
-            <p>&copy; {{ date('Y') }} Kraus Detail - Gestão de Estética Automotiva. Todos os direitos reservados.</p>
+            <p>&copy; {{ date('Y') }} KR Detail - Gestão de Estética Automotiva. Todos os direitos reservados.</p>
         </footer>
     </main>
 

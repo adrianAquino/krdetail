@@ -1,13 +1,17 @@
+@php
+    $isCliente = auth()->check() && auth()->user()->isCliente();
+@endphp
+
 <x-layouts.app :title="'Veículo: ' . ($veiculo->placa ?? 'Detalhes')">
     <x-header
-        :title="($veiculo->marca ?? 'BMW') . ' ' . ($veiculo->modelo ?? '320i M Sport')"
-        :subtitle="'Placa: ' . ($veiculo->placa ?? 'BRA2E19')"
+        :title="($veiculo->marca ?? '') . ' ' . ($veiculo->modelo ?? '')"
+        :subtitle="'Placa: ' . ($veiculo->placa ?? '')"
     >
         <x-slot:actions>
-            <x-button href="{{ route('agendamentos.create', ['veiculo_id' => $veiculo->id ?? 1, 'cliente_id' => $veiculo->cliente_id ?? 1]) }}" variant="primary" size="sm" icon="calendar">
+            <x-button href="{{ route('agendamentos.create', ['veiculo_id' => $veiculo->id, 'cliente_id' => $veiculo->cliente_id]) }}" variant="primary" size="sm" icon="calendar">
                 Agendar Serviço
             </x-button>
-            <x-button href="{{ route('veiculos.edit', $veiculo->id ?? 1) }}" variant="secondary" size="sm" icon="pencil">
+            <x-button href="{{ route('veiculos.edit', $veiculo->id) }}" variant="secondary" size="sm" icon="pencil">
                 Editar
             </x-button>
             <x-button href="{{ route('veiculos.index') }}" variant="ghost" size="sm" icon="chevron-left">
@@ -16,7 +20,6 @@
         </x-slot:actions>
     </x-header>
 
-   
     <div class="grid gap-6 lg:grid-cols-3">
         <!-- Coluna Esquerda: Especificações e Proprietário -->
         <div class="space-y-6">
@@ -59,28 +62,30 @@
                 </div>
             </x-card>
 
-            <!-- Proprietário -->
-            <x-card title="Proprietário">
-                @if(isset($veiculo->cliente))
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                            {{ strtoupper(substr($veiculo->cliente->nome, 0, 2)) }}
+            @if(!$isCliente)
+                <!-- Proprietário -->
+                <x-card title="Proprietário">
+                    @if(isset($veiculo->cliente))
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
+                                {{ strtoupper(substr($veiculo->cliente->nome, 0, 2)) }}
+                            </div>
+                            <div>
+                                <a href="{{ route('clientes.show', $veiculo->cliente->id) }}" class="font-semibold text-sm text-foreground hover:text-primary transition-colors">
+                                    {{ $veiculo->cliente->nome }}
+                                </a>
+                                <p class="text-xs text-muted-foreground">{{ $veiculo->cliente->telefone }}</p>
+                            </div>
                         </div>
-                        <div>
-                            <a href="{{ route('clientes.show', $veiculo->cliente->id) }}" class="font-semibold text-sm text-foreground hover:text-primary transition-colors">
-                                {{ $veiculo->cliente->nome }}
-                            </a>
-                            <p class="text-xs text-muted-foreground">{{ $veiculo->cliente->telefone }}</p>
-                        </div>
-                    </div>
 
-                    <x-button href="{{ route('clientes.show', $veiculo->cliente->id) }}" variant="outline" size="sm" class="w-full" icon="user">
-                        Ver Ficha do Cliente
-                    </x-button>
-                @else
-                    <p class="text-xs text-muted-foreground">Nenhum cliente proprietário vinculado.</p>
-                @endif
-            </x-card>
+                        <x-button href="{{ route('clientes.show', $veiculo->cliente->id) }}" variant="outline" size="sm" class="w-full" icon="user">
+                            Ver Ficha do Cliente
+                        </x-button>
+                    @else
+                        <p class="text-xs text-muted-foreground">Nenhum cliente proprietário vinculado.</p>
+                    @endif
+                </x-card>
+            @endif
         </div>
 
         <!-- Coluna Direita: Histórico de Manutenções e Intervenções -->
@@ -104,11 +109,11 @@
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                 <div class="flex items-center gap-2">
                                     <span class="font-mono text-xs font-bold text-foreground bg-secondary px-2 py-0.5 rounded border border-border">
-                                        {{ $hist->ordemServico->numero ?? 'N/D' }}
+                                        {{ $hist->ordemServico->numero ?? ('AG-' . str_pad($hist->id, 4, '0', STR_PAD_LEFT)) }}
                                     </span>
                                     <x-badge-status :status="$hist->status" />
                                     <span class="text-xs text-muted-foreground">
-                                        {{ \Carbon\Carbon::parse($hist->data_inicio)->format('d/m/Y') }}
+                                        {{ \Carbon\Carbon::parse($hist->data_inicio)->format('d/m/Y \à\s H:i') }}
                                     </span>
                                 </div>
                                 <span class="text-sm font-bold text-primary">
@@ -124,10 +129,27 @@
                                 </p>
                             @endif
 
+                            @if($hist->ordemServico && $hist->ordemServico->tarefas->isNotEmpty())
+                                <div class="mt-3 pt-2 border-t border-border/50 grid gap-1.5 sm:grid-cols-2">
+                                    @foreach($hist->ordemServico->tarefas as $tarefa)
+                                        <div class="flex items-center justify-between text-xs bg-card/70 px-2.5 py-1.5 rounded-lg border border-border">
+                                            <span class="text-foreground font-medium truncate pr-2">{{ $tarefa->titulo }}</span>
+                                            <x-badge-status :status="$tarefa->status" />
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
                             <div class="flex justify-end pt-3 mt-3 border-t border-border/50">
-                                <x-button href="{{ route('ordens-servico.show', $hist->ordemServico->id) }}" variant="ghost" size="sm" icon="eye">
-                                    Ver Ordem de Serviço
-                                </x-button>
+                                @if($isCliente || !$hist->ordemServico)
+                                    <x-button href="{{ route('agendamentos.show', $hist->id) }}" variant="ghost" size="sm" icon="eye">
+                                        Ver Detalhes e Andamento
+                                    </x-button>
+                                @else
+                                    <x-button href="{{ route('ordens-servico.show', $hist->ordemServico->id) }}" variant="ghost" size="sm" icon="eye">
+                                        Ver Ordem de Serviço
+                                    </x-button>
+                                @endif
                             </div>
                         </div>
                     @empty

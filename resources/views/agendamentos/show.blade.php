@@ -1,4 +1,5 @@
 @php
+    $isCliente = auth()->check() && auth()->user()->isCliente();
     $agendamentoObj = $agendamento ?? null;
     $osObj = $agendamentoObj?->ordemServico ?? $agendamentoObj?->ordem_servico ?? null;
     $servicosItens = $agendamentoObj?->agendamentosServicos ?? $agendamentoObj?->servicos_itens ?? [];
@@ -7,6 +8,11 @@
     $totalHoras = floor($totalMinutos / 60);
     $minutosRestantes = $totalMinutos % 60;
     $tempoTotalFormatado = $totalHoras > 0 ? "{$totalHoras}h " . ($minutosRestantes > 0 ? "{$minutosRestantes}min" : '') : "{$minutosRestantes}min";
+
+    $tarefas = $osObj ? $osObj->tarefas : collect();
+    $totalTarefas = $tarefas->count();
+    $tarefasConcluidas = $tarefas->where('status', 'concluida')->count();
+    $progressoOs = $totalTarefas > 0 ? round(($tarefasConcluidas / $totalTarefas) * 100) : ($agendamentoObj?->status === 'concluido' ? 100 : 0);
 @endphp
 
 <x-layouts.app :title="'Agendamento #' . ($agendamentoObj?->id ?? 1)">
@@ -15,23 +21,25 @@
         :subtitle="'Criado em ' . \Carbon\Carbon::parse($agendamentoObj?->created_at ?? now())->format('d/m/Y \à\s H:i')"
     >
         <x-slot:actions>
-            @if($osObj)
-                <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="sm" icon="clipboard-list">
-                    Acessar Ordem de Serviço ({{ $osObj->numero }})
-                </x-button>
-            @else
-                <form method="POST" action="{{ route('ordens-servico.store') }}" class="inline">
-                    @csrf
-                    <input type="hidden" name="agendamento_id" value="{{ $agendamentoObj?->id ?? 1 }}" />
-                    <x-button type="submit" variant="primary" size="sm" icon="clipboard-list">
-                        Gerar Ordem de Serviço
+            @if(!$isCliente)
+                @if($osObj)
+                    <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="sm" icon="clipboard-list">
+                        Acessar Ordem de Serviço ({{ $osObj->numero }})
                     </x-button>
-                </form>
-            @endif
+                @else
+                    <form method="POST" action="{{ route('ordens-servico.store') }}" class="inline">
+                        @csrf
+                        <input type="hidden" name="agendamento_id" value="{{ $agendamentoObj?->id ?? 1 }}" />
+                        <x-button type="submit" variant="primary" size="sm" icon="clipboard-list">
+                            Gerar Ordem de Serviço
+                        </x-button>
+                    </form>
+                @endif
 
-            <x-button href="{{ route('agendamentos.edit', $agendamentoObj?->id ?? 1) }}" variant="secondary" size="sm" icon="pencil">
-                Editar
-            </x-button>
+                <x-button href="{{ route('agendamentos.edit', $agendamentoObj?->id ?? 1) }}" variant="secondary" size="sm" icon="pencil">
+                    Editar
+                </x-button>
+            @endif
 
             <x-button href="{{ route('agendamentos.index') }}" variant="ghost" size="sm" icon="chevron-left">
                 Voltar
@@ -81,29 +89,31 @@
                 </div>
             </x-card>
 
-            <!-- Card Cliente -->
-            <x-card title="Cliente">
-                @if($agendamentoObj?->cliente)
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                            {{ strtoupper(substr($agendamentoObj->cliente->nome, 0, 2)) }}
+            @if(!$isCliente)
+                <!-- Card Cliente -->
+                <x-card title="Cliente">
+                    @if($agendamentoObj?->cliente)
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
+                                {{ strtoupper(substr($agendamentoObj->cliente->nome, 0, 2)) }}
+                            </div>
+                            <div>
+                                <a href="{{ route('clientes.show', $agendamentoObj->cliente->id) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">
+                                    {{ $agendamentoObj->cliente->nome }}
+                                </a>
+                                <p class="text-xs text-muted-foreground">{{ $agendamentoObj->cliente->telefone }}</p>
+                            </div>
                         </div>
-                        <div>
-                            <a href="{{ route('clientes.show', $agendamentoObj->cliente->id) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">
-                                {{ $agendamentoObj->cliente->nome }}
-                            </a>
-                            <p class="text-xs text-muted-foreground">{{ $agendamentoObj->cliente->telefone }}</p>
-                        </div>
-                    </div>
 
-                    <div class="pt-3 border-t border-border/60 text-xs space-y-1 text-muted-foreground">
-                        <p><strong class="text-foreground">CPF:</strong> {{ $agendamentoObj->cliente->cpf_cnpj ?? 'Não informado' }}</p>
-                        <p><strong class="text-foreground">E-mail:</strong> {{ $agendamentoObj->cliente->email ?? 'Não informado' }}</p>
-                    </div>
-                @else
-                    <p class="text-xs text-muted-foreground">Nenhum cliente vinculado.</p>
-                @endif
-            </x-card>
+                        <div class="pt-3 border-t border-border/60 text-xs space-y-1 text-muted-foreground">
+                            <p><strong class="text-foreground">CPF:</strong> {{ $agendamentoObj->cliente->cpf_cnpj ?? 'Não informado' }}</p>
+                            <p><strong class="text-foreground">E-mail:</strong> {{ $agendamentoObj->cliente->email ?? 'Não informado' }}</p>
+                        </div>
+                    @else
+                        <p class="text-xs text-muted-foreground">Nenhum cliente vinculado.</p>
+                    @endif
+                </x-card>
+            @endif
 
             <!-- Card Veículo -->
             <x-card title="Veículo Selecionado">
@@ -127,9 +137,9 @@
             </x-card>
         </div>
 
-        <!-- Coluna Direita: Serviços Contratados e Vínculo de OS -->
+        <!-- Coluna Direita: Serviços Contratados e Andamento da OS -->
         <div class="lg:col-span-2 space-y-6">
-            <!-- Serviços Contratados (com preservação de AgendamentoServico) -->
+            <!-- Serviços Contratados -->
             <x-card>
                 <x-slot:header>
                     <div class="flex items-center justify-between w-full">
@@ -159,7 +169,7 @@
                                 <p class="text-xs text-muted-foreground mt-0.5">{{ $servicoModel->descricao ?? '' }}</p>
                                 <div class="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                                     <x-icon name="clock" class="w-3.5 h-3.5" />
-                                    <span>Tempo contratado: {{ $tempoItemFormatado }}</span>
+                                    <span>Tempo estimado: {{ $tempoItemFormatado }}</span>
                                 </div>
                             </div>
 
@@ -189,43 +199,89 @@
                 </div>
             </x-card>
 
-            <!-- Vínculo com Ordem de Serviço -->
-            <x-card title="Ordem de Serviço (Acompanhamento Operacional)">
+            <!-- Vínculo e Andamento da Ordem de Serviço -->
+            <x-card title="Andamento dos Serviços (Ordem de Serviço)">
                 @if($osObj)
-                    <div class="flex items-center justify-between p-4 rounded-xl border border-primary/30 bg-primary/5">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 rounded-lg bg-primary/10 text-primary">
-                                <x-icon name="clipboard-list" class="w-6 h-6" />
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-mono text-sm font-bold text-foreground">{{ $osObj->numero }}</span>
-                                    <x-badge-status :status="$osObj->status" />
+                    <div class="space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-primary/30 bg-primary/5">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 rounded-lg bg-primary/10 text-primary">
+                                    <x-icon name="clipboard-list" class="w-6 h-6" />
                                 </div>
-                                <p class="text-xs text-muted-foreground mt-0.5">
-                                    As tarefas operacionais e produtos utilizados estão sendo executados nesta OS.
-                                </p>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono text-sm font-bold text-foreground">{{ $osObj->numero }}</span>
+                                        <x-badge-status :status="$osObj->status" />
+                                    </div>
+                                    <p class="text-xs text-muted-foreground mt-0.5">
+                                        {{ $tarefasConcluidas }} de {{ $totalTarefas }} etapa(s) concluída(s) ({{ $progressoOs }}%)
+                                    </p>
+                                </div>
                             </div>
+
+                            @if(!$isCliente)
+                                <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="md" icon="eye">
+                                    Abrir OS
+                                </x-button>
+                            @endif
                         </div>
 
-                        <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="md" icon="eye">
-                            Abrir OS
-                        </x-button>
+                        @if($totalTarefas > 0)
+                            <div class="space-y-2">
+                                <div class="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                                    <div class="bg-primary h-full rounded-full transition-all duration-500" style="width: {{ $progressoOs }}%"></div>
+                                </div>
+
+                                <div class="space-y-2.5 pt-2">
+                                    @foreach($tarefas as $tarefa)
+                                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-border bg-secondary/20 p-3">
+                                            <div>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-sm text-foreground">{{ $tarefa->titulo }}</span>
+                                                    <x-badge-status :status="$tarefa->status" />
+                                                </div>
+                                                <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+                                                    @if($tarefa->funcionario)
+                                                        <span>Responsável: <strong class="text-foreground">{{ $tarefa->funcionario->nome }}</strong></span>
+                                                    @endif
+                                                    @if($tarefa->data_inicio)
+                                                        <span>Início: {{ \Carbon\Carbon::parse($tarefa->data_inicio)->format('d/m H:i') }}</span>
+                                                    @endif
+                                                    @if($tarefa->data_conclusao)
+                                                        <span>Conclusão: {{ \Carbon\Carbon::parse($tarefa->data_conclusao)->format('d/m H:i') }}</span>
+                                                    @endif
+                                                </div>
+                                                @if(!empty($tarefa->observacoes))
+                                                    <p class="text-xs text-muted-foreground italic mt-1">"{{ $tarefa->observacoes }}"</p>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 @else
                     <div class="text-center py-6">
-                        <x-icon name="clipboard-list" class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                        <p class="text-sm font-semibold text-foreground">Ordem de Serviço ainda não gerada</p>
-                        <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-                            Ao abrir a Ordem de Serviço, as tarefas dos serviços contratados serão geradas automaticamente para os funcionários da oficina.
-                        </p>
-                        <form method="POST" action="{{ route('ordens-servico.store') }}" class="mt-4">
-                            @csrf
-                            <input type="hidden" name="agendamento_id" value="{{ $agendamentoObj?->id ?? 1 }}" />
-                            <x-button type="submit" variant="primary" size="md" icon="plus">
-                                Gerar Ordem de Serviço Agora
-                            </x-button>
-                        </form>
+                        <x-icon name="clock" class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                        @if($isCliente)
+                            <p class="text-sm font-semibold text-foreground">Aguardando Início na Oficina</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                                Assim que seu veículo der entrada e a Ordem de Serviço for aberta pela equipe, você poderá acompanhar cada etapa do serviço em tempo real aqui.
+                            </p>
+                        @else
+                            <p class="text-sm font-semibold text-foreground">Ordem de Serviço ainda não gerada</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                                Ao abrir a Ordem de Serviço, as tarefas dos serviços contratados serão geradas automaticamente para os funcionários da oficina.
+                            </p>
+                            <form method="POST" action="{{ route('ordens-servico.store') }}" class="mt-4">
+                                @csrf
+                                <input type="hidden" name="agendamento_id" value="{{ $agendamentoObj?->id ?? 1 }}" />
+                                <x-button type="submit" variant="primary" size="md" icon="plus">
+                                    Gerar Ordem de Serviço Agora
+                                </x-button>
+                            </form>
+                        @endif
                     </div>
                 @endif
             </x-card>

@@ -131,6 +131,7 @@
                             id="criar_usuario"
                             name="criar_usuario"
                             value="1"
+                            {{ old('criar_usuario') ? 'checked' : '' }}
                             class="mt-1 h-4 w-4 rounded border-border bg-input text-primary focus:ring-primary"
                             onchange="document.getElementById('senha_container').classList.toggle('hidden', !this.checked)"
                         />
@@ -140,7 +141,7 @@
                         </label>
                     </div>
 
-                    <div id="senha_container" class="hidden grid gap-4 sm:grid-cols-2 pt-2">
+                    <div id="senha_container" class="{{ old('criar_usuario') ? '' : 'hidden' }} grid gap-4 sm:grid-cols-2 pt-2">
                         <x-input
                             type="password"
                             name="password"

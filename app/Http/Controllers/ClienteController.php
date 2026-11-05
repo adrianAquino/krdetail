@@ -6,6 +6,8 @@ use App\Models\Cliente;
 use App\Models\User;
 use App\Rules\CpfCnpj;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ClienteController extends Controller
 {
@@ -43,9 +45,13 @@ class ClienteController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $criarUsuario = $request->boolean('criar_usuario');
+
+        $rules = [
             'nome' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
+            'email' => $criarUsuario
+                ? 'required|email|max:255|unique:users,email'
+                : 'nullable|email|max:255',
             'telefone' => 'required|string|max:30',
             'cpf_cnpj' => ['nullable', 'string', 'max:30', new CpfCnpj],
             'cep' => 'nullable|string|max:20',
@@ -55,9 +61,32 @@ class ClienteController extends Controller
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
             'estado' => 'nullable|string|max:2',
-        ]);
+        ];
 
-        $cliente = Cliente::create($validated);
+        if ($criarUsuario) {
+            $rules['password'] = 'required|string|min:8|confirmed';
+        }
+
+        $validated = $request->validate($rules);
+
+        $cliente = DB::transaction(function () use ($validated, $criarUsuario) {
+            $dadosCliente = collect($validated)->except(['password', 'password_confirmation'])->toArray();
+
+            if ($criarUsuario) {
+                $user = User::create([
+                    'name' => $validated['nome'],
+                    'email' => $validated['email'],
+                    'telefone' => $validated['telefone'],
+                    'password' => $validated['password'],
+                    'tipo_usuario' => 'cliente',
+                    'ativo' => true,
+                ]);
+
+                $dadosCliente['user_id'] = $user->id;
+            }
+
+            return Cliente::create($dadosCliente);
+        });
 
         return redirect()->route('clientes.show', $cliente)->with('success', 'Cliente cadastrado com sucesso!');
     }
@@ -72,11 +101,7 @@ class ClienteController extends Controller
             }
         ]);
 
-       
-
-        return view('clientes.show', compact(
-            'cliente'
-        ));
+        return view('clientes.show', compact('cliente'));
     }
 
     public function edit(Cliente $cliente)
@@ -86,9 +111,13 @@ class ClienteController extends Controller
 
     public function update(Request $request, Cliente $cliente)
     {
-        $validated = $request->validate([
+        $criarUsuario = $request->boolean('criar_usuario') && empty($cliente->user_id);
+
+        $rules = [
             'nome' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
+            'email' => $criarUsuario
+                ? ['required', 'email', 'max:255', Rule::unique('users', 'email')]
+                : 'nullable|email|max:255',
             'telefone' => 'required|string|max:30',
             'cpf_cnpj' => ['nullable', 'string', 'max:30', new CpfCnpj],
             'cep' => 'nullable|string|max:20',
@@ -98,9 +127,38 @@ class ClienteController extends Controller
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
             'estado' => 'nullable|string|max:2',
-        ]);
+        ];
 
-        $cliente->update($validated);
+        if ($criarUsuario) {
+            $rules['password'] = 'required|string|min:8|confirmed';
+        }
+
+        $validated = $request->validate($rules);
+
+        DB::transaction(function () use ($cliente, $validated, $criarUsuario) {
+            $dadosCliente = collect($validated)->except(['password', 'password_confirmation'])->toArray();
+
+            if ($criarUsuario) {
+                $user = User::create([
+                    'name' => $validated['nome'],
+                    'email' => $validated['email'],
+                    'telefone' => $validated['telefone'],
+                    'password' => $validated['password'],
+                    'tipo_usuario' => 'cliente',
+                    'ativo' => true,
+                ]);
+
+                $dadosCliente['user_id'] = $user->id;
+            } elseif ($cliente->user) {
+                $cliente->user->update([
+                    'name' => $validated['nome'],
+                    'email' => $validated['email'] ?? $cliente->user->email,
+                    'telefone' => $validated['telefone'],
+                ]);
+            }
+
+            $cliente->update($dadosCliente);
+        });
 
         return redirect()->route('clientes.show', $cliente)->with('success', 'Dados do cliente atualizados com sucesso!');
     }

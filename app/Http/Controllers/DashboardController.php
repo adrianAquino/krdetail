@@ -11,11 +11,58 @@ use App\Models\Servico;
 use App\Models\Tarefa;
 use App\Models\Veiculo;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+        $user = Auth::user();
+
+        if ($user && $user->isCliente()) {
+            $cliente = $user->ensureClienteProfile();
+
+            $meusVeiculos = Veiculo::withCount('agendamentos')
+                ->where('cliente_id', $cliente->id)
+                ->orderByDesc('created_at')
+                ->get();
+
+            $agendamentosAtivos = Agendamento::with([
+                'veiculo',
+                'servicos',
+                'agendamentosServicos.servico',
+                'ordemServico.tarefas.servico',
+            ])
+                ->where('cliente_id', $cliente->id)
+                ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
+                ->orderBy('data_inicio', 'asc')
+                ->get();
+
+            $historicoServicos = Agendamento::with([
+                'veiculo',
+                'servicos',
+                'agendamentosServicos.servico',
+                'ordemServico.tarefas.servico',
+            ])
+                ->where('cliente_id', $cliente->id)
+                ->whereIn('status', ['concluido', 'cancelado'])
+                ->orderByDesc('data_inicio')
+                ->take(10)
+                ->get();
+
+            $totalConcluidos = Agendamento::where('cliente_id', $cliente->id)
+                ->where('status', 'concluido')
+                ->count();
+
+            return view('dashboard.cliente', compact(
+                'cliente',
+                'meusVeiculos',
+                'agendamentosAtivos',
+                'historicoServicos',
+                'totalConcluidos'
+            ));
+        }
+
         $hoje = Carbon::today();
         $inicioMes = Carbon::now()->startOfMonth();
         $fimMes = Carbon::now()->endOfMonth();

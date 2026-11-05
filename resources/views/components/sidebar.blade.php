@@ -1,16 +1,26 @@
 @php
-    $menuItems = [
-        ['route' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'layout-dashboard', 'active' => request()->routeIs('dashboard*')],
-        ['route' => 'clientes.index', 'label' => 'Clientes', 'icon' => 'users', 'active' => request()->routeIs('clientes*')],
-        ['route' => 'veiculos.index', 'label' => 'Veículos', 'icon' => 'car', 'active' => request()->routeIs('veiculos*')],
-        ['route' => 'servicos.index', 'label' => 'Serviços', 'icon' => 'wrench', 'active' => request()->routeIs('servicos*')],
-        ['route' => 'agendamentos.index', 'label' => 'Agendamentos', 'icon' => 'calendar', 'active' => request()->routeIs('agendamentos*')],
-        ['route' => 'ordens-servico.index', 'label' => 'Ordens de Serviço', 'icon' => 'clipboard-list', 'active' => request()->routeIs('ordens-servico*')],
-        ['route' => 'estoque.index', 'label' => 'Estoque', 'icon' => 'package', 'active' => request()->routeIs('estoque*') || request()->routeIs('produtos*')],
-        ['route' => 'relatorios.index', 'label' => 'Relatórios', 'icon' => 'bar-chart-3', 'active' => request()->routeIs('relatorios*')],
-    ];
-
     $usuarioLogado = \Illuminate\Support\Facades\Auth::user();
+    $isCliente = $usuarioLogado && $usuarioLogado->isCliente();
+
+    if ($isCliente) {
+        $menuItems = [
+            ['route' => 'dashboard', 'label' => 'Meu Painel', 'icon' => 'layout-dashboard', 'active' => request()->routeIs('dashboard*')],
+            ['route' => 'veiculos.index', 'label' => 'Meus Veículos', 'icon' => 'car', 'active' => request()->routeIs('veiculos*')],
+            ['route' => 'agendamentos.index', 'label' => 'Meus Agendamentos', 'icon' => 'calendar', 'active' => request()->routeIs('agendamentos*')],
+        ];
+    } else {
+        $menuItems = [
+            ['route' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'layout-dashboard', 'active' => request()->routeIs('dashboard*')],
+            ['route' => 'clientes.index', 'label' => 'Clientes', 'icon' => 'users', 'active' => request()->routeIs('clientes*')],
+            ['route' => 'veiculos.index', 'label' => 'Veículos', 'icon' => 'car', 'active' => request()->routeIs('veiculos*')],
+            ['route' => 'servicos.index', 'label' => 'Serviços', 'icon' => 'wrench', 'active' => request()->routeIs('servicos*')],
+            ['route' => 'agendamentos.index', 'label' => 'Agendamentos', 'icon' => 'calendar', 'active' => request()->routeIs('agendamentos*')],
+            ['route' => 'ordens-servico.index', 'label' => 'Ordens de Serviço', 'icon' => 'clipboard-list', 'active' => request()->routeIs('ordens-servico*')],
+            ['route' => 'estoque.index', 'label' => 'Estoque', 'icon' => 'package', 'active' => request()->routeIs('estoque*') || request()->routeIs('produtos*')],
+            ['route' => 'relatorios.index', 'label' => 'Relatórios', 'icon' => 'bar-chart-3', 'active' => request()->routeIs('relatorios*')],
+        ];
+    }
+
     $nomeUsuario = $usuarioLogado?->name ?? 'Usuário';
     $emailUsuario = $usuarioLogado?->email ?? '';
     $configUrl = \Illuminate\Support\Facades\Route::has('configuracoes.index') ? route('configuracoes.index') : '#';
@@ -25,7 +35,9 @@
         </div>
         <div>
             <span class="text-base font-bold text-foreground tracking-tight">Kraus Detail</span>
-            <p class="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Estética Automotiva</p>
+            <p class="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                {{ $isCliente ? 'Portal do Cliente' : 'Estética Automotiva' }}
+            </p>
         </div>
     </div>
     <button
@@ -54,7 +66,9 @@
         </div>
         <div class="overflow-hidden">
             <h1 class="text-lg font-bold text-sidebar-foreground truncate tracking-tight">Kraus Detail</h1>
-            <p class="text-xs text-muted-foreground truncate">Estética Automotiva</p>
+            <p class="text-xs text-muted-foreground truncate">
+                {{ $isCliente ? 'Portal do Cliente' : 'Estética Automotiva' }}
+            </p>
         </div>
     </div>
 
@@ -98,15 +112,17 @@
             id="user-menu-dropdown"
             class="hidden absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-border bg-card shadow-lg p-1.5 z-50 space-y-1"
         >
-            <a
-                href="{{ $configUrl }}"
-                class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $configActive ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-secondary hover:text-foreground' }}"
-            >
-                <x-icon name="settings" class="h-4 w-4 shrink-0" />
-                <span>Configurações</span>
-            </a>
+            @if(!$isCliente)
+                <a
+                    href="{{ $configUrl }}"
+                    class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $configActive ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-secondary hover:text-foreground' }}"
+                >
+                    <x-icon name="settings" class="h-4 w-4 shrink-0" />
+                    <span>Configurações</span>
+                </a>
 
-            <div class="border-t border-border/60 my-1"></div>
+                <div class="border-t border-border/60 my-1"></div>
+            @endif
 
             <form method="POST" action="{{ \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : '#' }}" class="w-full">
                 @csrf
