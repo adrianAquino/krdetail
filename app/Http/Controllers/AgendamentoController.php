@@ -6,6 +6,7 @@ use App\Models\Agendamento;
 use App\Models\AgendamentoServico;
 use App\Models\Cliente;
 use App\Models\Servico;
+use App\Models\User;
 use App\Models\Veiculo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,10 +17,11 @@ class AgendamentoController extends Controller
 {
     public function index(Request $request)
     {
+        /** @var User|null $user */
         $user = Auth::user();
         $query = Agendamento::with(['cliente', 'veiculo', 'servicos', 'ordemServico.tarefas']);
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $query->where('cliente_id', $cliente->id);
         }
@@ -35,7 +37,7 @@ class AgendamentoController extends Controller
                     ->orWhere('modelo', 'like', "%{$busca}%")
                     ->orWhere('marca', 'like', "%{$busca}%"));
 
-                if (! $user || ! $user->isCliente()) {
+                if (! ($user instanceof User) || ! $user->isCliente()) {
                     $q->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
                 }
             });
@@ -48,9 +50,10 @@ class AgendamentoController extends Controller
 
     public function create(Request $request)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $clientes = Cliente::with('veiculos')->where('id', $cliente->id)->get();
         } else {
@@ -64,9 +67,10 @@ class AgendamentoController extends Controller
 
     public function store(Request $request)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $request->merge([
                 'cliente_id' => $cliente->id,
@@ -90,7 +94,7 @@ class AgendamentoController extends Controller
             'servicos.min' => 'Selecione pelo menos um serviço para o agendamento.',
         ]);
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $validated['cliente_id'] = $user->ensureClienteProfile()->id;
             $validated['status'] = 'agendado';
             $validated['origem'] = 'Site';
@@ -133,9 +137,10 @@ class AgendamentoController extends Controller
 
     public function show(Agendamento $agendamento)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             if ((int) $agendamento->cliente_id !== (int) $cliente->id) {
                 abort(403, 'Você não tem permissão para visualizar este agendamento.');
@@ -155,8 +160,9 @@ class AgendamentoController extends Controller
 
     public function edit(Agendamento $agendamento)
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             abort(403);
         }
 
@@ -169,8 +175,9 @@ class AgendamentoController extends Controller
 
     public function update(Request $request, Agendamento $agendamento)
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             abort(403);
         }
 
@@ -198,8 +205,9 @@ class AgendamentoController extends Controller
 
     public function destroy(Agendamento $agendamento)
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             abort(403);
         }
 

@@ -9,6 +9,7 @@ use App\Models\OrdemServico;
 use App\Models\Produto;
 use App\Models\Servico;
 use App\Models\Tarefa;
+use App\Models\User;
 use App\Models\Veiculo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -17,9 +18,10 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
 
             $meusVeiculos = Veiculo::withCount('agendamentos')

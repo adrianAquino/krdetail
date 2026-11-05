@@ -27,8 +27,9 @@ class AuthController extends Controller
         if (Auth::attempt([...$credentials, 'ativo' => true], $request->boolean('remember'))) {
             $request->session()->regenerate();
 
+            /** @var User|null $user */
             $user = Auth::user();
-            if ($user && $user->isCliente()) {
+            if ($user instanceof User && $user->isCliente()) {
                 $user->ensureClienteProfile();
             }
 

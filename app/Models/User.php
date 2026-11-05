@@ -44,12 +44,8 @@ class User extends Authenticatable
      * Garante que um usuário do tipo cliente possua um perfil Cliente vinculado.
      * Se já houver um Cliente com o mesmo e-mail sem user_id, vincula-o.
      */
-    public function ensureClienteProfile(): ?Cliente
+    public function ensureClienteProfile(): Cliente
     {
-        if (! $this->isCliente()) {
-            return $this->cliente;
-        }
-
         if ($this->cliente) {
             return $this->cliente;
         }

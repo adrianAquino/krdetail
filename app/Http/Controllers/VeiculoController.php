@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\User;
 use App\Models\Veiculo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,10 +12,11 @@ class VeiculoController extends Controller
 {
     public function index(Request $request)
     {
+        /** @var User|null $user */
         $user = Auth::user();
         $query = Veiculo::with('cliente')->withCount('agendamentos');
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $query->where('cliente_id', $cliente->id);
         }
@@ -26,7 +28,7 @@ class VeiculoController extends Controller
                     ->orWhere('marca', 'like', "%{$busca}%")
                     ->orWhere('modelo', 'like', "%{$busca}%");
 
-                if (! $user || ! $user->isCliente()) {
+                if (! ($user instanceof User) || ! $user->isCliente()) {
                     $q->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
                 }
             });
@@ -39,9 +41,10 @@ class VeiculoController extends Controller
 
     public function create(Request $request)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $clientes = collect([$cliente]);
             $selectedClienteId = $cliente->id;
@@ -55,9 +58,10 @@ class VeiculoController extends Controller
 
     public function store(Request $request)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $request->merge(['cliente_id' => $cliente->id]);
         }
@@ -72,7 +76,7 @@ class VeiculoController extends Controller
             'observacoes' => 'nullable|string',
         ]);
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $validated['cliente_id'] = $user->ensureClienteProfile()->id;
         }
 
@@ -84,9 +88,10 @@ class VeiculoController extends Controller
 
     public function show(Veiculo $veiculo)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             if ((int) $veiculo->cliente_id !== (int) $cliente->id) {
                 abort(403, 'Você não tem permissão para visualizar este veículo.');
@@ -100,9 +105,10 @@ class VeiculoController extends Controller
 
     public function edit(Veiculo $veiculo)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             if ((int) $veiculo->cliente_id !== (int) $cliente->id) {
                 abort(403, 'Você não tem permissão para editar este veículo.');
@@ -117,9 +123,10 @@ class VeiculoController extends Controller
 
     public function update(Request $request, Veiculo $veiculo)
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             if ((int) $veiculo->cliente_id !== (int) $cliente->id) {
                 abort(403, 'Você não tem permissão para atualizar este veículo.');
@@ -137,7 +144,7 @@ class VeiculoController extends Controller
             'observacoes' => 'nullable|string',
         ]);
 
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             $validated['cliente_id'] = $user->ensureClienteProfile()->id;
         }
 
@@ -149,8 +156,9 @@ class VeiculoController extends Controller
 
     public function destroy(Veiculo $veiculo)
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        if ($user && $user->isCliente()) {
+        if ($user instanceof User && $user->isCliente()) {
             abort(403);
         }
 
