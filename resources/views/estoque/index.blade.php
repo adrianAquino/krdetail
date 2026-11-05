@@ -1,7 +1,7 @@
 <x-layouts.app title="Estoque">
     <x-header
         title="Gestão de Estoque"
-        subtitle="Monitore níveis de estoque, controle alertas de reposição mínima e registre movimentações de entrada e saída."
+        subtitle="Monitore níveis de estoque por unidades e volume disponível, controle alertas de reposição e registre movimentações."
     >
         <x-slot:actions>
             <x-button
@@ -18,8 +18,6 @@
             </x-button>
         </x-slot:actions>
     </x-header>
-
-    
 
     <!-- KPIs de Estoque -->
     <div class="grid gap-4 sm:grid-cols-3 mb-8">
@@ -54,7 +52,7 @@
                 <div>
                     <p class="text-xs font-semibold text-muted-foreground uppercase">Valor em Estoque</p>
                     <p class="text-2xl font-extrabold text-primary mt-1">R$ {{ number_format($kpis['valor_total_estoque'], 2, ',', '.') }}</p>
-                    <p class="text-xs text-muted-foreground mt-0.5">Baseado no custo unitário</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Proporcional ao volume disponível</p>
                 </div>
                 <div class="p-3 rounded-xl bg-primary/10 text-primary">
                     <x-icon name="dollar-sign" class="w-6 h-6" />
@@ -90,7 +88,10 @@
                 @php
                     $isCritico = $prod->quantidade_estoque <= ($prod->estoque_minimo * 0.5);
                     $isBaixo = $prod->quantidade_estoque <= $prod->estoque_minimo;
-                    $percentual = ($prod->quantidade_estoque / max($prod->estoque_minimo, 1)) * 100;
+                    $volUnit = (float) ($prod->volume_unitario ?? 1);
+                    $volEstoque = (float) $prod->quantidade_estoque;
+                    $volMinimo = (float) $prod->estoque_minimo;
+                    $percentual = ($volEstoque / max($volMinimo, 1)) * 100;
                 @endphp
                 <x-card class="{{ $isBaixo ? 'border-destructive/30' : '' }}">
                     <div class="flex items-start justify-between gap-3 mb-2">
@@ -98,17 +99,26 @@
                             <a href="{{ route('produtos.show', $prod->id) }}" class="font-bold text-base text-foreground hover:text-primary transition-colors block">
                                 {{ $prod->nome }}
                             </a>
-                            <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ $prod->descricao }}</p>
+                            <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                                Embalagem: {{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }} / un.
+                            </p>
                         </div>
                         <x-badge-status :status="$isCritico ? 'estoque_critico' : ($isBaixo ? 'estoque_baixo' : 'estoque_normal')" />
                     </div>
 
-                    <!-- Visual de Estoque Mínimo e Atual (Item 11 e 12) -->
+                    <!-- Visual de Estoque Mínimo e Atual -->
                     <div class="mt-4 p-3 rounded-lg bg-secondary/30 border border-border space-y-2">
                         <div class="flex items-baseline justify-between">
-                            <span class="text-xs text-muted-foreground">Estoque Atual:</span>
+                            <span class="text-xs text-muted-foreground">Unidades em Estoque:</span>
                             <span class="text-base font-black {{ $isBaixo ? 'text-destructive' : 'text-foreground' }}">
-                                {{ $prod->quantidade_estoque }} {{ $prod->unidade_medida }}
+                                {{ $prod->unidades_estoque }} un.
+                            </span>
+                        </div>
+
+                        <div class="flex items-baseline justify-between text-xs">
+                            <span class="text-muted-foreground">Volume Disponível:</span>
+                            <span class="font-bold text-primary">
+                                {{ rtrim(rtrim(number_format($volEstoque, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }}
                             </span>
                         </div>
 
@@ -120,14 +130,14 @@
                         </div>
 
                         <div class="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-                            <span>Mínimo: {{ $prod->estoque_minimo }} {{ $prod->unidade_medida }}</span>
-                            <span>Custo: R$ {{ number_format($prod->custo_unitario, 2, ',', '.') }}/{{ $prod->unidade_medida }}</span>
+                            <span>Mín: {{ $prod->unidades_minimas }} un. ({{ rtrim(rtrim(number_format($volMinimo, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }})</span>
+                            <span>Custo: R$ {{ number_format($prod->custo_unitario, 2, ',', '.') }}/un.</span>
                         </div>
                     </div>
 
                     <div class="flex items-center justify-between mt-4 pt-3 border-t border-border/60">
                         <span class="text-xs font-semibold text-primary">
-                            Total: R$ {{ number_format($prod->quantidade_estoque * $prod->custo_unitario, 2, ',', '.') }}
+                            Total: R$ {{ number_format($prod->valor_total_estoque, 2, ',', '.') }}
                         </span>
 
                         <div class="flex items-center gap-1">
@@ -144,7 +154,7 @@
         </div>
     @endif
 
-    <!-- Tab 2: Histórico de Movimentações (Item 12 do escopo) -->
+    <!-- Tab 2: Histórico de Movimentações -->
     @if($tabAtiva === 'movimentacoes')
         <x-card class="p-0">
             <x-table>
@@ -153,7 +163,7 @@
                         <th class="py-3.5 px-4">Data / Hora</th>
                         <th class="py-3.5 px-4">Produto</th>
                         <th class="py-3.5 px-4 text-center">Tipo</th>
-                        <th class="py-3.5 px-4 text-center">Movimentação</th>
+                        <th class="py-3.5 px-4 text-center">Volume Movimentado</th>
                         <th class="py-3.5 px-4 text-center">Evolução do Saldo</th>
                         <th class="py-3.5 px-4">Motivo / Origem</th>
                         <th class="py-3.5 px-4">Usuário</th>
@@ -175,14 +185,14 @@
                         </td>
 
                         <td class="py-3.5 px-4 text-center font-extrabold text-sm {{ $mov->tipo_movimentacao === 'saida' ? 'text-destructive' : 'text-success' }}">
-                            {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ $mov->quantidade }} {{ $mov->produto->unidade_medida }}
+                            {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }} {{ $mov->produto->unidade_medida }}
                         </td>
 
                         <td class="py-3.5 px-4 text-center text-xs">
                             <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-secondary/60 border border-border">
-                                <span class="text-muted-foreground">{{ $mov->quantidade_anterior }}</span>
+                                <span class="text-muted-foreground">{{ rtrim(rtrim(number_format((float) $mov->quantidade_anterior, 3, ',', '.'), '0'), ',') }}</span>
                                 <x-icon name="chevron-right" class="w-3 h-3 text-muted-foreground" />
-                                <span class="font-bold text-foreground">{{ $mov->quantidade_posterior }} {{ $mov->produto->unidade_medida }}</span>
+                                <span class="font-bold text-foreground">{{ rtrim(rtrim(number_format((float) $mov->quantidade_posterior, 3, ',', '.'), '0'), ',') }} {{ $mov->produto->unidade_medida }}</span>
                             </div>
                         </td>
 
@@ -205,7 +215,7 @@
         </x-card>
     @endif
 
-    <!-- Modal para Nova Movimentação Rápida (Item 12 do escopo) -->
+    <!-- Modal para Nova Movimentação Rápida -->
     <x-modal id="modal-nova-movimentacao" title="Registrar Movimentação de Estoque">
         <form method="POST" action="{{ route('estoque.movimentar') }}" class="space-y-4">
             @csrf
@@ -213,8 +223,12 @@
             <div>
                 <x-select name="produto_id" label="Produto" required>
                     @foreach($produtos as $p)
+                        @php
+                            $vEst = rtrim(rtrim(number_format((float) $p->quantidade_estoque, 3, ',', '.'), '0'), ',');
+                            $vUnit = rtrim(rtrim(number_format((float) ($p->volume_unitario ?? 1), 3, ',', '.'), '0'), ',');
+                        @endphp
                         <option value="{{ $p->id }}">
-                            {{ $p->nome }} (Estoque atual: {{ $p->quantidade_estoque }} {{ $p->unidade_medida }})
+                            {{ $p->nome }} ({{ $p->unidades_estoque }} un. • {{ $vEst }} {{ $p->unidade_medida }} disp. • Emb: {{ $vUnit }} {{ $p->unidade_medida }})
                         </option>
                     @endforeach
                 </x-select>
@@ -230,16 +244,23 @@
                 </div>
 
                 <div>
-                    <x-input
-                        type="number"
-                        step="0.001"
-                        min="0.001"
-                        name="quantidade"
-                        label="Quantidade"
-                        placeholder="Ex: 2.000"
-                        required
-                    />
+                    <x-select name="modo_quantidade" label="Informar Quantidade em:" required>
+                        <option value="volume" selected>Volume (ml, L, g, kg)</option>
+                        <option value="unidades">Unidades / Embalagens</option>
+                    </x-select>
                 </div>
+            </div>
+
+            <div>
+                <x-input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    name="quantidade"
+                    label="Quantidade"
+                    placeholder="Ex: 150 (em volume) ou 2 (em unidades)"
+                    required
+                />
             </div>
 
             <div>

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('nome');
             $table->text('descricao')->nullable();
             $table->string('unidade_medida', 20);
+            $table->decimal('volume_unitario', 12, 3)->default(1);
             $table->decimal('quantidade_estoque', 12, 3)->default(0);
             $table->decimal('estoque_minimo', 12, 3)->default(0);
             $table->decimal('custo_unitario', 12, 4)->nullable();

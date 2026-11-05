@@ -8,17 +8,15 @@ use App\Services\MovimentarEstoqueService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-
-
 class EstoqueController extends Controller
 {
-        public function index(Request $request)
+    public function index(Request $request)
     {
         $produtos = Produto::orderBy('nome', 'asc')->get();
 
         $totalItens = $produtos->count();
         $itensCriticos = $produtos->filter(fn ($p) => $p->quantidade_estoque <= $p->estoque_minimo)->count();
-        $valorTotalEstoque = $produtos->sum(fn ($p) => $p->quantidade_estoque * $p->custo_unitario);
+        $valorTotalEstoque = $produtos->sum(fn ($p) => $p->valor_total_estoque);
 
         $kpis = [
             'total_itens' => $totalItens,
@@ -31,7 +29,6 @@ class EstoqueController extends Controller
             ->paginate(15);
 
         $tabAtiva = $request->query('tab', 'produtos');
-    
 
         return view('estoque.index', compact('produtos', 'kpis', 'movimentacoes', 'tabAtiva'));
     }
@@ -41,16 +38,25 @@ class EstoqueController extends Controller
         $validated = $request->validate([
             'produto_id' => 'required|exists:produtos,id',
             'tipo_movimentacao' => 'required|in:entrada,saida,ajuste',
-            'quantidade' => 'required|numeric|min:0.01',
+            'modo_quantidade' => 'nullable|in:volume,unidades',
+            'quantidade' => 'required|numeric|min:0.001',
             'motivo' => 'required|string|max:255',
             'observacoes' => 'nullable|string',
         ]);
 
         try {
+            $produto = Produto::findOrFail($validated['produto_id']);
+            $modo = $validated['modo_quantidade'] ?? 'volume';
+            $volUnit = (float) ($produto->volume_unitario > 0 ? $produto->volume_unitario : 1);
+
+            $quantidadeVolume = $modo === 'unidades'
+                ? (float) $validated['quantidade'] * $volUnit
+                : (float) $validated['quantidade'];
+
             $service->movimentar(
-                produto: $validated['produto_id'],
+                produto: $produto,
                 tipo: $validated['tipo_movimentacao'],
-                quantidade: (float) $validated['quantidade'],
+                quantidade: $quantidadeVolume,
                 usuario: Auth::user(),
                 motivo: $validated['motivo'],
                 observacoes: $validated['observacoes'] ?? null

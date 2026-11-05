@@ -230,8 +230,11 @@
                 <div>
                     <x-select name="produto_id" label="Produto do Estoque" required>
                         @foreach($produtosEstoque as $prod)
+                            @php
+                                $volDisp = rtrim(rtrim(number_format((float) $prod->quantidade_estoque, 3, ',', '.'), '0'), ',');
+                            @endphp
                             <option value="{{ $prod->id }}">
-                                {{ $prod->nome }} (Disponível: {{ $prod->quantidade_estoque }} {{ $prod->unidade_medida }} • Custo: R$ {{ number_format($prod->custo_unitario, 2, ',', '.') }})
+                                {{ $prod->nome }} ({{ $prod->unidades_estoque }} un. • {{ $volDisp }} {{ $prod->unidade_medida }} disp.)
                             </option>
                         @endforeach
                     </x-select>
@@ -243,11 +246,11 @@
                         step="0.001"
                         min="0.001"
                         name="quantidade_utilizada"
-                        label="Quantidade Utilizada"
-                        placeholder="Ex: 0.250"
+                        label="Volume Utilizado na Tarefa"
+                        placeholder="Ex: 150 (em ml/g) ou 0.250 (em L/kg)"
                         required
                     />
-                    <p class="text-[11px] text-muted-foreground mt-1">Essa quantidade será deduzida automaticamente do estoque através de uma Movimentação de Saída.</p>
+                    <p class="text-[11px] text-muted-foreground mt-1">Informe o volume gasto na unidade de medida do produto. Quando o volume de uma embalagem acabar, 1 unidade será descontada do estoque.</p>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">

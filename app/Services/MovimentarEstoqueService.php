@@ -81,7 +81,7 @@ class MovimentarEstoqueService
             } elseif ($tipoNormalizado === 'saida') {
                 // Impede estoque negativo
                 if ($qtdAnterior < $quantidade) {
-                    throw new DomainException("Estoque insuficiente para o produto '{$produtoAtualizado->nome}'. Estoque atual: {$qtdAnterior}, saída solicitada: {$quantidade}.");
+                    throw new DomainException("Estoque insuficiente para o produto '{$produtoAtualizado->nome}'. Volume disponível: {$qtdAnterior} {$produtoAtualizado->unidade_medida}, saída solicitada: {$quantidade} {$produtoAtualizado->unidade_medida}.");
                 }
                 $qtdPosterior = $qtdAnterior - $quantidade;
                 $qtdRegistrada = $quantidade;
@@ -147,12 +147,12 @@ class MovimentarEstoqueService
                 motivo: $motivo
             );
 
-            // Registra a associação em tarefa_produto com o custo unitário congelado
+            // Registra a associação em tarefa_produto com o custo proporcional ao volume congelado
             return TarefaProduto::create([
                 'tarefa_id' => $tarefaModel->id,
                 'produto_id' => $produtoModel->id,
                 'quantidade_utilizada' => $quantidadeUtilizada,
-                'custo_unitario' => $produtoModel->custo_unitario,
+                'custo_unitario' => $produtoModel->custo_por_volume,
             ]);
         });
     }

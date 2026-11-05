@@ -1,12 +1,12 @@
 <x-layouts.app :title="'Produto: ' . ($produto->nome ?? 'Insumo')">
-    <x-header :title="$produto->nome ?? 'Composto Polidor Médio V40'"
-        subtitle="Ficha técnica do produto, consumo em ordens de serviço e histórico de movimentações.">
+    <x-header :title="$produto->nome ?? 'Produto'"
+        subtitle="Ficha técnica do produto, volume disponível, unidades em estoque e histórico de movimentações.">
         <x-slot:actions>
             <x-button type="button" onclick="window.openModal('modal-movimentacao')" variant="primary" size="sm"
                 icon="arrow-up-circle">
                 Registrar Movimentação
             </x-button>
-            <x-button href="{{ route('produtos.edit', $produto->id ?? 1) }}" variant="secondary" size="sm"
+            <x-button href="{{ route('produtos.edit', $produto->id) }}" variant="secondary" size="sm"
                 icon="pencil">
                 Editar
             </x-button>
@@ -17,13 +17,12 @@
     </x-header>
 
     @php
-
         $isBaixo = $produto->quantidade_estoque <= $produto->estoque_minimo;
-        $progressoEstoque = $produto->estoque_minimo > 0
-            ? min(
-                ($produto->quantidade_estoque / $produto->estoque_minimo) * 100,
-                100
-            )
+        $volUnit = (float) ($produto->volume_unitario ?? 1);
+        $volEstoque = (float) $produto->quantidade_estoque;
+        $volMinimo = (float) $produto->estoque_minimo;
+        $progressoEstoque = $volMinimo > 0
+            ? min(($volEstoque / $volMinimo) * 100, 100)
             : 100;
     @endphp
 
@@ -41,11 +40,20 @@
                 </div>
 
                 <div class="text-center p-4 rounded-xl bg-secondary/30 border border-border mb-4">
-                    <span class="text-3xl font-extrabold {{ $isBaixo ? 'text-destructive' : 'text-foreground' }}">
-                        {{ $produto->quantidade_estoque }} {{ $produto->unidade_medida }}
+                    <span class="text-3xl font-extrabold block {{ $isBaixo ? 'text-destructive' : 'text-foreground' }}">
+                        {{ $produto->unidades_estoque }} {{ $produto->unidades_estoque === 1 ? 'unidade' : 'unidades' }}
                     </span>
-                    <p class="text-xs text-muted-foreground mt-1">Estoque Mínimo: {{ $produto->estoque_minimo }}
-                        {{ $produto->unidade_medida }}</p>
+                    <span class="text-sm font-bold text-primary block mt-1">
+                        {{ rtrim(rtrim(number_format($volEstoque, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} disponíveis no total
+                    </span>
+                    @if($produto->unidades_estoque > 0 && $produto->volume_unidade_aberta < $volUnit)
+                        <p class="text-[11px] text-muted-foreground mt-1">
+                            ({{ $produto->unidades_estoque - 1 }} fechada(s) + 1 em uso com {{ rtrim(rtrim(number_format($produto->volume_unidade_aberta, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }})
+                        </p>
+                    @endif
+                    <p class="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                        Estoque Mínimo: {{ $produto->unidades_minimas }} un. ({{ rtrim(rtrim(number_format($volMinimo, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }})
+                    </p>
                 </div>
 
                 <div class="space-y-1.5 mb-5">
@@ -57,16 +65,22 @@
 
                 <div class="space-y-3 text-xs pt-3 border-t border-border/60">
                     <div class="flex items-center justify-between">
-                        <span class="text-muted-foreground">Custo Unitário:</span>
+                        <span class="text-muted-foreground">Volume por Embalagem:</span>
+                        <span class="font-bold text-foreground">
+                            {{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} / un.
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-muted-foreground">Custo por Unidade (Embalagem):</span>
                         <span class="font-bold text-foreground">R$
-                            {{ number_format($produto->custo_unitario, 2, ',', '.') }} /
-                            {{ $produto->unidade_medida }}</span>
+                            {{ number_format($produto->custo_unitario, 2, ',', '.') }} / un.</span>
                     </div>
 
                     <div class="flex items-center justify-between">
                         <span class="text-muted-foreground">Valor Total em Estoque:</span>
                         <span class="font-extrabold text-primary text-sm">R$
-                            {{ number_format($produto->quantidade_estoque * $produto->custo_unitario, 2, ',', '.') }}</span>
+                            {{ number_format($produto->valor_total_estoque, 2, ',', '.') }}</span>
                     </div>
 
                     <div class="flex items-center justify-between">
@@ -104,8 +118,8 @@
                             <tr>
                                 <th class="py-2.5 px-3">Data / Hora</th>
                                 <th class="py-2.5 px-3 text-center">Tipo</th>
-                                <th class="py-2.5 px-3 text-center">Qtd Movimentada</th>
-                                <th class="py-2.5 px-3 text-center">Saldo</th>
+                                <th class="py-2.5 px-3 text-center">Volume Movimentado</th>
+                                <th class="py-2.5 px-3 text-center">Saldo ({{ $produto->unidade_medida }})</th>
                                 <th class="py-2.5 px-3">Motivo / Operação</th>
                                 <th class="py-2.5 px-3">Responsável</th>
                             </tr>
@@ -114,18 +128,18 @@
                             @forelse($produto->movimentacoes as $mov)
                                 <tr>
                                     <td class="py-2.5 px-3 text-muted-foreground font-medium">
-                                        {{ \Carbon\Carbon::parse($mov->data)->format('d/m/Y H:i') }}
+                                        {{ \Carbon\Carbon::parse($mov->created_at)->format('d/m/Y H:i') }}
                                     </td>
                                     <td class="py-2.5 px-3 text-center">
                                         <x-badge-status :status="$mov->tipo_movimentacao" />
                                     </td>
                                     <td class="py-2.5 px-3 text-center font-bold text-foreground">
-                                        {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ $mov->quantidade }}
+                                        {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
                                         {{ $produto->unidade_medida }}
                                     </td>
                                     <td class="py-2.5 px-3 text-center text-muted-foreground">
-                                        {{ $mov->quantidade_anterior }} ➔ <strong
-                                            class="text-foreground">{{ $mov->quantidade_posterior }}</strong>
+                                        {{ rtrim(rtrim(number_format((float) $mov->quantidade_anterior, 3, ',', '.'), '0'), ',') }} ➔ <strong
+                                            class="text-foreground">{{ rtrim(rtrim(number_format((float) $mov->quantidade_posterior, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }}</strong>
                                     </td>
                                     <td class="py-2.5 px-3 text-foreground font-medium">
                                         {{ $mov->motivo }}
@@ -154,22 +168,31 @@
             @csrf
             <input type="hidden" name="produto_id" value="{{ $produto->id }}" />
 
-            <div>
-                <x-select name="tipo_movimentacao" label="Tipo de Movimentação" required>
-                    <option value="entrada">Entrada (Compra / Reposição de Estoque)</option>
-                    <option value="saida">Saída (Consumo Interno / Perda)</option>
-                    <option value="ajuste">Ajuste (Inventário Físico)</option>
-                </x-select>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <x-select name="tipo_movimentacao" label="Tipo de Movimentação" required>
+                        <option value="entrada">Entrada (Compra / Reposição)</option>
+                        <option value="saida" selected>Saída (Consumo por Volume)</option>
+                        <option value="ajuste">Ajuste (Inventário Físico)</option>
+                    </x-select>
+                </div>
+
+                <div>
+                    <x-select name="modo_quantidade" label="Informar Quantidade em:" required>
+                        <option value="volume" selected>Volume ({{ $produto->unidade_medida }})</option>
+                        <option value="unidades">Unidades / Embalagens ({{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} cada)</option>
+                    </x-select>
+                </div>
             </div>
 
             <div>
                 <x-input type="number" step="0.001" min="0.001" name="quantidade"
-                    label="Quantidade (em {{ $produto->unidade_medida }})" placeholder="Ex: 1.000" required />
+                    label="Quantidade a Movimentar" placeholder="Ex: 150 (para 150 {{ $produto->unidade_medida }}) ou 2 (para 2 un.)" required />
             </div>
 
             <div>
                 <x-input name="motivo" label="Motivo da Movimentação"
-                    placeholder="Ex: Compra NF-e 1234, inventário mensal, etc..." required />
+                    placeholder="Ex: Compra NF-e 1234, consumo avulso, inventário mensal..." required />
             </div>
 
             <div>

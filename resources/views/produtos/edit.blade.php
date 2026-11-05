@@ -1,10 +1,10 @@
 <x-layouts.app :title="'Editar: ' . ($produto->nome ?? 'Produto')">
     <x-header
         :title="'Editar: ' . ($produto->nome ?? 'Produto')"
-        subtitle="Atualize os parâmetros de estoque, unidade de medida ou custo unitário."
+        subtitle="Atualize o volume por embalagem, parâmetros de estoque ou custo unitário."
     >
         <x-slot:actions>
-            <x-button href="{{ route('produtos.show', $produto->id ?? 1) }}" variant="outline" size="sm" icon="eye">
+            <x-button href="{{ route('produtos.show', $produto->id) }}" variant="outline" size="sm" icon="eye">
                 Ver Ficha
             </x-button>
             <x-button href="{{ route('produtos.index') }}" variant="ghost" size="sm" icon="chevron-left">
@@ -14,17 +14,17 @@
     </x-header>
 
     <div class="max-w-2xl">
-        <form method="POST" action="{{ route('produtos.update', $produto->id ?? 1) }}" class="space-y-6">
+        <form method="POST" action="{{ route('produtos.update', $produto->id) }}" class="space-y-6">
             @csrf
             @method('PUT')
 
-            <x-card title="Identificação do Produto">
+            <x-card title="Identificação e Embalagem do Produto">
                 <div class="space-y-4">
                     <div>
                         <x-input
                             name="nome"
                             label="Nome do Produto"
-                            :value="$produto->nome ?? ''"
+                            :value="$produto->nome"
                             required
                         />
                     </div>
@@ -38,16 +38,30 @@
                         />
                     </div>
 
-                    <div>
-                        <x-select name="unidade_medida" label="Unidade de Medida" required>
-                            @php $unidadeAtual = $produto->unidade_medida ?? 'L'; @endphp
-                            <option value="L" {{ $unidadeAtual === 'L' ? 'selected' : '' }}>Litros (L)</option>
-                            <option value="ml" {{ $unidadeAtual === 'ml' ? 'selected' : '' }}>Mililitros (ml)</option>
-                            <option value="kg" {{ $unidadeAtual === 'kg' ? 'selected' : '' }}>Quilos (kg)</option>
-                            <option value="g" {{ $unidadeAtual === 'g' ? 'selected' : '' }}>Gramas (g)</option>
-                            <option value="un" {{ $unidadeAtual === 'un' ? 'selected' : '' }}>Unidade (un)</option>
-                            <option value="cx" {{ $unidadeAtual === 'cx' ? 'selected' : '' }}>Caixa (cx)</option>
-                        </x-select>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <x-select name="unidade_medida" id="unidade_medida" label="Unidade de Medida do Volume" required>
+                                @php $unidadeAtual = $produto->unidade_medida ?? 'ml'; @endphp
+                                <option value="ml" {{ $unidadeAtual === 'ml' ? 'selected' : '' }}>Mililitros (ml)</option>
+                                <option value="L" {{ $unidadeAtual === 'L' ? 'selected' : '' }}>Litros (L)</option>
+                                <option value="g" {{ $unidadeAtual === 'g' ? 'selected' : '' }}>Gramas (g)</option>
+                                <option value="kg" {{ $unidadeAtual === 'kg' ? 'selected' : '' }}>Quilos (kg)</option>
+                                <option value="un" {{ $unidadeAtual === 'un' ? 'selected' : '' }}>Unidade (un)</option>
+                            </x-select>
+                        </div>
+
+                        <div>
+                            <x-input
+                                type="number"
+                                step="0.001"
+                                min="0.001"
+                                name="volume_unitario"
+                                id="volume_unitario"
+                                label="Volume / Conteúdo de 1 Unidade"
+                                :value="(float) ($produto->volume_unitario ?? 1)"
+                                required
+                            />
+                        </div>
                     </div>
                 </div>
             </x-card>
@@ -60,8 +74,9 @@
                             step="0.001"
                             min="0"
                             name="quantidade_estoque"
-                            label="Estoque Atual"
-                            :value="$produto->quantidade_estoque ?? ''"
+                            label="Volume Total Atual ({{ $produto->unidade_medida }})"
+                            :value="(float) $produto->quantidade_estoque"
+                            hint="Equivale a {{ $produto->unidades_estoque }} un. em estoque"
                             required
                         />
                     </div>
@@ -69,11 +84,12 @@
                     <div>
                         <x-input
                             type="number"
-                            step="0.001"
+                            step="1"
                             min="0"
-                            name="estoque_minimo"
-                            label="Estoque Mínimo"
-                            :value="$produto->estoque_minimo ?? ''"
+                            name="estoque_minimo_unidades"
+                            label="Estoque Mínimo (Unidades)"
+                            :value="$produto->unidades_minimas"
+                            hint="Mínimo atual: {{ (float) $produto->estoque_minimo }} {{ $produto->unidade_medida }}"
                             required
                         />
                     </div>
@@ -84,8 +100,9 @@
                             step="0.01"
                             min="0"
                             name="custo_unitario"
-                            label="Custo Unitário (R$)"
-                            :value="$produto->custo_unitario ?? ''"
+                            label="Custo por Unidade (R$)"
+                            :value="(float) $produto->custo_unitario"
+                            required
                         />
                     </div>
                 </div>

@@ -45,88 +45,26 @@
         </div>
     </div>
 
-    @php
-        $produtosDemo = $produtos ?? [
-            (object)[
-                'id' => 1,
-                'nome' => 'Composto Polidor Médio V40',
-                'descricao' => 'Composto polidor à base de água para refino e corte leve em vernizes médios e macios.',
-                'unidade_medida' => 'L',
-                'quantidade_estoque' => 0.800,
-                'estoque_minimo' => 2.000,
-                'custo_unitario' => 120.00,
-                'ativo' => true,
-            ],
-            (object)[
-                'id' => 2,
-                'nome' => 'Vitrificador de Pintura 9H 50ml',
-                'descricao' => 'Coating cerâmico nanotecnológico com dureza 9H e proteção de 3 anos.',
-                'unidade_medida' => 'un',
-                'quantidade_estoque' => 1.000,
-                'estoque_minimo' => 4.000,
-                'custo_unitario' => 240.00,
-                'ativo' => true,
-            ],
-            (object)[
-                'id' => 3,
-                'nome' => 'Detergente Extratora Sintético',
-                'descricao' => 'Limpador concentrado de baixa espumação para extratora de estofados.',
-                'unidade_medida' => 'L',
-                'quantidade_estoque' => 6.500,
-                'estoque_minimo' => 3.000,
-                'custo_unitario' => 35.00,
-                'ativo' => true,
-            ],
-            (object)[
-                'id' => 4,
-                'nome' => 'Boina de Lã Híbrida 5 Pol',
-                'descricao' => 'Boina de corte rápido para politriz roto-orbital.',
-                'unidade_medida' => 'un',
-                'quantidade_estoque' => 2.000,
-                'estoque_minimo' => 6.000,
-                'custo_unitario' => 58.00,
-                'ativo' => true,
-            ],
-            (object)[
-                'id' => 5,
-                'nome' => 'Desengordurante IPA Prep',
-                'descricao' => 'Solução de álcool isopropílico para inspeção e descontaminação pré-coating.',
-                'unidade_medida' => 'L',
-                'quantidade_estoque' => 1.200,
-                'estoque_minimo' => 3.000,
-                'custo_unitario' => 45.00,
-                'ativo' => true,
-            ],
-            (object)[
-                'id' => 6,
-                'nome' => 'Shampoo Automotivo pH Neutro',
-                'descricao' => 'Shampoo super concentrado de alto rendimento para lavagem de manutenção.',
-                'unidade_medida' => 'L',
-                'quantidade_estoque' => 15.000,
-                'estoque_minimo' => 5.000,
-                'custo_unitario' => 28.00,
-                'ativo' => true,
-            ],
-        ];
-    @endphp
-
     <x-card class="p-0">
         <x-table>
             <x-slot:header>
                 <tr>
                     <th class="py-3.5 px-4">Produto</th>
-                    <th class="py-3.5 px-4 text-center">Unidade</th>
-                    <th class="py-3.5 px-4 text-center">Estoque Atual</th>
+                    <th class="py-3.5 px-4 text-center">Embalagem</th>
+                    <th class="py-3.5 px-4 text-center">Estoque (Unidades / Volume)</th>
                     <th class="py-3.5 px-4 text-center">Estoque Mínimo</th>
-                    <th class="py-3.5 px-4 text-right">Custo Unitário</th>
+                    <th class="py-3.5 px-4 text-right">Custo / Unid.</th>
                     <th class="py-3.5 px-4 text-center">Situação</th>
                     <th class="py-3.5 px-4 text-right">Ações</th>
                 </tr>
             </x-slot:header>
 
-            @forelse($produtosDemo as $prod)
+            @forelse($produtos as $prod)
                 @php
                     $isEstoqueBaixo = $prod->quantidade_estoque <= $prod->estoque_minimo;
+                    $volUnit = (float) ($prod->volume_unitario ?? 1);
+                    $volEstoque = (float) $prod->quantidade_estoque;
+                    $volMinimo = (float) $prod->estoque_minimo;
                 @endphp
                 <tr class="hover:bg-secondary/25 transition-colors">
                     <td class="py-3.5 px-4">
@@ -143,18 +81,22 @@
 
                     <td class="py-3.5 px-4 text-center">
                         <span class="font-mono text-xs px-2 py-0.5 rounded bg-secondary text-foreground border border-border">
-                            {{ $prod->unidade_medida }}
+                            {{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }}
                         </span>
                     </td>
 
                     <td class="py-3.5 px-4 text-center">
-                        <span class="font-extrabold text-sm {{ $isEstoqueBaixo ? 'text-destructive font-black' : 'text-foreground' }}">
-                            {{ $prod->quantidade_estoque }} {{ $prod->unidade_medida }}
+                        <span class="font-extrabold text-sm block {{ $isEstoqueBaixo ? 'text-destructive font-black' : 'text-foreground' }}">
+                            {{ $prod->unidades_estoque }} un.
+                        </span>
+                        <span class="text-[11px] text-muted-foreground">
+                            ({{ rtrim(rtrim(number_format($volEstoque, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }} disponíveis)
                         </span>
                     </td>
 
                     <td class="py-3.5 px-4 text-center text-xs text-muted-foreground">
-                        {{ $prod->estoque_minimo }} {{ $prod->unidade_medida }}
+                        <span class="font-semibold text-foreground block">{{ $prod->unidades_minimas }} un.</span>
+                        <span>({{ rtrim(rtrim(number_format($volMinimo, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }})</span>
                     </td>
 
                     <td class="py-3.5 px-4 text-right font-medium text-foreground">
