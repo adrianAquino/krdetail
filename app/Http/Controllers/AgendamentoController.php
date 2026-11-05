@@ -151,8 +151,8 @@ class AgendamentoController extends Controller
             'cliente',
             'veiculo',
             'agendamentosServicos.servico',
-            'ordemServico.tarefas.servico',
-            'ordemServico.tarefas.funcionario',
+            'ordemServico.tarefas.agendamentoServico.servico',
+            'ordemServico.tarefas.funcionario.user',
         ]);
 
         return view('agendamentos.show', compact('agendamento'));

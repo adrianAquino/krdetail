@@ -33,7 +33,7 @@ class DashboardController extends Controller
                 'veiculo',
                 'servicos',
                 'agendamentosServicos.servico',
-                'ordemServico.tarefas.servico',
+                'ordemServico.tarefas.agendamentoServico.servico',
             ])
                 ->where('cliente_id', $cliente->id)
                 ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
@@ -44,7 +44,7 @@ class DashboardController extends Controller
                 'veiculo',
                 'servicos',
                 'agendamentosServicos.servico',
-                'ordemServico.tarefas.servico',
+                'ordemServico.tarefas.agendamentoServico.servico',
             ])
                 ->where('cliente_id', $cliente->id)
                 ->whereIn('status', ['concluido', 'cancelado'])

@@ -47,14 +47,14 @@
             <button type="button" 
                     id="tab-financeiro-btn" 
                     onclick="switchTab('financeiro')" 
-                    class="tab-button active py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 border-primary text-primary transition-colors">
+                    class="tab-button active py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 border-primary text-primary transition-colors cursor-pointer">
                 <x-icon name="dollar-sign" class="w-4 h-4" />
                 Visão Financeira (Receitas & Despesas)
             </button>
             <button type="button" 
                     id="tab-operacional-btn" 
                     onclick="switchTab('operacional')" 
-                    class="tab-button py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 border-transparent text-muted-foreground hover:text-foreground hover:border-border transition-colors">
+                    class="tab-button py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 border-transparent text-muted-foreground hover:text-foreground hover:border-border transition-colors cursor-pointer">
                 <x-icon name="activity" class="w-4 h-4" />
                 Desempenho Operacional & Equipe
             </button>
@@ -78,10 +78,10 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Receita Total</p>
-                        <p class="text-2xl font-bold text-foreground mt-1">R$ {{ number_format($kpis['receita_total'] ?? 18450.00, 2, ',', '.') }}</p>
-                        <p class="text-xs text-emerald-500 flex items-center gap-1 mt-1 font-medium">
+                        <p class="text-2xl font-bold text-foreground mt-1">R$ {{ number_format($kpis['receita_total'], 2, ',', '.') }}</p>
+                        <p class="text-xs {{ $kpis['variacao_receita_percent'] >= 0 ? 'text-emerald-500' : 'text-rose-500' }} flex items-center gap-1 mt-1 font-medium">
                             <x-icon name="trending-up" class="w-3.5 h-3.5" />
-                            <span>+14.2% vs período ant.</span>
+                            <span>{{ $kpis['variacao_receita_percent'] >= 0 ? '+' : '' }}{{ $kpis['variacao_receita_percent'] }}% vs período ant.</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
@@ -94,9 +94,9 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas Totais</p>
-                        <p class="text-2xl font-bold text-foreground mt-1">R$ {{ number_format($kpis['despesa_total'] ?? 4320.50, 2, ',', '.') }}</p>
+                        <p class="text-2xl font-bold text-foreground mt-1">R$ {{ number_format($kpis['despesa_total'], 2, ',', '.') }}</p>
                         <p class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <span>Insumos & Custos fixos</span>
+                            <span>Insumos & Custos operacionais</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
@@ -109,9 +109,11 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saldo Líquido</p>
-                        <p class="text-2xl font-bold text-primary mt-1">R$ {{ number_format($kpis['saldo_liquido'] ?? 14129.50, 2, ',', '.') }}</p>
-                        <p class="text-xs text-emerald-500 flex items-center gap-1 mt-1 font-medium">
-                            <span>Margem estimada: 76.5%</span>
+                        <p class="text-2xl font-bold {{ $kpis['saldo_liquido'] >= 0 ? 'text-primary' : 'text-rose-500' }} mt-1">
+                            R$ {{ number_format($kpis['saldo_liquido'], 2, ',', '.') }}
+                        </p>
+                        <p class="text-xs {{ $kpis['margem_percent'] >= 0 ? 'text-emerald-500' : 'text-rose-500' }} flex items-center gap-1 mt-1 font-medium">
+                            <span>Margem real: {{ $kpis['margem_percent'] }}%</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
@@ -124,9 +126,9 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket Médio por OS</p>
-                        <p class="text-2xl font-bold text-foreground mt-1">R$ {{ number_format($kpis['ticket_medio'] ?? 461.25, 2, ',', '.') }}</p>
+                        <p class="text-2xl font-bold text-foreground mt-1">R$ {{ number_format($kpis['ticket_medio'], 2, ',', '.') }}</p>
                         <p class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <span>Com base em 40 ordens</span>
+                            <span>Com base em {{ $kpis['total_os'] }} {{ $kpis['total_os'] === 1 ? 'ordem' : 'ordens' }}</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-500">
@@ -145,45 +147,24 @@
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         Receitas por Serviço
                     </h3>
-                    <span class="text-xs text-muted-foreground">Top 4</span>
+                    <span class="text-xs text-muted-foreground">Top {{ $receitasPorServico->count() }}</span>
                 </div>
                 <div class="space-y-4">
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Vitrificação Cerâmica</span>
-                            <span class="text-muted-foreground">R$ 8.200 (44%)</span>
+                    @forelse($receitasPorServico as $rec)
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-foreground font-medium truncate pr-2">{{ $rec['nome'] }}</span>
+                                <span class="text-muted-foreground shrink-0">R$ {{ number_format($rec['valor'], 2, ',', '.') }} ({{ $rec['percent'] }}%)</span>
+                            </div>
+                            <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
+                                <div class="h-full rounded-full bg-emerald-500" style="width: {{ min($rec['percent'], 100) }}%"></div>
+                            </div>
                         </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-emerald-500" style="width: 44%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Polimento Técnico</span>
-                            <span class="text-muted-foreground">R$ 5.100 (28%)</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-emerald-500/80" style="width: 28%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Higienização Interna Completa</span>
-                            <span class="text-muted-foreground">R$ 3.250 (18%)</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-emerald-500/60" style="width: 18%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Lavagem Detalhada</span>
-                            <span class="text-muted-foreground">R$ 1.900 (10%)</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-emerald-500/40" style="width: 10%"></div>
-                        </div>
-                    </div>
+                    @empty
+                        <p class="text-xs text-muted-foreground text-center py-6">
+                            Nenhuma receita registrada no período selecionado.
+                        </p>
+                    @endforelse
                 </div>
             </x-card>
 
@@ -194,45 +175,24 @@
                         <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                         Despesas por Categoria
                     </h3>
-                    <span class="text-xs text-muted-foreground">Total: R$ 4.320</span>
+                    <span class="text-xs text-muted-foreground">Total: R$ {{ number_format($kpis['despesa_total'], 2, ',', '.') }}</span>
                 </div>
                 <div class="space-y-4">
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Reposição de Insumos & Produtos</span>
-                            <span class="text-muted-foreground">R$ 2.450 (57%)</span>
+                    @forelse($despesasPorCategoria as $desp)
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-foreground font-medium truncate pr-2">{{ $desp['categoria'] }}</span>
+                                <span class="text-muted-foreground shrink-0">R$ {{ number_format($desp['valor'], 2, ',', '.') }} ({{ $desp['percent'] }}%)</span>
+                            </div>
+                            <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
+                                <div class="h-full rounded-full bg-rose-500" style="width: {{ min($desp['percent'], 100) }}%"></div>
+                            </div>
                         </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-rose-500" style="width: 57%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Equipamentos & Manutenção</span>
-                            <span class="text-muted-foreground">R$ 980 (23%)</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-rose-500/80" style="width: 23%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Utilidades (Água / Luz)</span>
-                            <span class="text-muted-foreground">R$ 650 (15%)</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-rose-500/60" style="width: 15%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-foreground font-medium">Outros Custos Operacionais</span>
-                            <span class="text-muted-foreground">R$ 240.50 (5%)</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-rose-500/40" style="width: 5%"></div>
-                        </div>
-                    </div>
+                    @empty
+                        <p class="text-xs text-muted-foreground text-center py-6">
+                            Nenhuma despesa registrada no período selecionado.
+                        </p>
+                    @endforelse
                 </div>
             </x-card>
 
@@ -250,27 +210,46 @@
                     <div class="p-4 rounded-lg bg-secondary/40 border border-border space-y-3">
                         <div class="flex justify-between text-xs">
                             <span class="text-muted-foreground">Faturamento Bruto:</span>
-                            <span class="font-semibold text-foreground">R$ 18.450,00</span>
+                            <span class="font-semibold text-foreground">R$ {{ number_format($kpis['receita_total'], 2, ',', '.') }}</span>
                         </div>
                         <div class="flex justify-between text-xs">
                             <span class="text-muted-foreground">(-) Custos de Insumos:</span>
-                            <span class="font-medium text-rose-400">- R$ 2.450,00</span>
+                            <span class="font-medium text-rose-400">- R$ {{ number_format($kpis['despesa_insumos'], 2, ',', '.') }}</span>
                         </div>
                         <div class="flex justify-between text-xs">
-                            <span class="text-muted-foreground">(-) Despesas Administrativas:</span>
-                            <span class="font-medium text-rose-400">- R$ 1.870,50</span>
+                            <span class="text-muted-foreground">(-) Outras Despesas:</span>
+                            <span class="font-medium text-rose-400">- R$ {{ number_format($kpis['despesa_administrativa'], 2, ',', '.') }}</span>
                         </div>
                         <div class="border-t border-border pt-2 flex justify-between text-xs">
                             <span class="font-bold text-foreground">Resultado Líquido:</span>
-                            <span class="font-bold text-emerald-400">R$ 14.129,50</span>
+                            <span class="font-bold {{ $kpis['saldo_liquido'] >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
+                                R$ {{ number_format($kpis['saldo_liquido'], 2, ',', '.') }}
+                            </span>
                         </div>
                     </div>
                 </div>
 
+                @php
+                    $margem = $kpis['margem_percent'];
+                    if ($kpis['receita_total'] <= 0 && $kpis['despesa_total'] <= 0) {
+                        $statusRentabilidade = 'Sem movimentação (0%)';
+                        $badgeRentabilidadeClass = 'bg-secondary text-muted-foreground border-border';
+                    } elseif ($margem >= 50) {
+                        $statusRentabilidade = "Excelente ({$margem}%)";
+                        $badgeRentabilidadeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                    } elseif ($margem > 0) {
+                        $statusRentabilidade = "Positiva ({$margem}%)";
+                        $badgeRentabilidadeClass = 'bg-primary/10 text-primary border-primary/20';
+                    } else {
+                        $statusRentabilidade = "Negativa ({$margem}%)";
+                        $badgeRentabilidadeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                    }
+                @endphp
+
                 <div class="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs">
                     <span class="text-muted-foreground">Rentabilidade Operacional:</span>
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
-                        Excelente (76.5%)
+                    <span class="px-2 py-0.5 rounded-full font-semibold border {{ $badgeRentabilidadeClass }}">
+                        {{ $statusRentabilidade }}
                     </span>
                 </div>
             </x-card>
@@ -300,40 +279,35 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border text-xs">
-                        @php
-                            $lancamentosExemplo = $lancamentos ?? [
-                                ['data' => '11/09/2026 10:40', 'descricao' => 'Tarefa Concluída: Vitrificação Cerâmica (#OS-00042)', 'categoria' => 'Serviços Prestados', 'tipo' => 'receita', 'valor' => 1200.00],
-                                ['data' => '11/09/2026 09:15', 'descricao' => 'Compra de Microfibras & Aplicadores (10 un)', 'categoria' => 'Insumos', 'tipo' => 'despesa', 'valor' => 180.00],
-                                ['data' => '10/09/2026 16:30', 'descricao' => 'Tarefa Concluída: Polimento Técnico (#OS-00041)', 'categoria' => 'Serviços Prestados', 'tipo' => 'receita', 'valor' => 650.00],
-                                ['data' => '10/09/2026 14:00', 'descricao' => 'Tarefa Concluída: Higienização Interna (#OS-00040)', 'categoria' => 'Serviços Prestados', 'tipo' => 'receita', 'valor' => 380.00],
-                                ['data' => '09/09/2026 11:20', 'descricao' => 'Reabastecimento de Composto Polidor Corte 1L', 'categoria' => 'Insumos', 'tipo' => 'despesa', 'valor' => 240.00],
-                                ['data' => '08/09/2026 17:00', 'descricao' => 'Tarefa Concluída: Lavagem Detalhada (#OS-00039)', 'categoria' => 'Serviços Prestados', 'tipo' => 'receita', 'valor' => 180.00],
-                            ];
-                        @endphp
-
-                        @foreach($lancamentosExemplo as $item)
-                        <tr class="hover:bg-secondary/20 transition-colors">
-                            <td class="px-4 py-3 font-mono text-muted-foreground whitespace-nowrap">{{ $item['data'] }}</td>
-                            <td class="px-4 py-3 font-medium text-foreground">{{ $item['descricao'] }}</td>
-                            <td class="px-4 py-3 text-muted-foreground">{{ $item['categoria'] }}</td>
-                            <td class="px-4 py-3">
-                                @if($item['tipo'] === 'receita')
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        <x-icon name="arrow-up" class="w-3 h-3" />
-                                        Receita
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                                        <x-icon name="arrow-down" class="w-3 h-3" />
-                                        Despesa
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-right font-semibold {{ $item['tipo'] === 'receita' ? 'text-emerald-400' : 'text-rose-400' }}">
-                                {{ $item['tipo'] === 'receita' ? '+' : '-' }} R$ {{ number_format($item['valor'], 2, ',', '.') }}
-                            </td>
-                        </tr>
-                        @endforeach
+                        @forelse($lancamentos as $item)
+                            <tr class="hover:bg-secondary/20 transition-colors">
+                                <td class="px-4 py-3 font-mono text-muted-foreground whitespace-nowrap">{{ $item['data'] }}</td>
+                                <td class="px-4 py-3 font-medium text-foreground">{{ $item['descricao'] }}</td>
+                                <td class="px-4 py-3 text-muted-foreground">{{ $item['categoria'] }}</td>
+                                <td class="px-4 py-3">
+                                    @if($item['tipo'] === 'receita')
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            <x-icon name="arrow-up" class="w-3 h-3" />
+                                            Receita
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                            <x-icon name="arrow-down" class="w-3 h-3" />
+                                            Despesa
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-right font-semibold {{ $item['tipo'] === 'receita' ? 'text-emerald-400' : 'text-rose-400' }}">
+                                    {{ $item['tipo'] === 'receita' ? '+' : '-' }} R$ {{ number_format($item['valor'], 2, ',', '.') }}
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-4 py-8 text-center text-muted-foreground text-sm">
+                                    Nenhum lançamento financeiro registrado neste período.
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -348,7 +322,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agendamentos Totais</p>
-                        <p class="text-2xl font-bold text-foreground mt-1">{{ $kpis['total_agendamentos'] ?? 42 }}</p>
+                        <p class="text-2xl font-bold text-foreground mt-1">{{ $kpis['total_agendamentos'] }}</p>
                         <p class="text-xs text-muted-foreground mt-1">
                             <span>No período selecionado</span>
                         </p>
@@ -363,9 +337,9 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Taxa de Conclusão</p>
-                        <p class="text-2xl font-bold text-emerald-400 mt-1">95.2%</p>
+                        <p class="text-2xl font-bold text-emerald-400 mt-1">{{ $kpis['taxa_conclusao'] }}%</p>
                         <p class="text-xs text-muted-foreground mt-1">
-                            <span>40 concluídos / 2 cancelados</span>
+                            <span>{{ $kpis['agendamentos_concluidos'] }} concluídos / {{ $kpis['agendamentos_cancelados'] }} cancelados</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
@@ -378,9 +352,9 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tarefas Executadas</p>
-                        <p class="text-2xl font-bold text-foreground mt-1">78</p>
+                        <p class="text-2xl font-bold text-foreground mt-1">{{ $kpis['tarefas_executadas'] }}</p>
                         <p class="text-xs text-muted-foreground mt-1">
-                            <span>Média de 1.9 tarefas / OS</span>
+                            <span>Média de {{ $kpis['media_tarefas_por_os'] }} tarefas / OS</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
@@ -392,10 +366,10 @@
             <x-card class="border-l-4 border-l-indigo-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tempo Médio de Atendimento</p>
-                        <p class="text-2xl font-bold text-foreground mt-1">3h 45m</p>
-                        <p class="text-xs text-emerald-400 mt-1">
-                            <span>Dentro do prazo previsto</span>
+                        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tempo Médio de Tarefa</p>
+                        <p class="text-2xl font-bold text-foreground mt-1">{{ $kpis['tempo_medio_formatado'] }}</p>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            <span>Com base nas tarefas concluídas</span>
                         </p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500">
@@ -414,78 +388,40 @@
                             <x-icon name="award" class="w-4 h-4 text-primary" />
                             Serviços Mais Realizados
                         </h3>
-                        <p class="text-xs text-muted-foreground">Volume de execuções e tempo total investido na oficina.</p>
+                        <p class="text-xs text-muted-foreground">Volume de execuções e tempo total contratado no período.</p>
                     </div>
                 </div>
 
                 <div class="space-y-4">
-                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center justify-between text-xs mb-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="w-5 h-5 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px]">1</span>
-                                <span class="font-semibold text-foreground">Polimento Técnico Comercial</span>
+                    @forelse($servicosRanking as $idx => $srv)
+                        @php
+                            $larguraBarra = round(($srv['execucoes'] / $maxExecucoesServico) * 100);
+                        @endphp
+                        <div class="p-3 rounded-lg bg-secondary/30 border border-border">
+                            <div class="flex items-center justify-between text-xs mb-1.5">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px]">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                    <span class="font-semibold text-foreground">{{ $srv['nome'] }}</span>
+                                </div>
+                                <span class="font-bold text-foreground">
+                                    {{ $srv['execucoes'] }} {{ $srv['execucoes'] === 1 ? 'execução' : 'execuções' }}
+                                </span>
                             </div>
-                            <span class="font-bold text-foreground">18 execuções</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-primary" style="width: 85%"></div>
-                        </div>
-                        <div class="flex justify-between text-[11px] text-muted-foreground mt-1">
-                            <span>Tempo estimado total: 72h</span>
-                            <span class="text-emerald-400">R$ 9.900 gerados</span>
-                        </div>
-                    </div>
-
-                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center justify-between text-xs mb-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="w-5 h-5 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px]">2</span>
-                                <span class="font-semibold text-foreground">Higienização e Oxi-Sanitização Interna</span>
+                            <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
+                                <div class="h-full rounded-full bg-primary" style="width: {{ $larguraBarra }}%"></div>
                             </div>
-                            <span class="font-bold text-foreground">14 execuções</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-primary/80" style="width: 65%"></div>
-                        </div>
-                        <div class="flex justify-between text-[11px] text-muted-foreground mt-1">
-                            <span>Tempo estimado total: 35h</span>
-                            <span class="text-emerald-400">R$ 4.900 gerados</span>
-                        </div>
-                    </div>
-
-                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center justify-between text-xs mb-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="w-5 h-5 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px]">3</span>
-                                <span class="font-semibold text-foreground">Lavagem Detalhada Chassi & Motor</span>
+                            <div class="flex justify-between text-[11px] text-muted-foreground mt-1">
+                                <span>Tempo estimado total: {{ $srv['tempo_total_formatado'] }}</span>
+                                <span class="text-emerald-400">R$ {{ number_format($srv['valor_gerado'], 2, ',', '.') }} contratados</span>
                             </div>
-                            <span class="font-bold text-foreground">11 execuções</span>
                         </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-primary/60" style="width: 50%"></div>
+                    @empty
+                        <div class="text-center py-8 text-muted-foreground text-xs">
+                            Nenhum serviço agendado ou executado neste período.
                         </div>
-                        <div class="flex justify-between text-[11px] text-muted-foreground mt-1">
-                            <span>Tempo estimado total: 16h 30m</span>
-                            <span class="text-emerald-400">R$ 2.420 gerados</span>
-                        </div>
-                    </div>
-
-                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center justify-between text-xs mb-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="w-5 h-5 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[10px]">4</span>
-                                <span class="font-semibold text-foreground">Vitrificação de Pintura Cerâmica 9H</span>
-                            </div>
-                            <span class="font-bold text-foreground">7 execuções</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                            <div class="h-full rounded-full bg-primary/40" style="width: 32%"></div>
-                        </div>
-                        <div class="flex justify-between text-[11px] text-muted-foreground mt-1">
-                            <span>Tempo estimado total: 35h</span>
-                            <span class="text-emerald-400">R$ 8.400 gerados</span>
-                        </div>
-                    </div>
+                    @endforelse
                 </div>
             </x-card>
 
@@ -502,58 +438,36 @@
                 </div>
 
                 <div class="space-y-4">
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/20">
-                                CA
+                    @forelse($funcionarios as $func)
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm border border-primary/20">
+                                    {{ $func['iniciais'] }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-foreground">{{ $func['nome'] }}</p>
+                                    <p class="text-xs text-muted-foreground">{{ $func['cargo'] }}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-sm font-semibold text-foreground">Carlos Andrade</p>
-                                <p class="text-xs text-muted-foreground">Especialista em Polimento & Vitrificação</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm font-bold text-foreground">32 tarefas</p>
-                            <span class="text-[11px] text-emerald-400 font-medium">98% pontualidade</span>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-sm border border-sky-500/20">
-                                LS
-                            </div>
-                            <div>
-                                <p class="text-sm font-semibold text-foreground">Lucas Silva</p>
-                                <p class="text-xs text-muted-foreground">Técnico em Higienização Interna</p>
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-foreground">
+                                    {{ $func['tarefas_concluidas'] }} {{ $func['tarefas_concluidas'] === 1 ? 'tarefa concluída' : 'tarefas concluídas' }}
+                                </p>
+                                <span class="text-[11px] text-emerald-400 font-medium">
+                                    {{ $func['taxa_conclusao'] }}% de conclusão ({{ $func['tarefas_concluidas'] }}/{{ $func['tarefas_atribuidas'] }})
+                                </span>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-sm font-bold text-foreground">27 tarefas</p>
-                            <span class="text-[11px] text-emerald-400 font-medium">96% pontualidade</span>
+                    @empty
+                        <div class="text-center py-8 text-muted-foreground text-xs">
+                            Nenhum colaborador ativo encontrado.
                         </div>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-sm border border-purple-500/20">
-                                MR
-                            </div>
-                            <div>
-                                <p class="text-sm font-semibold text-foreground">Matheus Ramos</p>
-                                <p class="text-xs text-muted-foreground">Auxiliar de Estética & Lavagem Detalhada</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm font-bold text-foreground">19 tarefas</p>
-                            <span class="text-[11px] text-emerald-400 font-medium">100% pontualidade</span>
-                        </div>
-                    </div>
+                    @endforelse
                 </div>
 
                 <div class="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                     <span>Média da equipe no período:</span>
-                    <span class="font-semibold text-foreground">26 tarefas por colaborador</span>
+                    <span class="font-semibold text-foreground">{{ $kpis['media_tarefas_equipe'] }} tarefas por colaborador</span>
                 </div>
             </x-card>
         </div>
