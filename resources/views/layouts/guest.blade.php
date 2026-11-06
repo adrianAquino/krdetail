@@ -26,6 +26,11 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-background text-foreground antialiased min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-primary selection:text-primary-foreground relative overflow-x-hidden transition-colors duration-200">
+    <!-- Link de Acessibilidade para Pular Navegação -->
+    <a href="#conteudo-principal" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2.5 focus:text-xs focus:font-bold focus:text-primary-foreground focus:shadow-lg">
+        Pular para o formulário
+    </a>
+
     <!-- Efeito de brilho de fundo (radial gradient) -->
     <div class="fixed inset-0 pointer-events-none -z-10 flex items-center justify-center opacity-30">
         <div class="w-[600px] h-[600px] bg-primary/20 rounded-full blur-[140px]"></div>
@@ -55,7 +60,7 @@
         </p>
     </div>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
+    <main id="conteudo-principal" tabindex="-1" class="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 focus:outline-none">
         @if(session('success'))
             <div class="mb-4">
                 <x-alert type="success" :message="session('success')" dismissible />
@@ -75,6 +80,9 @@
         <p class="text-center text-xs text-muted-foreground mt-8">
             &copy; {{ date('Y') }} KR Detail. Todos os direitos reservados.
         </p>
-    </div>
+    </main>
+
+    <!-- Recursos de Acessibilidade: VLibras + Leitor de Voz (pt-BR) -->
+    <x-vlibras />
 </body>
 </html>

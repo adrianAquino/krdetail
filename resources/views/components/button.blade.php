@@ -29,17 +29,19 @@
     $variantClass = $variants[$variant] ?? $variants['primary'];
     $sizeClass = $sizes[$size] ?? $sizes['md'];
     $classes = "{$baseClass} {$variantClass} {$sizeClass}";
+
+    $ariaLabel = $attributes->get('aria-label') ?? $attributes->get('title');
 @endphp
 
 @if($href)
-    <a href="{{ $href }}" {{ $attributes->merge(['class' => $classes]) }}>
+    <a href="{{ $href }}" @if($ariaLabel) aria-label="{{ $ariaLabel }}" @endif {{ $attributes->merge(['class' => $classes]) }}>
         @if($icon)
             <x-icon :name="$icon" class="{{ $size === 'sm' || $size === 'icon-sm' ? 'w-3.5 h-3.5' : 'w-4 h-4' }}" />
         @endif
         {{ $slot }}
     </a>
 @else
-    <button type="{{ $type }}" {{ $attributes->merge(['class' => $classes]) }}>
+    <button type="{{ $type }}" @if($ariaLabel) aria-label="{{ $ariaLabel }}" @endif {{ $attributes->merge(['class' => $classes]) }}>
         @if($icon)
             <x-icon :name="$icon" class="{{ $size === 'sm' || $size === 'icon-sm' ? 'w-3.5 h-3.5' : 'w-4 h-4' }}" />
         @endif

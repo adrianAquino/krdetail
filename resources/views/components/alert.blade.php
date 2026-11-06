@@ -23,7 +23,7 @@
     $cfg = $configs[$type] ?? $configs['info'];
 @endphp
 
-<div {{ $attributes->merge(['class' => "flex items-start gap-3 p-4 rounded-xl border {$cfg['class']}"]) }}>
+<div role="alert" aria-live="polite" {{ $attributes->merge(['class' => "flex items-start gap-3 p-4 rounded-xl border {$cfg['class']}"]) }}>
     <x-icon :name="$cfg['icon']" class="w-5 h-5 shrink-0 mt-0.5" />
     <div class="flex-1 text-sm">
         @if($title)
@@ -36,7 +36,7 @@
         @endif
     </div>
     @if($dismissible)
-        <button type="button" onclick="this.parentElement.remove()" class="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+        <button type="button" onclick="this.parentElement.remove()" aria-label="Fechar alerta" class="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
             <x-icon name="x" class="w-4 h-4" />
         </button>
     @endif
