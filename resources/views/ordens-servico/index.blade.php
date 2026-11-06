@@ -42,55 +42,7 @@
         </div>
     </div>
 
-    @php
-        $ordensDemo = $ordensServico ?? [
-            (object)[
-                'id' => 15,
-                'numero' => 'OS-00015',
-                'data_inicio' => now()->setHour(9)->setMinute(0),
-                'data_fim' => null,
-                'status' => 'em_andamento',
-                'tarefas_concluidas' => 2,
-                'tarefas_total' => 3,
-                'agendamento' => (object)[
-                    'id' => 1,
-                    'cliente' => (object)['nome' => 'Lucas Guimarães', 'telefone' => '(11) 98765-4321'],
-                    'veiculo' => (object)['marca' => 'BMW', 'modelo' => '320i M Sport', 'placa' => 'BRA2E19'],
-                ],
-                'servicos_nomes' => 'Polimento Técnico + Vitrificação + Higienização'
-            ],
-            (object)[
-                'id' => 14,
-                'numero' => 'OS-00014',
-                'data_inicio' => now()->subDays(2)->setHour(8)->setMinute(30),
-                'data_fim' => now()->subDays(2)->setHour(12)->setMinute(0),
-                'status' => 'concluida',
-                'tarefas_concluidas' => 2,
-                'tarefas_total' => 2,
-                'agendamento' => (object)[
-                    'id' => 4,
-                    'cliente' => (object)['nome' => 'Juliana Ferreira', 'telefone' => '(11) 98456-7890'],
-                    'veiculo' => (object)['marca' => 'Volvo', 'modelo' => 'XC60 Recharge', 'placa' => 'VOL6C30'],
-                ],
-                'servicos_nomes' => 'Descontaminação Ferrosa + Selante Sintético'
-            ],
-            (object)[
-                'id' => 16,
-                'numero' => 'OS-00016',
-                'data_inicio' => now()->setHour(14)->setMinute(0),
-                'data_fim' => null,
-                'status' => 'aberta',
-                'tarefas_concluidas' => 0,
-                'tarefas_total' => 2,
-                'agendamento' => (object)[
-                    'id' => 2,
-                    'cliente' => (object)['nome' => 'Marina Silveira', 'telefone' => '(11) 97123-8890'],
-                    'veiculo' => (object)['marca' => 'Audi', 'modelo' => 'Q3 Black Edition', 'placa' => 'KRX8A42'],
-                ],
-                'servicos_nomes' => 'Higienização Interna Completa + Ozônio'
-            ],
-        ];
-    @endphp
+
 
     <x-card class="p-0">
         <x-table>
@@ -105,7 +57,7 @@
                 </tr>
             </x-slot:header>
 
-            @forelse($ordensDemo as $os)
+            @forelse($ordensServico as $os)
                 @php
                     $progressoPorcentagem = $os->tarefas_total > 0 ? round(($os->tarefas_concluidas / $os->tarefas_total) * 100) : 0;
                 @endphp
