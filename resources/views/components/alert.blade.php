@@ -1,4 +1,4 @@
-@props(['type' => 'info', 'title' => null])
+@props(['type' => 'info', 'title' => null, 'message' => null, 'dismissible' => false])
 
 @php
     $configs = [
@@ -27,8 +27,17 @@
     <x-icon :name="$cfg['icon']" class="w-5 h-5 shrink-0 mt-0.5" />
     <div class="flex-1 text-sm">
         @if($title)
-            <h4 class="font-semibold mb-1 text-foreground">{{ $title }}</h4>
+            <h4 class="font-semibold {{ ($message || !$slot->isEmpty()) ? 'mb-1' : '' }} text-foreground">{{ $title }}</h4>
         @endif
-        <div class="text-foreground/90 leading-relaxed">{{ $slot }}</div>
+        @if($message)
+            <div class="text-foreground/90 leading-relaxed">{{ $message }}</div>
+        @elseif(!$slot->isEmpty())
+            <div class="text-foreground/90 leading-relaxed">{{ $slot }}</div>
+        @endif
     </div>
+    @if($dismissible)
+        <button type="button" onclick="this.parentElement.remove()" class="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+            <x-icon name="x" class="w-4 h-4" />
+        </button>
+    @endif
 </div>
