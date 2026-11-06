@@ -8,6 +8,7 @@ use App\Models\Funcionario;
 use App\Models\LancamentoFinanceiro;
 use App\Models\OrdemServico;
 use App\Models\Tarefa;
+use App\Models\TarefaProduto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -53,8 +54,17 @@ class RelatorioController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        // 1.1 Custos de Produtos/Insumos Consumidos nas Tarefas no Período (tabela tarefa_produto)
+        $consumosTarefasPeriodo = TarefaProduto::with(['produto', 'tarefa.ordemServico', 'tarefa.agendamentoServico.servico'])
+            ->whereBetween('created_at', [$inicioPeriodo, $fimPeriodo])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $custoInsumosTarefas = (float) $consumosTarefasPeriodo->sum(fn ($tp) => $tp->custo_total);
+
         $receitaTotal = (float) $lancamentosPeriodo->where('tipo', 'receita')->sum('valor');
-        $despesaTotal = (float) $lancamentosPeriodo->where('tipo', 'despesa')->sum('valor');
+        $despesasLancadas = (float) $lancamentosPeriodo->where('tipo', 'despesa')->sum('valor');
+        $despesaTotal = $despesasLancadas + $custoInsumosTarefas;
         $saldoLiquido = $receitaTotal - $despesaTotal;
 
         $receitaAnterior = (float) LancamentoFinanceiro::where('tipo', 'receita')
@@ -97,11 +107,29 @@ class RelatorioController extends Controller
             ->take(4)
             ->values();
 
-        // 4. Despesas por Categoria e Separação Insumos vs Outras
+        // 4. Despesas por Categoria (Unificando Despesas Lançadas + Insumos Consumidos nas Tarefas)
         $despesasCollection = $lancamentosPeriodo->where('tipo', 'despesa');
 
-        $despesasPorCategoria = $despesasCollection
-            ->groupBy(fn ($item) => $item->categoria ?: 'Outras Despesas')
+        // Agrupa insumos consumidos por produto para detalhamento nas categorias de despesa
+        $itensDespesaUnificados = collect();
+
+        foreach ($despesasCollection as $item) {
+            $itensDespesaUnificados->push([
+                'categoria' => $item->categoria ?: 'Outras Despesas',
+                'valor' => (float) $item->valor,
+            ]);
+        }
+
+        foreach ($consumosTarefasPeriodo as $tp) {
+            $nomeProduto = $tp->produto?->nome ?? 'Insumo';
+            $itensDespesaUnificados->push([
+                'categoria' => "Insumo: {$nomeProduto}",
+                'valor' => $tp->custo_total,
+            ]);
+        }
+
+        $despesasPorCategoria = $itensDespesaUnificados
+            ->groupBy('categoria')
             ->map(function ($grupo, $categoria) use ($despesaTotal) {
                 $valor = (float) $grupo->sum('valor');
                 $percent = $despesaTotal > 0 ? round(($valor / $despesaTotal) * 100, 1) : 0.0;
@@ -116,16 +144,18 @@ class RelatorioController extends Controller
             ->take(4)
             ->values();
 
-        $despesaInsumos = (float) $despesasCollection->filter(function ($item) {
+        $despesaInsumosLancadas = (float) $despesasCollection->filter(function ($item) {
             $cat = mb_strtolower((string) $item->categoria);
             return str_contains($cat, 'insumo') || str_contains($cat, 'estoque') || str_contains($cat, 'produto');
         })->sum('valor');
 
+        $despesaInsumos = $custoInsumosTarefas + $despesaInsumosLancadas;
         $despesaAdministrativa = max(0.0, $despesaTotal - $despesaInsumos);
 
-        // 5. Extrato de Lançamentos Financeiros
-        $lancamentos = $lancamentosPeriodo->take(20)->map(function ($item) {
+        // 5. Extrato de Lançamentos Financeiros (Receitas + Despesas Manuais + Consumo de Insumos em Tarefas)
+        $extratoLancamentos = $lancamentosPeriodo->map(function ($item) {
             return [
+                'timestamp' => Carbon::parse($item->data_lancamento)->endOfDay()->timestamp,
                 'data' => Carbon::parse($item->data_lancamento)->format('d/m/Y'),
                 'descricao' => $item->descricao,
                 'categoria' => $item->categoria,
@@ -133,6 +163,30 @@ class RelatorioController extends Controller
                 'valor' => (float) $item->valor,
             ];
         });
+
+        $extratoConsumos = $consumosTarefasPeriodo->map(function ($tp) {
+            $produtoNome = $tp->produto?->nome ?? 'Produto';
+            $unidade = $tp->produto?->unidade_medida ?? 'un';
+            $qtdFormatada = rtrim(rtrim(number_format((float) $tp->quantidade_utilizada, 3, ',', '.'), '0'), ',');
+            $numeroOS = $tp->tarefa?->ordemServico?->numero ?? ('Tarefa #' . $tp->tarefa_id);
+            $servicoNome = $tp->tarefa?->agendamentoServico?->servico?->nome;
+            $complemento = $servicoNome ? "{$servicoNome} ({$numeroOS})" : $numeroOS;
+
+            return [
+                'timestamp' => $tp->created_at ? $tp->created_at->timestamp : now()->timestamp,
+                'data' => $tp->created_at ? $tp->created_at->format('d/m/Y') : now()->format('d/m/Y'),
+                'descricao' => "Consumo de Insumo: {$produtoNome} ({$qtdFormatada} {$unidade}) — {$complemento}",
+                'categoria' => 'Insumos (Tarefas)',
+                'tipo' => 'despesa',
+                'valor' => $tp->custo_total,
+            ];
+        });
+
+        $lancamentos = $extratoLancamentos
+            ->concat($extratoConsumos)
+            ->sortByDesc('timestamp')
+            ->take(25)
+            ->values();
 
         // 6. Métricas Operacionais no Período
         $agendamentosPeriodoQuery = Agendamento::whereBetween('data_inicio', [$inicioPeriodo, $fimPeriodo]);

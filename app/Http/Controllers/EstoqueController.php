@@ -12,14 +12,22 @@ class EstoqueController extends Controller
 {
     public function index(Request $request)
     {
-        $produtos = Produto::orderBy('nome', 'asc')->get();
+        $todosProdutos = Produto::orderBy('nome', 'asc')->get();
 
-        $totalItens = $produtos->count();
-        $itensCriticos = $produtos->filter(fn ($p) => $p->quantidade_estoque <= $p->estoque_minimo)->count();
-        $valorTotalEstoque = $produtos->sum(fn ($p) => $p->valor_total_estoque);
+        $produtosAtivos = $todosProdutos->where('ativo', true)->values();
+        $produtosInativos = $todosProdutos->where('ativo', false)->values();
+
+        $totalItens = $todosProdutos->count();
+        $itensAtivos = $produtosAtivos->count();
+        $itensInativos = $produtosInativos->count();
+
+        $itensCriticos = $produtosAtivos->filter(fn ($p) => $p->quantidade_estoque <= $p->estoque_minimo)->count();
+        $valorTotalEstoque = $produtosAtivos->sum(fn ($p) => $p->valor_total_estoque);
 
         $kpis = [
             'total_itens' => $totalItens,
+            'itens_ativos' => $itensAtivos,
+            'itens_inativos' => $itensInativos,
             'itens_criticos' => $itensCriticos,
             'valor_total_estoque' => $valorTotalEstoque,
         ];
@@ -30,7 +38,14 @@ class EstoqueController extends Controller
 
         $tabAtiva = $request->query('tab', 'produtos');
 
-        return view('estoque.index', compact('produtos', 'kpis', 'movimentacoes', 'tabAtiva'));
+        return view('estoque.index', [
+            'produtos' => $produtosAtivos,
+            'produtosAtivos' => $produtosAtivos,
+            'produtosInativos' => $produtosInativos,
+            'kpis' => $kpis,
+            'movimentacoes' => $movimentacoes,
+            'tabAtiva' => $tabAtiva,
+        ]);
     }
 
     public function movimentar(Request $request, MovimentarEstoqueService $service)

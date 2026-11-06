@@ -24,9 +24,13 @@
         <x-card>
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-muted-foreground uppercase">Total de Produtos</p>
+                    <p class="text-xs font-semibold text-muted-foreground uppercase">Total no Catálogo</p>
                     <p class="text-3xl font-extrabold text-foreground mt-1">{{ $kpis['total_itens'] }}</p>
-                    <p class="text-xs text-muted-foreground mt-0.5">Cadastrados no catálogo</p>
+                    <p class="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                        <span class="text-success font-semibold">{{ $kpis['itens_ativos'] }} {{ $kpis['itens_ativos'] === 1 ? 'ativo' : 'ativos' }}</span>
+                        <span>•</span>
+                        <span class="text-muted-foreground font-semibold">{{ $kpis['itens_inativos'] }} {{ $kpis['itens_inativos'] === 1 ? 'inativo' : 'inativos' }}</span>
+                    </p>
                 </div>
                 <div class="p-3 rounded-xl bg-chart-1/10 text-chart-1">
                     <x-icon name="package" class="w-6 h-6" />
@@ -39,7 +43,7 @@
                 <div>
                     <p class="text-xs font-semibold {{ $kpis['itens_criticos'] > 0 ? 'text-destructive' : 'text-muted-foreground' }} uppercase">Itens em Alerta</p>
                     <p class="text-3xl font-extrabold {{ $kpis['itens_criticos'] > 0 ? 'text-destructive' : 'text-foreground' }} mt-1">{{ $kpis['itens_criticos'] }}</p>
-                    <p class="text-xs text-muted-foreground mt-0.5">Abaixo do estoque mínimo</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Produtos ativos abaixo do mínimo</p>
                 </div>
                 <div class="p-3 rounded-xl {{ $kpis['itens_criticos'] > 0 ? 'bg-destructive/20 text-destructive' : 'bg-secondary text-muted-foreground' }}">
                     <x-icon name="alert-triangle" class="w-6 h-6" />
@@ -52,7 +56,7 @@
                 <div>
                     <p class="text-xs font-semibold text-muted-foreground uppercase">Valor em Estoque</p>
                     <p class="text-2xl font-extrabold text-primary mt-1">R$ {{ number_format($kpis['valor_total_estoque'], 2, ',', '.') }}</p>
-                    <p class="text-xs text-muted-foreground mt-0.5">Proporcional ao volume disponível</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Proporcional ao volume ativo disponível</p>
                 </div>
                 <div class="p-3 rounded-xl bg-primary/10 text-primary">
                     <x-icon name="dollar-sign" class="w-6 h-6" />
@@ -63,13 +67,20 @@
 
     <!-- Tabs Navigation -->
     <div class="border-b border-border mb-6">
-        <nav class="flex space-x-6 text-sm font-medium">
+        <nav class="flex flex-wrap gap-6 text-sm font-medium">
             <a
                 href="{{ route('estoque.index', ['tab' => 'produtos']) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'produtos' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="package" class="w-4 h-4" />
-                Produtos em Estoque ({{ $kpis['total_itens'] }})
+                Produtos Disponíveis em Estoque ({{ $kpis['itens_ativos'] }})
+            </a>
+            <a
+                href="{{ route('estoque.index', ['tab' => 'inativos']) }}"
+                class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'inativos' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
+            >
+                <x-icon name="ban" class="w-4 h-4" />
+                Produtos Inativos ({{ $kpis['itens_inativos'] }})
             </a>
             <a
                 href="{{ route('estoque.index', ['tab' => 'movimentacoes']) }}"
@@ -81,10 +92,10 @@
         </nav>
     </div>
 
-    <!-- Tab 1: Produtos e Níveis de Estoque -->
+    <!-- Tab 1: Produtos Ativos e Níveis de Estoque -->
     @if($tabAtiva === 'produtos')
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            @foreach($produtos as $prod)
+            @forelse($produtosAtivos as $prod)
                 @php
                     $isCritico = $prod->quantidade_estoque <= ($prod->estoque_minimo * 0.5);
                     $isBaixo = $prod->quantidade_estoque <= $prod->estoque_minimo;
@@ -150,11 +161,84 @@
                         </div>
                     </div>
                 </x-card>
-            @endforeach
+            @empty
+                <div class="sm:col-span-2 lg:col-span-3">
+                    <x-card>
+                        <div class="text-center py-10 text-muted-foreground text-sm">
+                            Nenhum produto ativo cadastrado no estoque.
+                        </div>
+                    </x-card>
+                </div>
+            @endforelse
         </div>
     @endif
 
-    <!-- Tab 2: Histórico de Movimentações -->
+    <!-- Tab 2: Produtos Inativos -->
+    @if($tabAtiva === 'inativos')
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @forelse($produtosInativos as $prod)
+                @php
+                    $volUnit = (float) ($prod->volume_unitario ?? 1);
+                    $volEstoque = (float) $prod->quantidade_estoque;
+                    $volMinimo = (float) $prod->estoque_minimo;
+                @endphp
+                <x-card class="opacity-75 border-dashed">
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                            <a href="{{ route('produtos.show', $prod->id) }}" class="font-bold text-base text-foreground hover:text-primary transition-colors block">
+                                {{ $prod->nome }}
+                            </a>
+                            <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                                Embalagem: {{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }} / un.
+                            </p>
+                        </div>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-secondary text-muted-foreground border border-border">
+                            Inativo
+                        </span>
+                    </div>
+
+                    <div class="mt-4 p-3 rounded-lg bg-secondary/20 border border-border space-y-2">
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-xs text-muted-foreground">Saldo Remanescente:</span>
+                            <span class="text-sm font-bold text-foreground">
+                                {{ $prod->unidades_estoque }} un. ({{ rtrim(rtrim(number_format($volEstoque, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }})
+                            </span>
+                        </div>
+
+                        <div class="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                            <span>Mín: {{ $prod->unidades_minimas }} un. ({{ rtrim(rtrim(number_format($volMinimo, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }})</span>
+                            <span>Custo: R$ {{ number_format($prod->custo_unitario, 2, ',', '.') }}/un.</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-4 pt-3 border-t border-border/60">
+                        <span class="text-xs text-muted-foreground">
+                            Bloqueado para novas movimentações
+                        </span>
+
+                        <div class="flex items-center gap-1">
+                            <x-button href="{{ route('produtos.show', $prod->id) }}" variant="ghost" size="sm" icon="eye">
+                                Ficha
+                            </x-button>
+                            <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="secondary" size="sm" icon="pencil">
+                                Reativar / Editar
+                            </x-button>
+                        </div>
+                    </div>
+                </x-card>
+            @empty
+                <div class="sm:col-span-2 lg:col-span-3">
+                    <x-card>
+                        <div class="text-center py-10 text-muted-foreground text-sm">
+                            Nenhum produto inativo no catálogo.
+                        </div>
+                    </x-card>
+                </div>
+            @endforelse
+        </div>
+    @endif
+
+    <!-- Tab 3: Histórico de Movimentações -->
     @if($tabAtiva === 'movimentacoes')
         <x-card class="p-0">
             <x-table>
@@ -222,7 +306,7 @@
 
             <div>
                 <x-select name="produto_id" label="Produto" required>
-                    @foreach($produtos as $p)
+                    @foreach($produtosAtivos as $p)
                         @php
                             $vEst = rtrim(rtrim(number_format((float) $p->quantidade_estoque, 3, ',', '.'), '0'), ',');
                             $vUnit = rtrim(rtrim(number_format((float) ($p->volume_unitario ?? 1), 3, ',', '.'), '0'), ',');
