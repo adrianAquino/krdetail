@@ -38,10 +38,10 @@ class ServicoController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nome' => 'required|string|max:255',
-            'descricao' => 'nullable|string',
-            'preco_base' => 'required|numeric|min:0',
-            'tempo_estimado_minutos' => 'required|integer|min:1',
+            'nome' => 'required|string|max:100',
+            'descricao' => 'nullable|string|max:500',
+            'preco_base' => 'required|numeric|min:0|max:99999.99',
+            'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
             'ativo' => 'sometimes|boolean',
         ]);
 
@@ -60,10 +60,10 @@ class ServicoController extends Controller
     public function update(Request $request, Servico $servico)
     {
         $validated = $request->validate([
-            'nome' => 'required|string|max:255',
-            'descricao' => 'nullable|string',
-            'preco_base' => 'required|numeric|min:0',
-            'tempo_estimado_minutos' => 'required|integer|min:1',
+            'nome' => 'required|string|max:100',
+            'descricao' => 'nullable|string|max:500',
+            'preco_base' => 'required|numeric|min:0|max:99999.99',
+            'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
             'ativo' => 'sometimes|boolean',
         ]);
 

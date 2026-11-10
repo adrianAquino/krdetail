@@ -82,14 +82,19 @@ class AgendamentoController extends Controller
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
             'veiculo_id' => 'required|exists:veiculos,id',
-            'data_inicio' => 'required|date',
+            'data_inicio' => 'required|date|after_or_equal:' . now()->subMinutes(1)->format('Y-m-d H:i:s'),
             'data_fim' => 'nullable|date|after_or_equal:data_inicio',
             'status' => 'nullable|in:agendado,confirmado,em_andamento,concluido,cancelado',
             'origem' => 'nullable|string|max:50',
-            'observacoes' => 'nullable|string',
+            'observacoes' => 'nullable|string|max:500',
             'servicos' => 'required|array|min:1',
             'servicos.*.servico_id' => 'required|exists:servicos,id',
         ], [
+            'data_inicio.required' => 'Informe a data e o horário de início do agendamento.',
+            'data_inicio.date' => 'Informe uma data e horário válidos.',
+            'data_inicio.after_or_equal' => 'A data e o horário de início não podem ser inferiores à data e horário atuais.',
+            'data_fim.date' => 'Informe uma data e horário de conclusão válidos.',
+            'data_fim.after_or_equal' => 'A previsão de conclusão não pode ser anterior à data de início.',
             'servicos.required' => 'Selecione pelo menos um serviço para o agendamento.',
             'servicos.min' => 'Selecione pelo menos um serviço para o agendamento.',
         ]);
@@ -184,11 +189,17 @@ class AgendamentoController extends Controller
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
             'veiculo_id' => 'required|exists:veiculos,id',
-            'data_inicio' => 'required|date',
+            'data_inicio' => 'required|date|after_or_equal:' . now()->subMinutes(1)->format('Y-m-d H:i:s'),
             'data_fim' => 'nullable|date|after_or_equal:data_inicio',
             'status' => 'required|in:agendado,confirmado,em_andamento,concluido,cancelado',
             'origem' => 'nullable|string|max:50',
-            'observacoes' => 'nullable|string',
+            'observacoes' => 'nullable|string|max:500',
+        ], [
+            'data_inicio.required' => 'Informe a data e o horário de início do agendamento.',
+            'data_inicio.date' => 'Informe uma data e horário válidos.',
+            'data_inicio.after_or_equal' => 'A data e o horário de início não podem ser inferiores à data e horário atuais.',
+            'data_fim.date' => 'Informe uma data e horário de conclusão válidos.',
+            'data_fim.after_or_equal' => 'A previsão de conclusão não pode ser anterior à data de início.',
         ]);
 
         $veiculo = Veiculo::findOrFail($validated['veiculo_id']);

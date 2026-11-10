@@ -14,6 +14,7 @@
         label="E-mail" 
         placeholder="Insira seu e-mail" 
         value="{{ old('email') }}" 
+        maxlength="100"
         required 
         autofocus 
     />
@@ -24,6 +25,7 @@
         label="Senha" 
         placeholder="Insira sua senha" 
         value="{{ old('password') }}" 
+        maxlength="64"
         required 
     />
 

@@ -84,7 +84,7 @@ class TarefaController extends Controller
     {
         $validated = $request->validate([
             'produto_id' => 'required|exists:produtos,id',
-            'quantidade_utilizada' => 'required|numeric|min:0.001',
+            'quantidade_utilizada' => 'required|numeric|min:0.001|max:999999',
         ]);
 
         try {

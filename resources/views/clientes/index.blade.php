@@ -13,13 +13,17 @@
     <!-- Filters & Search Bar -->
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('clientes.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(request('acesso'))
+                <input type="hidden" name="acesso" value="{{ request('acesso') }}" />
+            @endif
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
+                maxlength="100"
                 placeholder="Buscar por nome, telefone, CPF ou e-mail..."
                 icon="search"
             />
-            @if(request('busca'))
+            @if(request('busca') || request('acesso'))
                 <x-button href="{{ route('clientes.index') }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
@@ -28,16 +32,22 @@
 
         <div class="flex items-center gap-2">
             <a
-                href="{{ route('clientes.index', ['acesso' => 'ativo']) }}"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('acesso') === 'ativo' ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
+                href="{{ route('clientes.index', array_filter(['busca' => request('busca')])) }}"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ !request('acesso') ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
+            >
+                Todos
+            </a>
+            <a
+                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'acesso' => 'ativo'])) }}"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('acesso') === 'ativo' ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Acesso Ativo
             </a>
             <a
-                href="{{ route('clientes.index', ['acesso' => 'sem_acesso']) }}"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('acesso') === 'sem_acesso' ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
+                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'acesso' => 'sem_acesso'])) }}"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ in_array(request('acesso'), ['sem_acesso', 'inativo'], true) ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
-                Sem Acesso
+                Sem Acesso / Inativo
             </a>
         </div>
     </div>
@@ -93,8 +103,10 @@
                     </td>
 
                     <td class="py-3.5 px-4 text-center">
-                        @if($cliente->user_id)
+                        @if($cliente->user_id && ($cliente->user?->ativo ?? true))
                             <x-badge-status status="acesso_ativo" label="Acesso Ativo" />
+                        @elseif($cliente->user_id)
+                            <x-badge-status status="inativo" label="Acesso Inativo" />
                         @else
                             <x-badge-status status="sem_acesso" label="Sem Acesso" />
                         @endif

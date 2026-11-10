@@ -21,6 +21,7 @@
                             name="nome"
                             label="Nome do Produto / Insumo"
                             placeholder="Ex: Composto Polidor Médio V40"
+                            maxlength="100"
                             required
                         />
                     </div>
@@ -30,6 +31,7 @@
                             name="descricao"
                             label="Descrição / Especificações"
                             placeholder="Finalidade, marca, diluição recomendada..."
+                            maxlength="500"
                             rows="3"
                         />
                     </div>
@@ -50,6 +52,7 @@
                                 type="number"
                                 step="0.001"
                                 min="0.001"
+                                max="999999"
                                 name="volume_unitario"
                                 id="volume_unitario"
                                 label="Volume / Conteúdo de 1 Unidade"
@@ -70,6 +73,7 @@
                             type="number"
                             step="1"
                             min="0"
+                            max="99999"
                             name="quantidade_unidades"
                             id="quantidade_unidades"
                             label="Qtd. de Unidades (Frascos)"
@@ -85,6 +89,7 @@
                             type="number"
                             step="1"
                             min="0"
+                            max="99999"
                             name="estoque_minimo_unidades"
                             id="estoque_minimo_unidades"
                             label="Estoque Mínimo (Unidades)"
@@ -100,6 +105,7 @@
                             type="number"
                             step="0.01"
                             min="0"
+                            max="999999.99"
                             name="custo_unitario"
                             id="custo_unitario"
                             label="Custo por Unidade (R$)"

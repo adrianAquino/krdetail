@@ -49,7 +49,8 @@
                                 label="Placa do Veículo"
                                 :value="$veiculo->placa ?? ''"
                                 class="uppercase font-mono tracking-wider font-bold"
-                                maxlength="10"
+                                minlength="7"
+                                maxlength="8"
                                 required
                             />
                         </div>
@@ -60,6 +61,8 @@
                                 type="number"
                                 label="Ano"
                                 :value="$veiculo->ano ?? ''"
+                                min="1950"
+                                max="{{ date('Y') + 1 }}"
                             />
                         </div>
                     </div>
@@ -74,6 +77,7 @@
                                 name="marca"
                                 label="Marca"
                                 :value="$veiculo->marca ?? ''"
+                                maxlength="50"
                                 required
                             />
                         </div>
@@ -83,6 +87,7 @@
                                 name="modelo"
                                 label="Modelo"
                                 :value="$veiculo->modelo ?? ''"
+                                maxlength="80"
                                 required
                             />
                         </div>
@@ -93,6 +98,7 @@
                             name="cor"
                             label="Cor / Acabamento"
                             :value="$veiculo->cor ?? ''"
+                            maxlength="40"
                         />
                     </div>
 
@@ -101,6 +107,7 @@
                             name="observacoes"
                             label="Observações / Cuidados Especiais"
                             :value="$veiculo->observacoes ?? ''"
+                            maxlength="500"
                             rows="3"
                         />
                     </div>

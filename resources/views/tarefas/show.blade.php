@@ -245,6 +245,7 @@
                         type="number"
                         step="0.001"
                         min="0.001"
+                        max="999999"
                         name="quantidade_utilizada"
                         label="Volume Utilizado na Tarefa"
                         placeholder="Ex: 150 (em ml/g) ou 0.250 (em L/kg)"

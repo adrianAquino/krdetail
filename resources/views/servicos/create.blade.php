@@ -21,6 +21,7 @@
                             name="nome"
                             label="Nome do Serviço"
                             placeholder="Ex: Polimento Técnico Comercial"
+                            maxlength="100"
                             required
                         />
                     </div>
@@ -30,6 +31,7 @@
                             name="descricao"
                             label="Descrição Completa do Procedimento"
                             placeholder="Descreva as etapas técnicas, benefícios e produtos aplicados..."
+                            maxlength="500"
                             rows="4"
                         />
                     </div>
@@ -40,6 +42,7 @@
                                 type="number"
                                 step="0.01"
                                 min="0"
+                                max="99999.99"
                                 name="preco_base"
                                 label="Preço Base Sugerido (R$)"
                                 placeholder="0,00"
@@ -52,6 +55,7 @@
                             <x-input
                                 type="number"
                                 min="10"
+                                max="1440"
                                 step="5"
                                 name="tempo_estimado_minutos"
                                 label="Tempo Estimado (em minutos)"

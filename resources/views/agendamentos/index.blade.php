@@ -20,6 +20,7 @@
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
+                maxlength="100"
                 :placeholder="$isCliente ? 'Buscar por placa ou veículo...' : 'Buscar por cliente, placa ou veículo...'"
                 icon="search"
             />

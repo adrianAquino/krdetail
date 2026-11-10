@@ -26,6 +26,8 @@
                             name="nome"
                             label="Nome Completo / Razão Social"
                             :value="$cliente->nome ?? ''"
+                            minlength="3"
+                            maxlength="100"
                             required
                         />
                     </div>
@@ -35,6 +37,8 @@
                             name="cpf_cnpj"
                             label="CPF ou CNPJ"
                             :value="$cliente->cpf_cnpj ?? ''"
+                            maxlength="18"
+                            placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         />
                     </div>
 
@@ -43,6 +47,8 @@
                             name="telefone"
                             label="Telefone / WhatsApp"
                             :value="$cliente->telefone ?? ''"
+                            minlength="10"
+                            maxlength="15"
                             required
                         />
                     </div>
@@ -53,6 +59,7 @@
                             name="email"
                             label="E-mail"
                             :value="$cliente->email ?? ''"
+                            maxlength="100"
                         />
                     </div>
                 </div>
@@ -66,6 +73,10 @@
                             name="cep"
                             label="CEP"
                             :value="$cliente->cep ?? ''"
+                            maxlength="9"
+                            placeholder="00000-000"
+                            id="cep"
+                            onblur="pesquisacep(this.value);"
                         />
                     </div>
 
@@ -74,6 +85,8 @@
                             name="logradouro"
                             label="Logradouro"
                             :value="$cliente->logradouro ?? ''"
+                            maxlength="100"
+                            id="rua"
                         />
                     </div>
 
@@ -82,6 +95,7 @@
                             name="numero"
                             label="Número"
                             :value="$cliente->numero ?? ''"
+                            maxlength="10"
                         />
                     </div>
 
@@ -90,6 +104,7 @@
                             name="complemento"
                             label="Complemento"
                             :value="$cliente->complemento ?? ''"
+                            maxlength="100"
                         />
                     </div>
 
@@ -98,6 +113,8 @@
                             name="bairro"
                             label="Bairro"
                             :value="$cliente->bairro ?? ''"
+                            maxlength="100"
+                            id="bairro"
                         />
                     </div>
 
@@ -106,6 +123,8 @@
                             name="cidade"
                             label="Cidade"
                             :value="$cliente->cidade ?? ''"
+                            maxlength="100"
+                            id="cidade"
                         />
                     </div>
 
@@ -115,6 +134,7 @@
                             label="UF"
                             :value="$cliente->estado ?? ''"
                             maxlength="2"
+                            id="uf"
                         />
                     </div>
                 </div>
@@ -163,12 +183,16 @@
                                 type="password"
                                 name="password"
                                 label="Senha de Acesso"
+                                minlength="8"
+                                maxlength="64"
                                 placeholder="Mínimo 8 caracteres"
                             />
                             <x-input
                                 type="password"
                                 name="password_confirmation"
                                 label="Confirmar Senha"
+                                minlength="8"
+                                maxlength="64"
                                 placeholder="Repita a senha"
                             />
                         </div>
@@ -187,4 +211,49 @@
             </div>
         </form>
     </div>
+
+    @push('scripts')
+    <script>
+        function limpa_formulário_cep() {
+            document.getElementById('rua').value = "";
+            document.getElementById('bairro').value = "";
+            document.getElementById('cidade').value = "";
+            document.getElementById('uf').value = "";
+        }
+
+        function meu_callback(conteudo) {
+            if (!("erro" in conteudo)) {
+                document.getElementById('rua').value = conteudo.logradouro;
+                document.getElementById('bairro').value = conteudo.bairro;
+                document.getElementById('cidade').value = conteudo.localidade;
+                document.getElementById('uf').value = conteudo.uf;
+            } else {
+                limpa_formulário_cep();
+                alert("CEP não encontrado.");
+            }
+        }
+
+        function pesquisacep(valor) {
+            var cep = valor.replace(/\D/g, '');
+            if (cep != "") {
+                var validacep = /^[0-9]{8}$/;
+                if (validacep.test(cep)) {
+                    document.getElementById('rua').value = "...";
+                    document.getElementById('bairro').value = "...";
+                    document.getElementById('cidade').value = "...";
+                    document.getElementById('uf').value = "...";
+
+                    var script = document.createElement('script');
+                    script.src = 'https://viacep.com.br/ws/' + cep + '/json/?callback=meu_callback';
+                    document.body.appendChild(script);
+                } else {
+                    limpa_formulário_cep();
+                    alert("Formato de CEP inválido.");
+                }
+            } else {
+                limpa_formulário_cep();
+            }
+        }
+    </script>
+    @endpush
 </x-layouts.app>

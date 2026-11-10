@@ -53,7 +53,12 @@
             (object)['id' => 4, 'nome' => 'Lavagem Detalhada Premium', 'preco_base' => 180.00, 'tempo_estimado_minutos' => 90, 'descricao' => 'Lavagem dois baldes com descontaminação'],
         ];
 
-        $servicosContratadosIds = old('servicos_ids', $agendamentoObj->servicos_ids ?? [1]);
+        $servicosContratadosIds = old(
+            'servicos_ids',
+            isset($agendamentoObj->agendamentosServicos)
+                ? collect($agendamentoObj->agendamentosServicos)->pluck('servico_id')->all()
+                : ($agendamentoObj->servicos_ids ?? [])
+        );
 
         $clientesVeiculosJson = json_encode(
             collect($clientesDemo)->mapWithKeys(function ($cli) {
@@ -108,19 +113,29 @@
                             <x-input
                                 type="datetime-local"
                                 name="data_inicio"
+                                id="data_inicio"
                                 label="Data e Horário de Início"
+                                min="{{ now()->format('Y-m-d\TH:i') }}"
                                 :value="\Carbon\Carbon::parse($agendamentoObj->data_inicio)->format('Y-m-d\TH:i')"
                                 required
                             />
+                            <p id="erro_data_inicio" class="text-xs text-destructive mt-1 font-medium hidden">
+                                A data e o horário não podem ser inferiores à data e horário atuais.
+                            </p>
                         </div>
 
                         <div>
                             <x-input
                                 type="datetime-local"
                                 name="data_fim"
+                                id="data_fim"
                                 label="Previsão de Conclusão"
+                                min="{{ now()->format('Y-m-d\TH:i') }}"
                                 :value="$agendamentoObj->data_fim ? \Carbon\Carbon::parse($agendamentoObj->data_fim)->format('Y-m-d\TH:i') : ''"
                             />
+                            <p id="erro_data_fim" class="text-xs text-destructive mt-1 font-medium hidden">
+                                A previsão de conclusão não pode ser anterior à data de início ou à data atual.
+                            </p>
                         </div>
 
                         <div>
@@ -148,6 +163,7 @@
                                 name="observacoes"
                                 label="Observações"
                                 :value="$agendamentoObj->observacoes ?? ''"
+                                maxlength="500"
                                 rows="2"
                             />
                         </div>
@@ -329,6 +345,71 @@
 
             checkboxes.forEach(cb => cb.addEventListener('change', atualizarResumoServicos));
             atualizarResumoServicos();
+
+            // Validação de datas (não permitir data menor que a atual)
+            const formAgendamento = document.getElementById('form-agendamento');
+            const inputDataInicio = document.getElementById('data_inicio');
+            const inputDataFim = document.getElementById('data_fim');
+            const erroDataInicio = document.getElementById('erro_data_inicio');
+            const erroDataFim = document.getElementById('erro_data_fim');
+
+            function validarDatas() {
+                let valido = true;
+                const agora = new Date();
+                agora.setSeconds(0, 0);
+                const limiteMinimo = new Date(agora.getTime() - 60000);
+
+                if (inputDataInicio && inputDataInicio.value) {
+                    const dtInicio = new Date(inputDataInicio.value);
+                    if (dtInicio < limiteMinimo) {
+                        erroDataInicio?.classList.remove('hidden');
+                        inputDataInicio.classList.add('border-destructive');
+                        inputDataInicio.setCustomValidity('A data e o horário não podem ser inferiores à data e horário atuais.');
+                        valido = false;
+                    } else {
+                        erroDataInicio?.classList.add('hidden');
+                        inputDataInicio.classList.remove('border-destructive');
+                        inputDataInicio.setCustomValidity('');
+                    }
+                }
+
+                if (inputDataFim && inputDataFim.value) {
+                    const dtFim = new Date(inputDataFim.value);
+                    const dtInicio = inputDataInicio && inputDataInicio.value ? new Date(inputDataInicio.value) : limiteMinimo;
+                    if (dtFim < limiteMinimo || dtFim < dtInicio) {
+                        erroDataFim?.classList.remove('hidden');
+                        inputDataFim.classList.add('border-destructive');
+                        inputDataFim.setCustomValidity('A previsão de conclusão não pode ser anterior à data de início ou à data atual.');
+                        valido = false;
+                    } else {
+                        erroDataFim?.classList.add('hidden');
+                        inputDataFim.classList.remove('border-destructive');
+                        inputDataFim.setCustomValidity('');
+                    }
+                } else if (inputDataFim) {
+                    erroDataFim?.classList.add('hidden');
+                    inputDataFim.classList.remove('border-destructive');
+                    inputDataFim.setCustomValidity('');
+                }
+
+                return valido;
+            }
+
+            if (inputDataInicio) {
+                inputDataInicio.addEventListener('change', validarDatas);
+                inputDataInicio.addEventListener('input', validarDatas);
+            }
+            if (inputDataFim) {
+                inputDataFim.addEventListener('change', validarDatas);
+                inputDataFim.addEventListener('input', validarDatas);
+            }
+            if (formAgendamento) {
+                formAgendamento.addEventListener('submit', function (e) {
+                    if (!validarDatas()) {
+                        e.preventDefault();
+                    }
+                });
+            }
         });
     </script>
 </x-layouts.app>

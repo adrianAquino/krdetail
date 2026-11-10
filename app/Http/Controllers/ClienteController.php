@@ -13,7 +13,7 @@ class ClienteController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Cliente::withCount('veiculos');
+        $query = Cliente::with('user')->withCount('veiculos');
 
         if ($request->filled('busca')) {
             $busca = $request->input('busca');
@@ -26,10 +26,15 @@ class ClienteController extends Controller
         }
 
         if ($request->filled('acesso')) {
-            if ($request->input('acesso') === 'com') {
-                $query->whereNotNull('user_id');
-            } elseif ($request->input('acesso') === 'sem') {
-                $query->whereNull('user_id');
+            $acesso = $request->input('acesso');
+            if (in_array($acesso, ['ativo', 'com'], true)) {
+                $query->whereNotNull('user_id')
+                    ->whereHas('user', fn ($q) => $q->where('ativo', true));
+            } elseif (in_array($acesso, ['inativo', 'sem_acesso', 'sem'], true)) {
+                $query->where(function ($q) {
+                    $q->whereNull('user_id')
+                        ->orWhereHas('user', fn ($uq) => $uq->where('ativo', false));
+                });
             }
         }
 
@@ -48,15 +53,15 @@ class ClienteController extends Controller
         $criarUsuario = $request->boolean('criar_usuario');
 
         $rules = [
-            'nome' => 'required|string|max:255',
+            'nome' => 'required|string|min:3|max:100',
             'email' => $criarUsuario
-                ? 'required|email|max:255|unique:users,email'
-                : 'nullable|email|max:255',
-            'telefone' => 'required|string|max:30',
-            'cpf_cnpj' => ['nullable', 'string', 'max:30', new CpfCnpj],
-            'cep' => 'nullable|string|max:20',
-            'logradouro' => 'nullable|string|max:255',
-            'numero' => 'nullable|string|max:20',
+                ? 'required|email|max:100|unique:users,email'
+                : 'nullable|email|max:100',
+            'telefone' => 'required|string|min:10|max:15',
+            'cpf_cnpj' => ['nullable', 'string', 'max:18', new CpfCnpj],
+            'cep' => 'nullable|string|max:9',
+            'logradouro' => 'nullable|string|max:100',
+            'numero' => 'nullable|string|max:10',
             'complemento' => 'nullable|string|max:100',
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
@@ -64,7 +69,7 @@ class ClienteController extends Controller
         ];
 
         if ($criarUsuario) {
-            $rules['password'] = 'required|string|min:8|confirmed';
+            $rules['password'] = 'required|string|min:8|max:64|confirmed';
         }
 
         $validated = $request->validate($rules);
@@ -114,15 +119,15 @@ class ClienteController extends Controller
         $criarUsuario = $request->boolean('criar_usuario') && empty($cliente->user_id);
 
         $rules = [
-            'nome' => 'required|string|max:255',
+            'nome' => 'required|string|min:3|max:100',
             'email' => $criarUsuario
-                ? ['required', 'email', 'max:255', Rule::unique('users', 'email')]
-                : 'nullable|email|max:255',
-            'telefone' => 'required|string|max:30',
-            'cpf_cnpj' => ['nullable', 'string', 'max:30', new CpfCnpj],
-            'cep' => 'nullable|string|max:20',
-            'logradouro' => 'nullable|string|max:255',
-            'numero' => 'nullable|string|max:20',
+                ? ['required', 'email', 'max:100', Rule::unique('users', 'email')]
+                : 'nullable|email|max:100',
+            'telefone' => 'required|string|min:10|max:15',
+            'cpf_cnpj' => ['nullable', 'string', 'max:18', new CpfCnpj],
+            'cep' => 'nullable|string|max:9',
+            'logradouro' => 'nullable|string|max:100',
+            'numero' => 'nullable|string|max:10',
             'complemento' => 'nullable|string|max:100',
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
@@ -130,7 +135,7 @@ class ClienteController extends Controller
         ];
 
         if ($criarUsuario) {
-            $rules['password'] = 'required|string|min:8|confirmed';
+            $rules['password'] = 'required|string|min:8|max:64|confirmed';
         }
 
         $validated = $request->validate($rules);

@@ -21,6 +21,8 @@
                         <x-input
                             name="nome"
                             label="Nome Completo / Razão Social"
+                            minlength="3"
+                            maxlength="100"
                             placeholder="Ex: João da Silva"
                             required
                         />
@@ -30,7 +32,8 @@
                         <x-input
                             name="cpf_cnpj"
                             label="CPF ou CNPJ"
-                            placeholder="000.000.000-00"
+                            maxlength="18"
+                            placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         />
                     </div>
 
@@ -38,6 +41,8 @@
                         <x-input
                             name="telefone"
                             label="Telefone / WhatsApp"
+                            minlength="10"
+                            maxlength="15"
                             placeholder="(11) 90000-0000"
                             required
                         />
@@ -48,6 +53,7 @@
                             type="email"
                             name="email"
                             label="E-mail"
+                            maxlength="100"
                             placeholder="cliente@exemplo.com"
                         />
                     </div>
@@ -61,6 +67,7 @@
                         <x-input
                             name="cep"
                             label="CEP"
+                            maxlength="9"
                             placeholder="00000-000"
                             id="cep"
                             onblur="pesquisacep(this.value);"
@@ -71,6 +78,7 @@
                         <x-input
                             name="logradouro"
                             label="Logradouro / Rua / Avenida"
+                            maxlength="100"
                             placeholder="Ex: Av. Paulista"
                             id="rua"
                         />
@@ -80,6 +88,7 @@
                         <x-input
                             name="numero"
                             label="Número"
+                            maxlength="10"
                             placeholder="123"
                         />
                     </div>
@@ -88,6 +97,7 @@
                         <x-input
                             name="complemento"
                             label="Complemento"
+                            maxlength="100"
                             placeholder="Apto 42, Bloco B"
                         />
                     </div>
@@ -96,6 +106,7 @@
                         <x-input
                             name="bairro"
                             label="Bairro"
+                            maxlength="100"
                             placeholder="Bela Vista"
                             id="bairro"
                         />
@@ -105,6 +116,7 @@
                         <x-input
                             name="cidade"
                             label="Cidade"
+                            maxlength="100"
                             placeholder="São Paulo"
                             id="cidade"
                         />
@@ -146,12 +158,16 @@
                             type="password"
                             name="password"
                             label="Senha Inicial"
+                            minlength="8"
+                            maxlength="64"
                             placeholder="Mínimo de 8 caracteres"
                         />
                         <x-input
                             type="password"
                             name="password_confirmation"
                             label="Confirmar Senha"
+                            minlength="8"
+                            maxlength="64"
                             placeholder="Repita a senha"
                         />
                     </div>

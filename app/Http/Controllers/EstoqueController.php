@@ -54,9 +54,9 @@ class EstoqueController extends Controller
             'produto_id' => 'required|exists:produtos,id',
             'tipo_movimentacao' => 'required|in:entrada,saida,ajuste',
             'modo_quantidade' => 'nullable|in:volume,unidades',
-            'quantidade' => 'required|numeric|min:0.001',
-            'motivo' => 'required|string|max:255',
-            'observacoes' => 'nullable|string',
+            'quantidade' => 'required|numeric|min:0.001|max:999999',
+            'motivo' => 'required|string|max:150',
+            'observacoes' => 'nullable|string|max:500',
         ]);
 
         try {

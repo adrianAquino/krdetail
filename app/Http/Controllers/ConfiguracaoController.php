@@ -29,11 +29,11 @@ class ConfiguracaoController extends Controller
     public function storeUsuario(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email',
-            'telefone' => 'nullable|string|max:20',
+            'name' => 'required|string|min:3|max:100',
+            'email' => 'required|email|max:100|unique:users,email',
+            'telefone' => 'nullable|string|max:15',
             'tipo_usuario' => 'required|in:administrador,funcionario,cliente',
-            'password' => 'required|string|min:6',
+            'password' => 'required|string|min:6|max:64',
         ]);
 
         DB::transaction(function () use ($validated) {
@@ -62,11 +62,11 @@ class ConfiguracaoController extends Controller
     public function updateUsuario(Request $request, User $user)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'telefone' => 'nullable|string|max:20',
+            'name' => 'required|string|min:3|max:100',
+            'email' => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
+            'telefone' => 'nullable|string|max:15',
             'tipo_usuario' => 'required|in:administrador,funcionario,cliente',
-            'password' => 'nullable|string|min:6',
+            'password' => 'nullable|string|min:6|max:64',
         ]);
 
         DB::transaction(function () use ($user, $validated) {

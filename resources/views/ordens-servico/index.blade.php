@@ -10,6 +10,7 @@
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
+                maxlength="100"
                 placeholder="Buscar por número da OS, cliente ou placa..."
                 icon="search"
             />

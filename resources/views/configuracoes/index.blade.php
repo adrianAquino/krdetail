@@ -63,10 +63,10 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <x-input name="nome_fantasia" label="Nome Fantasia" value="Kraus Detail - Estética Automotiva" required />
-                    <x-input name="razao_social" label="Razão Social" value="Kraus Estética Automotiva Especializada LTDA" required />
-                    <x-input name="cnpj" label="CNPJ" value="48.192.304/0001-89" placeholder="00.000.000/0000-00" />
-                    <x-input name="inscricao_estadual" label="Inscrição Estadual" value="ISENTO" />
+                    <x-input name="nome_fantasia" label="Nome Fantasia" value="Kraus Detail - Estética Automotiva" maxlength="100" required />
+                    <x-input name="razao_social" label="Razão Social" value="Kraus Estética Automotiva Especializada LTDA" maxlength="120" required />
+                    <x-input name="cnpj" label="CNPJ" value="48.192.304/0001-89" maxlength="18" placeholder="00.000.000/0000-00" />
+                    <x-input name="inscricao_estadual" label="Inscrição Estadual" value="ISENTO" maxlength="20" />
                 </div>
             </x-card>
 
@@ -80,9 +80,9 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <x-input name="telefone" label="Telefone Fixo" value="(11) 3214-5500" />
-                    <x-input name="whatsapp" label="WhatsApp Comercial" value="(11) 98765-4321" required />
-                    <x-input type="email" name="email" label="E-mail Comercial" value="contato@krausdetail.com.br" required />
+                    <x-input name="telefone" label="Telefone Fixo" value="(11) 3214-5500" maxlength="15" />
+                    <x-input name="whatsapp" label="WhatsApp Comercial" value="(11) 98765-4321" maxlength="15" required />
+                    <x-input type="email" name="email" label="E-mail Comercial" value="contato@krausdetail.com.br" maxlength="100" required />
                 </div>
             </x-card>
 
@@ -96,16 +96,16 @@
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <x-input name="cep" label="CEP" value="04538-133" />
+                    <x-input name="cep" label="CEP" value="04538-133" maxlength="9" />
                     <div class="sm:col-span-2">
-                        <x-input name="logradouro" label="Logradouro" value="Avenida dos Bandeirantes" />
+                        <x-input name="logradouro" label="Logradouro" value="Avenida dos Bandeirantes" maxlength="100" />
                     </div>
-                    <x-input name="numero" label="Número" value="2500" />
-                    <x-input name="complemento" label="Complemento" value="Galpão B" />
-                    <x-input name="bairro" label="Bairro" value="Vila Olímpia" />
-                    <x-input name="cidade" label="Cidade" value="São Paulo" />
-                    <x-input name="uf" label="UF" value="SP" />
-                    <x-input name="horario_atendimento" label="Horário de Atendimento" value="Segunda a Sábado, 08:00 às 18:00" />
+                    <x-input name="numero" label="Número" value="2500" maxlength="10" />
+                    <x-input name="complemento" label="Complemento" value="Galpão B" maxlength="100" />
+                    <x-input name="bairro" label="Bairro" value="Vila Olímpia" maxlength="100" />
+                    <x-input name="cidade" label="Cidade" value="São Paulo" maxlength="100" />
+                    <x-input name="uf" label="UF" value="SP" maxlength="2" />
+                    <x-input name="horario_atendimento" label="Horário de Atendimento" value="Segunda a Sábado, 08:00 às 18:00" maxlength="100" />
                 </div>
             </x-card>
 
@@ -248,9 +248,9 @@
                                         <form action="{{ route('configuracoes.usuarios.update', $user['id']) }}" method="POST" class="space-y-4 text-left">
                                             @csrf
                                             @method('PUT')
-                                            <x-input name="name" label="Nome Completo" :value="$user['nome']" required />
-                                            <x-input type="email" name="email" label="E-mail" :value="$user['email']" required />
-                                            <x-input name="telefone" label="Telefone / WhatsApp" :value="$user['telefone'] !== '-' ? $user['telefone'] : ''" />
+                                            <x-input name="name" label="Nome Completo" :value="$user['nome']" minlength="3" maxlength="100" required />
+                                            <x-input type="email" name="email" label="E-mail" :value="$user['email']" maxlength="100" required />
+                                            <x-input name="telefone" label="Telefone / WhatsApp" :value="$user['telefone'] !== '-' ? $user['telefone'] : ''" maxlength="15" />
 
                                             <x-select name="tipo_usuario" label="Perfil de Acesso" required>
                                                 <option value="funcionario" {{ $user['tipo'] === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
@@ -258,7 +258,7 @@
                                                 <option value="cliente" {{ $user['tipo'] === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
                                             </x-select>
 
-                                            <x-input type="password" name="password" label="Nova Senha (deixe em branco para manter a atual)" placeholder="••••••••" />
+                                            <x-input type="password" name="password" label="Nova Senha (deixe em branco para manter a atual)" minlength="6" maxlength="64" placeholder="••••••••" />
 
                                             <div class="flex justify-end gap-3 pt-4 border-t border-border">
                                                 <x-button type="button" variant="outline" onclick="closeModal('modal-editar-usuario-{{ $user['id'] }}')">
@@ -455,9 +455,9 @@
 <x-modal id="modal-novo-usuario" title="Cadastrar Novo Usuário">
     <form action="{{ route('configuracoes.usuarios.store') }}" method="POST" class="space-y-4">
         @csrf
-        <x-input name="name" label="Nome Completo" placeholder="Ex: Rodrigo Fonseca" required />
-        <x-input type="email" name="email" label="E-mail" placeholder="usuario@krausdetail.com.br" required />
-        <x-input name="telefone" label="Telefone / WhatsApp" placeholder="(11) 99999-9999" />
+        <x-input name="name" label="Nome Completo" placeholder="Ex: Rodrigo Fonseca" minlength="3" maxlength="100" required />
+        <x-input type="email" name="email" label="E-mail" placeholder="usuario@krausdetail.com.br" maxlength="100" required />
+        <x-input name="telefone" label="Telefone / WhatsApp" placeholder="(11) 99999-9999" maxlength="15" />
         
         <x-select name="tipo_usuario" label="Perfil de Acesso" required>
             <option value="funcionario" selected>Funcionário / Operador de Detalhamento</option>
@@ -465,7 +465,7 @@
             <option value="cliente">Cliente (Acesso ao Portal)</option>
         </x-select>
 
-        <x-input type="password" name="password" label="Senha Temporária (mín. 6 caracteres)" placeholder="••••••••" required />
+        <x-input type="password" name="password" label="Senha Temporária (mín. 6 caracteres)" placeholder="••••••••" minlength="6" maxlength="64" required />
 
         <div class="flex justify-end gap-3 pt-4 border-t border-border">
             <x-button type="button" variant="outline" onclick="closeModal('modal-novo-usuario')">

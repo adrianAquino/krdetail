@@ -22,6 +22,7 @@
                             name="nome"
                             label="Nome do Serviço"
                             :value="$servico->nome ?? ''"
+                            maxlength="100"
                             required
                         />
                     </div>
@@ -31,6 +32,7 @@
                             name="descricao"
                             label="Descrição do Procedimento"
                             :value="$servico->descricao ?? ''"
+                            maxlength="500"
                             rows="4"
                         />
                     </div>
@@ -41,6 +43,7 @@
                                 type="number"
                                 step="0.01"
                                 min="0"
+                                max="99999.99"
                                 name="preco_base"
                                 label="Preço Base (R$)"
                                 :value="$servico->preco_base ?? ''"
@@ -52,6 +55,7 @@
                             <x-input
                                 type="number"
                                 min="10"
+                                max="1440"
                                 step="5"
                                 name="tempo_estimado_minutos"
                                 label="Tempo Estimado (minutos)"

@@ -38,15 +38,15 @@ class ProdutoController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nome' => 'required|string|max:255',
-            'descricao' => 'nullable|string',
+            'nome' => 'required|string|max:100',
+            'descricao' => 'nullable|string|max:500',
             'unidade_medida' => 'required|string|max:10',
-            'volume_unitario' => 'required|numeric|min:0.001',
-            'quantidade_unidades' => 'nullable|numeric|min:0',
-            'quantidade_estoque' => 'nullable|numeric|min:0',
-            'estoque_minimo_unidades' => 'nullable|numeric|min:0',
-            'estoque_minimo' => 'nullable|numeric|min:0',
-            'custo_unitario' => 'required|numeric|min:0',
+            'volume_unitario' => 'required|numeric|min:0.001|max:999999',
+            'quantidade_unidades' => 'nullable|numeric|min:0|max:99999',
+            'quantidade_estoque' => 'nullable|numeric|min:0|max:9999999',
+            'estoque_minimo_unidades' => 'nullable|numeric|min:0|max:99999',
+            'estoque_minimo' => 'nullable|numeric|min:0|max:9999999',
+            'custo_unitario' => 'required|numeric|min:0|max:999999.99',
             'ativo' => 'sometimes|boolean',
         ]);
 
@@ -89,15 +89,15 @@ class ProdutoController extends Controller
     public function update(Request $request, Produto $produto)
     {
         $validated = $request->validate([
-            'nome' => 'required|string|max:255',
-            'descricao' => 'nullable|string',
+            'nome' => 'required|string|max:100',
+            'descricao' => 'nullable|string|max:500',
             'unidade_medida' => 'required|string|max:10',
-            'volume_unitario' => 'required|numeric|min:0.001',
-            'quantidade_unidades' => 'nullable|numeric|min:0',
-            'quantidade_estoque' => 'nullable|numeric|min:0',
-            'estoque_minimo_unidades' => 'nullable|numeric|min:0',
-            'estoque_minimo' => 'nullable|numeric|min:0',
-            'custo_unitario' => 'required|numeric|min:0',
+            'volume_unitario' => 'required|numeric|min:0.001|max:999999',
+            'quantidade_unidades' => 'nullable|numeric|min:0|max:99999',
+            'quantidade_estoque' => 'nullable|numeric|min:0|max:9999999',
+            'estoque_minimo_unidades' => 'nullable|numeric|min:0|max:99999',
+            'estoque_minimo' => 'nullable|numeric|min:0|max:9999999',
+            'custo_unitario' => 'required|numeric|min:0|max:999999.99',
             'ativo' => 'sometimes|boolean',
         ]);
 

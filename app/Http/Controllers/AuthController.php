@@ -54,17 +54,17 @@ class AuthController extends Controller
             : null;
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email',
-            'telefone' => 'required|string|max:20',
+            'name' => 'required|string|min:3|max:100',
+            'email' => 'required|email|max:100|unique:users,email',
+            'telefone' => 'required|string|min:10|max:15',
             'cpf_cnpj' => [
                 'nullable',
                 'string',
-                'max:30',
+                'max:18',
                 new CpfCnpj,
                 Rule::unique('clientes', 'cpf_cnpj')->ignore($clienteExistente?->id),
             ],
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8|max:64|confirmed',
         ], [
             'email.unique' => 'Este e-mail já possui uma conta de acesso cadastrada.',
             'cpf_cnpj.unique' => 'Este CPF/CNPJ já está vinculado a outro cadastro.',

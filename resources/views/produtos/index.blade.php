@@ -19,6 +19,7 @@
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
+                maxlength="100"
                 placeholder="Buscar produto por nome..."
                 icon="search"
             />

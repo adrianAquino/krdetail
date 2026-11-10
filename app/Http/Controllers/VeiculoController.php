@@ -68,12 +68,12 @@ class VeiculoController extends Controller
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
-            'placa' => 'required|string|max:10|unique:veiculos,placa',
-            'marca' => 'required|string|max:100',
-            'modelo' => 'required|string|max:100',
-            'cor' => 'nullable|string|max:50',
-            'ano' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
-            'observacoes' => 'nullable|string',
+            'placa' => 'required|string|min:7|max:8|unique:veiculos,placa',
+            'marca' => 'required|string|max:50',
+            'modelo' => 'required|string|max:80',
+            'cor' => 'nullable|string|max:40',
+            'ano' => 'nullable|integer|min:1950|max:' . (date('Y') + 1),
+            'observacoes' => 'nullable|string|max:500',
         ]);
 
         if ($user instanceof User && $user->isCliente()) {
@@ -136,12 +136,12 @@ class VeiculoController extends Controller
 
         $validated = $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
-            'placa' => 'required|string|max:10|unique:veiculos,placa,' . $veiculo->id,
-            'marca' => 'required|string|max:100',
-            'modelo' => 'required|string|max:100',
-            'cor' => 'nullable|string|max:50',
-            'ano' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
-            'observacoes' => 'nullable|string',
+            'placa' => 'required|string|min:7|max:8|unique:veiculos,placa,' . $veiculo->id,
+            'marca' => 'required|string|max:50',
+            'modelo' => 'required|string|max:80',
+            'cor' => 'nullable|string|max:40',
+            'ano' => 'nullable|integer|min:1950|max:' . (date('Y') + 1),
+            'observacoes' => 'nullable|string|max:500',
         ]);
 
         if ($user instanceof User && $user->isCliente()) {

@@ -340,6 +340,7 @@
                     type="number"
                     step="0.001"
                     min="0.001"
+                    max="999999"
                     name="quantidade"
                     label="Quantidade"
                     placeholder="Ex: 150 (em volume) ou 2 (em unidades)"
@@ -352,6 +353,7 @@
                     name="motivo"
                     label="Motivo da Movimentação"
                     placeholder="Ex: Compra de lote fornecedor, quebra de frasco, inventário..."
+                    maxlength="150"
                     required
                 />
             </div>
@@ -361,6 +363,7 @@
                     name="observacoes"
                     label="Observações Adicionais (Opcional)"
                     placeholder="Informações adicionais para auditoria..."
+                    maxlength="500"
                     rows="2"
                 />
             </div>

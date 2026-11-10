@@ -25,6 +25,7 @@
                             name="nome"
                             label="Nome do Produto"
                             :value="$produto->nome"
+                            maxlength="100"
                             required
                         />
                     </div>
@@ -34,6 +35,7 @@
                             name="descricao"
                             label="Descrição"
                             :value="$produto->descricao ?? ''"
+                            maxlength="500"
                             rows="3"
                         />
                     </div>
@@ -55,6 +57,7 @@
                                 type="number"
                                 step="0.001"
                                 min="0.001"
+                                max="999999"
                                 name="volume_unitario"
                                 id="volume_unitario"
                                 label="Volume / Conteúdo de 1 Unidade"
@@ -73,6 +76,7 @@
                             type="number"
                             step="0.001"
                             min="0"
+                            max="9999999"
                             name="quantidade_estoque"
                             label="Volume Total Atual ({{ $produto->unidade_medida }})"
                             :value="(float) $produto->quantidade_estoque"
@@ -86,6 +90,7 @@
                             type="number"
                             step="1"
                             min="0"
+                            max="99999"
                             name="estoque_minimo_unidades"
                             label="Estoque Mínimo (Unidades)"
                             :value="$produto->unidades_minimas"
@@ -99,6 +104,7 @@
                             type="number"
                             step="0.01"
                             min="0"
+                            max="999999.99"
                             name="custo_unitario"
                             label="Custo por Unidade (R$)"
                             :value="(float) $produto->custo_unitario"

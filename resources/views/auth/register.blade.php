@@ -19,6 +19,8 @@
         label="Nome Completo"
         placeholder="Ex: João da Silva"
         value="{{ old('name') }}"
+        minlength="3"
+        maxlength="100"
         required
         autofocus
     />
@@ -29,6 +31,7 @@
         label="E-mail"
         placeholder="seuemail@exemplo.com"
         value="{{ old('email') }}"
+        maxlength="100"
         required
     />
 
@@ -39,6 +42,8 @@
             label="Telefone / WhatsApp"
             placeholder="(11) 99999-9999"
             value="{{ old('telefone') }}"
+            minlength="10"
+            maxlength="15"
             required
         />
 
@@ -48,6 +53,7 @@
             label="CPF ou CNPJ (Opcional)"
             placeholder="000.000.000-00"
             value="{{ old('cpf_cnpj') }}"
+            maxlength="18"
         />
     </div>
 
@@ -57,6 +63,8 @@
             name="password"
             label="Senha"
             placeholder="Mínimo 8 caracteres"
+            minlength="8"
+            maxlength="64"
             required
         />
 
@@ -65,6 +73,8 @@
             name="password_confirmation"
             label="Confirmar Senha"
             placeholder="Repita sua senha"
+            minlength="8"
+            maxlength="64"
             required
         />
     </div>

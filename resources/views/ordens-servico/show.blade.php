@@ -342,6 +342,7 @@
                                     type="number"
                                     step="0.001"
                                     min="0.001"
+                                    max="999999"
                                     name="quantidade_utilizada"
                                     label="Quantidade Utilizada"
                                     placeholder="Ex: 0.250"
@@ -355,6 +356,7 @@
                                     name="observacoes"
                                     label="Observações do Consumo (Opcional)"
                                     placeholder="Aplicação em duas demãos, etc..."
+                                    maxlength="300"
                                     rows="2"
                                 />
                             </div>

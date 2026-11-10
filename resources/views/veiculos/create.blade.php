@@ -49,7 +49,8 @@
                                 placeholder="Ex: ABC1D23 ou ABC-1234"
                                 value="{{ old('placa') }}"
                                 class="uppercase font-mono tracking-wider font-bold"
-                                maxlength="10"
+                                minlength="7"
+                                maxlength="8"
                                 required
                             />
                         </div>
@@ -78,6 +79,7 @@
                                 label="Marca / Fabricante"
                                 placeholder="Ex: BMW, Audi, Porsche, Toyota"
                                 value="{{ old('marca') }}"
+                                maxlength="50"
                                 required
                             />
                         </div>
@@ -88,6 +90,7 @@
                                 label="Modelo / Versão"
                                 placeholder="Ex: 320i M Sport, Corolla Cross"
                                 value="{{ old('modelo') }}"
+                                maxlength="80"
                                 required
                             />
                         </div>
@@ -99,6 +102,7 @@
                             label="Cor / Acabamento da Pintura"
                             placeholder="Ex: Preto Metálico, Azul Portimão, Branco Pérola"
                             value="{{ old('cor') }}"
+                            maxlength="40"
                         />
                     </div>
 
@@ -108,6 +112,7 @@
                             label="Observações / Cuidados Especiais"
                             placeholder="Ex: Pintura vitrificada anteriormente, repintura no para-choque traseiro..."
                             value="{{ old('observacoes') }}"
+                            maxlength="500"
                             rows="3"
                         />
                     </div>
