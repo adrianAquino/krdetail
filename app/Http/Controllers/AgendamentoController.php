@@ -222,7 +222,25 @@ class AgendamentoController extends Controller
             abort(403);
         }
 
-        $agendamento->delete();
+        $possuiOrdemServico = $agendamento->ordemServico()->exists();
+        $possuiTarefas = $agendamento->agendamentosServicos()->whereHas('tarefa')->exists();
+
+        if ($possuiOrdemServico || $possuiTarefas) {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível excluir este agendamento, pois ele já possui uma Ordem de Serviço ou tarefas atribuídas.');
+        }
+
+        try {
+            DB::transaction(function () use ($agendamento) {
+                $agendamento->agendamentosServicos()->delete();
+                $agendamento->delete();
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível excluir este agendamento, pois ele já possui Ordem de Serviço ou tarefas vinculadas.');
+        }
 
         return redirect()->route('agendamentos.index')->with('success', 'Agendamento removido com sucesso!');
     }

@@ -55,9 +55,13 @@
 
             @if(session('error'))
                 <div class="mb-6">
-                    <x-alert type="error" :title="session('error')">
-                        Por favor, verifique os dados informados e tente novamente.
-                    </x-alert>
+                    <x-alert type="error" :title="session('error')" />
+                </div>
+            @endif
+
+            @if(session('info'))
+                <div class="mb-6">
+                    <x-alert type="info" :title="session('info')" />
                 </div>
             @endif
 

@@ -172,6 +172,14 @@
                                 <x-button href="{{ route('agendamentos.edit', $ag->id) }}" variant="ghost" size="icon-sm" title="Editar">
                                     <x-icon name="pencil" class="w-4 h-4" />
                                 </x-button>
+
+                                <form method="POST" action="{{ route('agendamentos.destroy', $ag->id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este agendamento?');" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer" title="Excluir Agendamento">
+                                        <x-icon name="trash-2" class="w-4 h-4" />
+                                    </button>
+                                </form>
                             @endif
                         </div>
                     </div>

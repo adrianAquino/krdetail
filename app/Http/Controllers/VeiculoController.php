@@ -162,7 +162,19 @@ class VeiculoController extends Controller
             abort(403);
         }
 
-        $veiculo->delete();
+        if ($veiculo->agendamentos()->exists()) {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível excluir este veículo, pois ele já possui agendamentos ou serviços realizados vinculados ao seu histórico.');
+        }
+
+        try {
+            $veiculo->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível excluir este veículo, pois ele possui serviços realizados vinculados.');
+        }
 
         return redirect()->route('veiculos.index')->with('success', 'Veículo removido com sucesso!');
     }
