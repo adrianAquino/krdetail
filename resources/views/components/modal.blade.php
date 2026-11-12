@@ -2,12 +2,16 @@
 
 <div
     id="{{ $id }}"
-    class="fixed inset-0 z-50 hidden items-center justify-center p-4 overflow-y-auto bg-background/80 backdrop-blur-xs transition-all"
+    class="fixed inset-0 z-50 hidden items-center justify-center px-4 py-8 sm:py-12 overflow-y-auto bg-background/80 backdrop-blur-xs transition-all"
+    style="padding-top: 2.75rem; padding-bottom: 2.75rem;"
     data-modal
 >
-    <div class="relative w-full {{ $maxWidth }} bg-card border border-border rounded-xl shadow-2xl overflow-hidden my-8 transform transition-all animate-in fade-in zoom-in-95">
+    <div
+        class="relative w-full {{ $maxWidth }} max-h-[85vh] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden my-auto transform transition-all animate-in fade-in zoom-in-95"
+        style="max-height: 85vh; border-radius: 16px;"
+    >
         @if($title || isset($header))
-            <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+            <div class="px-5 py-4 border-b border-border flex items-center justify-between shrink-0">
                 @if(isset($header))
                     {{ $header }}
                 @else
@@ -16,19 +20,19 @@
                 <button
                     type="button"
                     onclick="window.closeModal('{{ $id }}')"
-                    class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-secondary transition-colors"
+                    class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-secondary transition-colors cursor-pointer"
                 >
                     <x-icon name="x" class="w-5 h-5" />
                 </button>
             </div>
         @endif
 
-        <div class="p-5">
+        <div class="p-5 overflow-y-auto">
             {{ $slot }}
         </div>
 
         @if(isset($footer))
-            <div class="px-5 py-3.5 bg-secondary/20 border-t border-border flex items-center justify-end gap-2">
+            <div class="px-5 py-3.5 bg-secondary/20 border-t border-border flex items-center justify-end gap-2 shrink-0">
                 {{ $footer }}
             </div>
         @endif

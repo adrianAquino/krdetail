@@ -93,6 +93,24 @@ class ClienteController extends Controller
             return Cliente::create($dadosCliente);
         });
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Cliente cadastrado com sucesso!',
+                'cliente' => [
+                    'id' => $cliente->id,
+                    'nome' => $cliente->nome,
+                    'cpf_cnpj' => $cliente->cpf_cnpj,
+                    'telefone' => $cliente->telefone,
+                ],
+            ], 201);
+        }
+
+        if ($request->input('redirect_to') === 'veiculos.create') {
+            return redirect()
+                ->route('veiculos.create', ['cliente_id' => $cliente->id])
+                ->with('success', 'Cliente cadastrado e selecionado com sucesso!');
+        }
+
         return redirect()->route('clientes.show', $cliente)->with('success', 'Cliente cadastrado com sucesso!');
     }
 

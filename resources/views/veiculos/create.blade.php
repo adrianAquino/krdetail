@@ -15,6 +15,19 @@
     </x-header>
 
     <div class="max-w-2xl">
+        <!-- Alerta dinâmico quando um cliente é cadastrado pelo modal -->
+        <div id="alerta-cliente-criado" class="mb-6 hidden">
+            <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 text-xs font-semibold">
+                    <x-icon name="check-circle" class="w-5 h-5 text-emerald-500 shrink-0" />
+                    <span id="alerta-cliente-criado-texto">Cliente cadastrado e selecionado com sucesso!</span>
+                </div>
+                <button type="button" onclick="document.getElementById('alerta-cliente-criado').classList.add('hidden')" class="text-emerald-400/70 hover:text-emerald-400 cursor-pointer">
+                    <x-icon name="x" class="w-4 h-4" />
+                </button>
+            </div>
+        </div>
+
         <form method="POST" action="{{ route('veiculos.store') }}" class="space-y-6">
             @csrf
 
@@ -26,6 +39,7 @@
                         <div>
                             <x-select
                                 name="cliente_id"
+                                id="cliente_id"
                                 label="Cliente Proprietário"
                                 required
                             >
@@ -35,8 +49,16 @@
                                     </option>
                                 @endforeach
                             </x-select>
-                            <p class="text-[11px] text-muted-foreground mt-1">
-                                Não encontrou o cliente? <a href="{{ route('clientes.create') }}" class="text-primary hover:underline">Cadastre um novo cliente primeiro</a>.
+                            <p class="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                                <span>Não encontrou o cliente?</span>
+                                <button
+                                    type="button"
+                                    onclick="window.openModal('modal-novo-cliente')"
+                                    class="text-primary font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                    <x-icon name="plus" class="w-3.5 h-3.5" />
+                                    Cadastre um novo cliente primeiro
+                                </button>
                             </p>
                         </div>
                     @endif
@@ -130,4 +152,315 @@
             </div>
         </form>
     </div>
+
+    @if(!$isCliente)
+        <!-- Modal de Cadastro Rápido de Cliente (sem sair da tela de Novo Veículo) -->
+        <x-modal id="modal-novo-cliente" title="Cadastrar Novo Cliente" maxWidth="max-w-2xl">
+            <form id="form-modal-cliente" method="POST" action="{{ route('clientes.store') }}" class="space-y-5">
+                @csrf
+                <input type="hidden" name="redirect_to" value="veiculos.create" />
+
+                <!-- Container de erros de validação do Modal -->
+                <div id="modal-cliente-erros" class="hidden rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                    <p class="font-semibold mb-1">Verifique os campos abaixo:</p>
+                    <ul id="modal-cliente-erros-lista" class="list-disc list-inside space-y-0.5"></ul>
+                </div>
+
+                <!-- Dados Principais -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 pb-1.5 border-b border-border">
+                        Dados Pessoais / Comerciais
+                    </h4>
+                    <div class="grid gap-3.5 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <x-input
+                                name="nome"
+                                id="modal_cliente_nome"
+                                label="Nome Completo / Razão Social"
+                                minlength="3"
+                                maxlength="100"
+                                placeholder="Ex: João da Silva"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <x-input
+                                name="cpf_cnpj"
+                                id="modal_cliente_cpf_cnpj"
+                                label="CPF ou CNPJ"
+                                maxlength="18"
+                                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                            />
+                        </div>
+
+                        <div>
+                            <x-input
+                                name="telefone"
+                                id="modal_cliente_telefone"
+                                label="Telefone / WhatsApp"
+                                minlength="10"
+                                maxlength="15"
+                                placeholder="(11) 90000-0000"
+                                required
+                            />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <x-input
+                                type="email"
+                                name="email"
+                                id="modal_cliente_email"
+                                label="E-mail"
+                                maxlength="100"
+                                placeholder="cliente@exemplo.com"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endereço -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 pb-1.5 border-b border-border">
+                        Endereço (Opcional)
+                    </h4>
+                    <div class="grid gap-3.5 sm:grid-cols-6">
+                        <div class="sm:col-span-2">
+                            <x-input
+                                name="cep"
+                                id="modal_cep"
+                                label="CEP"
+                                maxlength="9"
+                                placeholder="00000-000"
+                                onblur="pesquisacepModal(this.value);"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-4">
+                            <x-input
+                                name="logradouro"
+                                id="modal_rua"
+                                label="Logradouro / Rua / Avenida"
+                                maxlength="100"
+                                placeholder="Ex: Av. Paulista"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <x-input
+                                name="numero"
+                                id="modal_numero"
+                                label="Número"
+                                maxlength="10"
+                                placeholder="123"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-4">
+                            <x-input
+                                name="complemento"
+                                id="modal_complemento"
+                                label="Complemento"
+                                maxlength="100"
+                                placeholder="Apto 42, Bloco B"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <x-input
+                                name="bairro"
+                                id="modal_bairro"
+                                label="Bairro"
+                                maxlength="100"
+                                placeholder="Bela Vista"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-3">
+                            <x-input
+                                name="cidade"
+                                id="modal_cidade"
+                                label="Cidade"
+                                maxlength="100"
+                                placeholder="São Paulo"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-1">
+                            <x-input
+                                name="estado"
+                                id="modal_uf"
+                                label="UF"
+                                maxlength="2"
+                                placeholder="SP"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conta de Acesso -->
+                <div>
+                    <div class="flex items-start gap-3 p-3 rounded-lg border border-border bg-secondary/30">
+                        <input
+                            type="checkbox"
+                            id="modal_criar_usuario"
+                            name="criar_usuario"
+                            value="1"
+                            class="mt-1 h-4 w-4 rounded border-border bg-input text-primary focus:ring-primary"
+                            onchange="document.getElementById('modal_senha_container').classList.toggle('hidden', !this.checked)"
+                        />
+                        <label for="modal_criar_usuario" class="text-xs text-foreground cursor-pointer">
+                            <span class="font-semibold block text-sm">Criar conta de acesso para este cliente</span>
+                            <span class="text-muted-foreground">Permite que o cliente consulte o andamento de seus serviços pelo portal.</span>
+                        </label>
+                    </div>
+
+                    <div id="modal_senha_container" class="hidden grid gap-3.5 sm:grid-cols-2 pt-3">
+                        <x-input
+                            type="password"
+                            name="password"
+                            id="modal_password"
+                            label="Senha Inicial"
+                            minlength="8"
+                            maxlength="64"
+                            placeholder="Mínimo de 8 caracteres"
+                        />
+                        <x-input
+                            type="password"
+                            name="password_confirmation"
+                            id="modal_password_confirmation"
+                            label="Confirmar Senha"
+                            minlength="8"
+                            maxlength="64"
+                            placeholder="Repita a senha"
+                        />
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                    <x-button type="button" onclick="window.closeModal('modal-novo-cliente')" variant="outline" size="sm">
+                        Cancelar
+                    </x-button>
+                    <x-button type="submit" id="btn-salvar-cliente-modal" variant="primary" size="sm" icon="save">
+                        Salvar Cliente
+                    </x-button>
+                </div>
+            </form>
+        </x-modal>
+
+        @push('scripts')
+        <script>
+            function limpaFormularioCepModal() {
+                document.getElementById('modal_rua').value = "";
+                document.getElementById('modal_bairro').value = "";
+                document.getElementById('modal_cidade').value = "";
+                document.getElementById('modal_uf').value = "";
+            }
+
+            function callbackCepModal(conteudo) {
+                if (!("erro" in conteudo)) {
+                    document.getElementById('modal_rua').value = conteudo.logradouro || "";
+                    document.getElementById('modal_bairro').value = conteudo.bairro || "";
+                    document.getElementById('modal_cidade').value = conteudo.localidade || "";
+                    document.getElementById('modal_uf').value = conteudo.uf || "";
+                } else {
+                    limpaFormularioCepModal();
+                    alert("CEP não encontrado.");
+                }
+            }
+
+            function pesquisacepModal(valor) {
+                var cep = (valor || '').replace(/\D/g, '');
+                if (cep !== "") {
+                    var validacep = /^[0-9]{8}$/;
+                    if (validacep.test(cep)) {
+                        document.getElementById('modal_rua').value = "...";
+                        document.getElementById('modal_bairro').value = "...";
+                        document.getElementById('modal_cidade').value = "...";
+                        document.getElementById('modal_uf').value = "...";
+
+                        var script = document.createElement('script');
+                        script.src = 'https://viacep.com.br/ws/' + cep + '/json/?callback=callbackCepModal';
+                        document.body.appendChild(script);
+                    } else {
+                        limpaFormularioCepModal();
+                        alert("Formato de CEP inválido.");
+                    }
+                } else {
+                    limpaFormularioCepModal();
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const formModalCliente = document.getElementById('form-modal-cliente');
+                const errosContainer = document.getElementById('modal-cliente-erros');
+                const errosLista = document.getElementById('modal-cliente-erros-lista');
+                const selectCliente = document.getElementById('cliente_id');
+                const alertaCriado = document.getElementById('alerta-cliente-criado');
+                const alertaCriadoTexto = document.getElementById('alerta-cliente-criado-texto');
+                const btnSalvar = document.getElementById('btn-salvar-cliente-modal');
+
+                if (formModalCliente) {
+                    formModalCliente.addEventListener('submit', async function (e) {
+                        e.preventDefault();
+
+                        errosContainer.classList.add('hidden');
+                        errosLista.innerHTML = '';
+                        if (btnSalvar) btnSalvar.disabled = true;
+
+                        try {
+                            const formData = new FormData(formModalCliente);
+                            const response = await fetch(formModalCliente.action, {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: formData,
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                const mensagens = [];
+                                if (data.errors) {
+                                    Object.values(data.errors).forEach(arr => {
+                                        arr.forEach(msg => mensagens.push(msg));
+                                    });
+                                } else if (data.message) {
+                                    mensagens.push(data.message);
+                                }
+
+                                errosLista.innerHTML = mensagens.map(m => `<li>${m}</li>`).join('');
+                                errosContainer.classList.remove('hidden');
+                                return;
+                            }
+
+                            if (data.cliente && selectCliente) {
+                                const doc = data.cliente.cpf_cnpj ? data.cliente.cpf_cnpj : 'Sem documento';
+                                const option = new Option(`${data.cliente.nome} (${doc})`, data.cliente.id, true, true);
+                                selectCliente.add(option);
+                                selectCliente.value = data.cliente.id;
+                            }
+
+                            formModalCliente.reset();
+                            document.getElementById('modal_senha_container')?.classList.add('hidden');
+                            window.closeModal('modal-novo-cliente');
+
+                            if (alertaCriado && alertaCriadoTexto && data.cliente) {
+                                alertaCriadoTexto.textContent = `Cliente "${data.cliente.nome}" cadastrado e selecionado automaticamente!`;
+                                alertaCriado.classList.remove('hidden');
+                            }
+                        } catch (err) {
+                            errosLista.innerHTML = '<li>Ocorreu um erro ao salvar o cliente. Tente novamente.</li>';
+                            errosContainer.classList.remove('hidden');
+                        } finally {
+                            if (btnSalvar) btnSalvar.disabled = false;
+                        }
+                    });
+                }
+            });
+        </script>
+        @endpush
+    @endif
 </x-layouts.app>
