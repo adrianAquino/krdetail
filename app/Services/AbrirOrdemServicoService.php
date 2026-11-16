@@ -68,6 +68,13 @@ class AbrirOrdemServicoService
             // Cria automaticamente uma tarefa para cada serviço contratado
             // mantendo o vínculo com agendamento_servico para preservar valor e tempo históricos
             foreach ($servicosContratados as $agendamentoServico) {
+                // Seção 9.2 (b): Garante que a Ordem de Serviço e o item agendamento_servico pertencem ao mesmo agendamento
+                if ((int) $agendamentoServico->agendamento_id !== (int) $ordemServico->agendamento_id) {
+                    throw new DomainException(
+                        'Inconsistência referencial: o serviço contratado não pertence ao mesmo agendamento da Ordem de Serviço.'
+                    );
+                }
+
                 // Impede que o mesmo agendamento_servico gere mais de uma tarefa
                 if (!Tarefa::where('agendamento_servico_id', $agendamentoServico->id)->exists()) {
                     Tarefa::create([

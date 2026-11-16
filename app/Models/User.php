@@ -13,6 +13,7 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
+        'pessoa_id',
         'name',
         'email',
         'password',
@@ -35,14 +36,50 @@ class User extends Authenticatable
         ];
     }
 
+    protected static function booted(): void
+    {
+        // Centraliza e sincroniza os dados pessoais na tabela `pessoas` (Seção 9.3c)
+        static::saving(function (User $user) {
+            if ($user->pessoa_id) {
+                Pessoa::withoutEvents(function () use ($user) {
+                    Pessoa::where('id', $user->pessoa_id)->update([
+                        'nome' => $user->name,
+                        'email' => $user->email,
+                        'telefone' => $user->telefone,
+                    ]);
+                });
+            } else {
+                $pessoa = Pessoa::withoutEvents(fn () => Pessoa::create([
+                    'nome' => $user->name,
+                    'email' => $user->email,
+                    'telefone' => $user->telefone,
+                ]));
+                $user->pessoa_id = $pessoa->id;
+            }
+        });
+
+        static::saved(function (User $user) {
+            Cliente::withoutEvents(function () use ($user) {
+                Cliente::where('user_id', $user->id)
+                    ->orWhere('pessoa_id', $user->pessoa_id)
+                    ->update([
+                        'pessoa_id' => $user->pessoa_id,
+                        'nome' => $user->name,
+                        'email' => $user->email,
+                        'telefone' => $user->telefone ?? '',
+                    ]);
+            });
+        });
+    }
+
     public function isCliente(): bool
     {
         return $this->tipo_usuario === 'cliente';
     }
 
     /**
-     * Garante que um usuário do tipo cliente possua um perfil Cliente vinculado.
-     * Se já houver um Cliente com o mesmo e-mail sem user_id, vincula-o.
+     * Garante que um usuário do tipo cliente possua um perfil Cliente vinculado
+     * compartilhando o mesmo registro em `pessoas`.
      */
     public function ensureClienteProfile(): Cliente
     {
@@ -51,24 +88,49 @@ class User extends Authenticatable
         }
 
         $clienteExistente = Cliente::whereNull('user_id')
-            ->whereRaw('LOWER(email) = ?', [strtolower($this->email)])
+            ->where(function ($q) {
+                $q->whereRaw('LOWER(email) = ?', [strtolower($this->email)]);
+                if ($this->pessoa_id) {
+                    $q->orWhere('pessoa_id', $this->pessoa_id);
+                }
+            })
             ->first();
 
         if ($clienteExistente) {
+            $pessoaId = $clienteExistente->pessoa_id ?? $this->pessoa_id;
+
             $clienteExistente->update([
                 'user_id' => $this->id,
+                'pessoa_id' => $pessoaId,
                 'telefone' => $clienteExistente->telefone ?: ($this->telefone ?? ''),
             ]);
+
+            if ($pessoaId && $this->pessoa_id !== $pessoaId) {
+                $oldPessoaId = $this->pessoa_id;
+                self::withoutEvents(fn () => $this->update(['pessoa_id' => $pessoaId]));
+                if ($oldPessoaId && $oldPessoaId !== $pessoaId) {
+                    Pessoa::where('id', $oldPessoaId)->delete();
+                }
+            }
 
             return $clienteExistente;
         }
 
         return Cliente::create([
+            'pessoa_id' => $this->pessoa_id,
             'user_id' => $this->id,
             'nome' => $this->name,
             'email' => $this->email,
             'telefone' => $this->telefone ?? '',
         ]);
+    }
+
+    /**
+     * Dados pessoais centralizados na tabela PESSOAS (3FN).
+     */
+    public function pessoa()
+    {
+        return $this->belongsTo(Pessoa::class, 'pessoa_id');
     }
 
     /**
@@ -96,7 +158,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Lançamentos financeiros registradas pelo usuário.
+     * Lançamentos financeiros registrados pelo usuário.
      */
     public function lancamentosFinanceiros()
     {

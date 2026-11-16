@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Pessoa;
 use App\Models\User;
 use App\Rules\CpfCnpj;
 use Illuminate\Http\Request;
@@ -63,6 +64,7 @@ class AuthController extends Controller
                 'max:18',
                 new CpfCnpj,
                 Rule::unique('clientes', 'cpf_cnpj')->ignore($clienteExistente?->id),
+                Rule::unique('pessoas', 'cpf_cnpj')->ignore($clienteExistente?->pessoa_id),
             ],
             'password' => 'required|string|min:8|max:64|confirmed',
         ], [
@@ -75,25 +77,68 @@ class AuthController extends Controller
         $foiVinculado = false;
 
         $user = DB::transaction(function () use ($validated, $clienteExistente, &$foiVinculado) {
-            $novoUsuario = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'telefone' => $validated['telefone'],
-                'password' => $validated['password'],
-                'tipo_usuario' => 'cliente',
-                'ativo' => true,
-            ]);
-
             if ($clienteExistente) {
                 $foiVinculado = true;
+
+                // Seção 9.3 (c): Reaproveita ou cria a Pessoa do cliente existente para compartilhar entre User e Cliente
+                $pessoa = $clienteExistente->pessoa_id
+                    ? Pessoa::find($clienteExistente->pessoa_id)
+                    : null;
+
+                if ($pessoa) {
+                    $pessoa->update([
+                        'nome' => $clienteExistente->nome ?: $validated['name'],
+                        'email' => $validated['email'],
+                        'telefone' => $validated['telefone'] ?: $clienteExistente->telefone,
+                        'cpf_cnpj' => $clienteExistente->cpf_cnpj ?: ($validated['cpf_cnpj'] ?? null),
+                    ]);
+                } else {
+                    $pessoa = Pessoa::create([
+                        'nome' => $clienteExistente->nome ?: $validated['name'],
+                        'email' => $validated['email'],
+                        'telefone' => $validated['telefone'] ?: $clienteExistente->telefone,
+                        'cpf_cnpj' => $clienteExistente->cpf_cnpj ?: ($validated['cpf_cnpj'] ?? null),
+                    ]);
+                }
+
+                $novoUsuario = User::create([
+                    'pessoa_id' => $pessoa->id,
+                    'name' => $pessoa->nome,
+                    'email' => $validated['email'],
+                    'telefone' => $pessoa->telefone,
+                    'password' => $validated['password'],
+                    'tipo_usuario' => 'cliente',
+                    'ativo' => true,
+                ]);
+
                 $clienteExistente->update([
+                    'pessoa_id' => $pessoa->id,
                     'user_id' => $novoUsuario->id,
-                    'nome' => $clienteExistente->nome ?: $validated['name'],
-                    'telefone' => $validated['telefone'] ?: $clienteExistente->telefone,
-                    'cpf_cnpj' => $clienteExistente->cpf_cnpj ?: ($validated['cpf_cnpj'] ?? null),
+                    'nome' => $pessoa->nome,
+                    'email' => $validated['email'],
+                    'telefone' => $pessoa->telefone,
+                    'cpf_cnpj' => $pessoa->cpf_cnpj,
                 ]);
             } else {
+                $pessoa = Pessoa::create([
+                    'nome' => $validated['name'],
+                    'email' => $validated['email'],
+                    'telefone' => $validated['telefone'],
+                    'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
+                ]);
+
+                $novoUsuario = User::create([
+                    'pessoa_id' => $pessoa->id,
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'telefone' => $validated['telefone'],
+                    'password' => $validated['password'],
+                    'tipo_usuario' => 'cliente',
+                    'ativo' => true,
+                ]);
+
                 Cliente::create([
+                    'pessoa_id' => $pessoa->id,
                     'user_id' => $novoUsuario->id,
                     'nome' => $validated['name'],
                     'email' => $validated['email'],

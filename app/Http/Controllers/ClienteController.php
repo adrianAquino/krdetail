@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Pessoa;
 use App\Models\User;
 use App\Rules\CpfCnpj;
 use Illuminate\Http\Request;
@@ -58,7 +59,14 @@ class ClienteController extends Controller
                 ? 'required|email|max:100|unique:users,email'
                 : 'nullable|email|max:100',
             'telefone' => 'required|string|min:10|max:15',
-            'cpf_cnpj' => ['nullable', 'string', 'max:18', new CpfCnpj],
+            'cpf_cnpj' => [
+                'nullable',
+                'string',
+                'max:18',
+                new CpfCnpj,
+                Rule::unique('clientes', 'cpf_cnpj'),
+                Rule::unique('pessoas', 'cpf_cnpj'),
+            ],
             'cep' => 'nullable|string|max:9',
             'logradouro' => 'nullable|string|max:100',
             'numero' => 'nullable|string|max:10',
@@ -77,8 +85,26 @@ class ClienteController extends Controller
         $cliente = DB::transaction(function () use ($validated, $criarUsuario) {
             $dadosCliente = collect($validated)->except(['password', 'password_confirmation'])->toArray();
 
+            // Seção 9.3 (c): Cria o registro único na tabela `pessoas` compartilhado entre `clientes` e `users`
+            $pessoa = Pessoa::create([
+                'nome' => $validated['nome'],
+                'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
+                'telefone' => $validated['telefone'],
+                'email' => $validated['email'] ?? null,
+                'cep' => $validated['cep'] ?? null,
+                'logradouro' => $validated['logradouro'] ?? null,
+                'numero' => $validated['numero'] ?? null,
+                'complemento' => $validated['complemento'] ?? null,
+                'bairro' => $validated['bairro'] ?? null,
+                'cidade' => $validated['cidade'] ?? null,
+                'estado' => $validated['estado'] ?? null,
+            ]);
+
+            $dadosCliente['pessoa_id'] = $pessoa->id;
+
             if ($criarUsuario) {
                 $user = User::create([
+                    'pessoa_id' => $pessoa->id,
                     'name' => $validated['nome'],
                     'email' => $validated['email'],
                     'telefone' => $validated['telefone'],
@@ -136,13 +162,25 @@ class ClienteController extends Controller
     {
         $criarUsuario = $request->boolean('criar_usuario') && empty($cliente->user_id);
 
+        $emailRules = ['nullable', 'email', 'max:100'];
+        if ($criarUsuario) {
+            $emailRules = ['required', 'email', 'max:100', Rule::unique('users', 'email')];
+        } elseif ($cliente->user_id) {
+            $emailRules = ['nullable', 'email', 'max:100', Rule::unique('users', 'email')->ignore($cliente->user_id)];
+        }
+
         $rules = [
             'nome' => 'required|string|min:3|max:100',
-            'email' => $criarUsuario
-                ? ['required', 'email', 'max:100', Rule::unique('users', 'email')]
-                : 'nullable|email|max:100',
+            'email' => $emailRules,
             'telefone' => 'required|string|min:10|max:15',
-            'cpf_cnpj' => ['nullable', 'string', 'max:18', new CpfCnpj],
+            'cpf_cnpj' => [
+                'nullable',
+                'string',
+                'max:18',
+                new CpfCnpj,
+                Rule::unique('clientes', 'cpf_cnpj')->ignore($cliente->id),
+                Rule::unique('pessoas', 'cpf_cnpj')->ignore($cliente->pessoa_id),
+            ],
             'cep' => 'nullable|string|max:9',
             'logradouro' => 'nullable|string|max:100',
             'numero' => 'nullable|string|max:10',
@@ -161,8 +199,32 @@ class ClienteController extends Controller
         DB::transaction(function () use ($cliente, $validated, $criarUsuario) {
             $dadosCliente = collect($validated)->except(['password', 'password_confirmation'])->toArray();
 
+            // Seção 9.3 (c): Atualiza ou cria o registro único na tabela `pessoas`,
+            // que propaga automaticamente para `clientes` e `users`.
+            $dadosPessoa = [
+                'nome' => $validated['nome'],
+                'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
+                'telefone' => $validated['telefone'],
+                'email' => $validated['email'] ?? ($cliente->user?->email),
+                'cep' => $validated['cep'] ?? null,
+                'logradouro' => $validated['logradouro'] ?? null,
+                'numero' => $validated['numero'] ?? null,
+                'complemento' => $validated['complemento'] ?? null,
+                'bairro' => $validated['bairro'] ?? null,
+                'cidade' => $validated['cidade'] ?? null,
+                'estado' => $validated['estado'] ?? null,
+            ];
+
+            if ($cliente->pessoa_id && ($pessoa = Pessoa::find($cliente->pessoa_id))) {
+                $pessoa->update($dadosPessoa);
+            } else {
+                $pessoa = Pessoa::create($dadosPessoa);
+                $dadosCliente['pessoa_id'] = $pessoa->id;
+            }
+
             if ($criarUsuario) {
                 $user = User::create([
+                    'pessoa_id' => $pessoa->id,
                     'name' => $validated['nome'],
                     'email' => $validated['email'],
                     'telefone' => $validated['telefone'],
@@ -174,8 +236,9 @@ class ClienteController extends Controller
                 $dadosCliente['user_id'] = $user->id;
             } elseif ($cliente->user) {
                 $cliente->user->update([
+                    'pessoa_id' => $pessoa->id,
                     'name' => $validated['nome'],
-                    'email' => $validated['email'] ?? $cliente->user->email,
+                    'email' => !empty($validated['email']) ? $validated['email'] : $cliente->user->email,
                     'telefone' => $validated['telefone'],
                 ]);
             }

@@ -30,6 +30,32 @@ class Tarefa extends Model
     }
 
     /**
+     * Seção 9.2 (b) — Integridade referencial entre Tarefas, Ordem de Serviço e AgendamentoServico:
+     * Impede que uma tarefa seja vinculada a uma Ordem de Serviço de um agendamento e a um
+     * serviço contratado (`agendamento_servico`) de outro agendamento diferente.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Tarefa $tarefa) {
+            if ($tarefa->ordem_servico_id && $tarefa->agendamento_servico_id) {
+                $osAgendamentoId = $tarefa->relationLoaded('ordemServico') && $tarefa->ordemServico
+                    ? $tarefa->ordemServico->agendamento_id
+                    : OrdemServico::where('id', $tarefa->ordem_servico_id)->value('agendamento_id');
+
+                $itemAgendamentoId = $tarefa->relationLoaded('agendamentoServico') && $tarefa->agendamentoServico
+                    ? $tarefa->agendamentoServico->agendamento_id
+                    : AgendamentoServico::where('id', $tarefa->agendamento_servico_id)->value('agendamento_id');
+
+                if ($osAgendamentoId !== null && $itemAgendamentoId !== null && (int) $osAgendamentoId !== (int) $itemAgendamentoId) {
+                    throw new \DomainException(
+                        'Inconsistência referencial: a Ordem de Serviço e o serviço contratado (agendamento_servico) devem pertencer ao mesmo agendamento.'
+                    );
+                }
+            }
+        });
+    }
+
+    /**
      * Ordem de serviço à qual a tarefa pertence.
      */
     public function ordemServico()

@@ -33,7 +33,8 @@ class MovimentarEstoqueService
         float $quantidade,
         User|int|null $usuario = null,
         ?string $motivo = null,
-        ?string $observacoes = null
+        ?string $observacoes = null,
+        ?int $tarefaProdutoId = null
     ): MovimentacaoEstoque {
         $tipoNormalizado = strtolower(trim($tipo));
 
@@ -59,7 +60,7 @@ class MovimentarEstoqueService
         }
 
         // 4. Execução atômica dentro de transação com bloqueio de concorrência
-        return DB::transaction(function () use ($produtoModel, $tipoNormalizado, $quantidade, $usuario, $motivo, $observacoes) {
+        return DB::transaction(function () use ($produtoModel, $tipoNormalizado, $quantidade, $usuario, $motivo, $observacoes, $tarefaProdutoId) {
             // Recarrega o produto com lock para garantir consistência
             $produtoAtualizado = Produto::lockForUpdate()->findOrFail($produtoModel->id);
             $qtdAnterior = (float) $produtoAtualizado->quantidade_estoque;
@@ -97,9 +98,10 @@ class MovimentarEstoqueService
             $produtoAtualizado->quantidade_estoque = $qtdPosterior;
             $produtoAtualizado->save();
 
-            // Registra o histórico auditável
+            // Registra o histórico auditável (com vínculo a tarefa_produto_id quando aplicável - Seção 9.6)
             return MovimentacaoEstoque::create([
                 'produto_id' => $produtoAtualizado->id,
+                'tarefa_produto_id' => $tarefaProdutoId,
                 'usuario_id' => $usuarioId,
                 'tipo_movimentacao' => $tipoNormalizado,
                 'quantidade' => $qtdRegistrada,
@@ -138,22 +140,37 @@ class MovimentarEstoqueService
             $numeroOS = $tarefaModel->ordemServico ? $tarefaModel->ordemServico->numero : "OS-{$tarefaModel->ordem_servico_id}";
             $motivo = "Consumo na tarefa #{$tarefaModel->id} ({$numeroOS})";
 
-            // Executa a saída no estoque através do método centralizado
+            // Se já houver registro deste produto nesta tarefa (UNIQUE composto tarefa_id + produto_id),
+            // incrementa a quantidade utilizada; caso contrário, cria o vínculo em tarefa_produto.
+            $tarefaProduto = TarefaProduto::where('tarefa_id', $tarefaModel->id)
+                ->where('produto_id', $produtoModel->id)
+                ->first();
+
+            if ($tarefaProduto) {
+                $tarefaProduto->update([
+                    'quantidade_utilizada' => (float) $tarefaProduto->quantidade_utilizada + $quantidadeUtilizada,
+                    'custo_unitario' => $produtoModel->custo_por_volume,
+                ]);
+            } else {
+                $tarefaProduto = TarefaProduto::create([
+                    'tarefa_id' => $tarefaModel->id,
+                    'produto_id' => $produtoModel->id,
+                    'quantidade_utilizada' => $quantidadeUtilizada,
+                    'custo_unitario' => $produtoModel->custo_por_volume,
+                ]);
+            }
+
+            // Executa a saída no estoque vinculando tarefa_produto_id (Seção 9.6)
             $this->movimentar(
                 produto: $produtoModel,
                 tipo: 'saida',
                 quantidade: $quantidadeUtilizada,
                 usuario: $usuario,
-                motivo: $motivo
+                motivo: $motivo,
+                tarefaProdutoId: $tarefaProduto->id
             );
 
-            // Registra a associação em tarefa_produto com o custo proporcional ao volume congelado
-            return TarefaProduto::create([
-                'tarefa_id' => $tarefaModel->id,
-                'produto_id' => $produtoModel->id,
-                'quantidade_utilizada' => $quantidadeUtilizada,
-                'custo_unitario' => $produtoModel->custo_por_volume,
-            ]);
+            return $tarefaProduto;
         });
     }
 }

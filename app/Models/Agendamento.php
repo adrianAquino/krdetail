@@ -30,6 +30,30 @@ class Agendamento extends Model
     }
 
     /**
+     * Seção 9.2 (a) — Integridade referencial entre Agendamentos, Clientes e Veículos (RN01):
+     * O atributo `cliente_id` é mantido em `agendamentos` para preservar o histórico do contratante
+     * na época do atendimento, mesmo que o veículo seja transferido para um novo proprietário no futuro
+     * (`veiculos.cliente_id` atualizado). No momento da criação ou alteração de veículo/cliente do
+     * agendamento, garante-se que o veículo selecionado pertence ao cliente informado.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Agendamento $agendamento) {
+            if (!$agendamento->exists || $agendamento->isDirty(['cliente_id', 'veiculo_id'])) {
+                if ($agendamento->veiculo_id && $agendamento->cliente_id) {
+                    $veiculoPertenceAoCliente = Veiculo::where('id', $agendamento->veiculo_id)
+                        ->where('cliente_id', $agendamento->cliente_id)
+                        ->exists();
+
+                    if (!$veiculoPertenceAoCliente) {
+                        throw new \DomainException('Inconsistência referencial (RN01): o veículo selecionado não pertence ao cliente informado no agendamento.');
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Valor total estimado/contratado dos serviços vinculados ao agendamento.
      */
     public function getValorTotalAttribute(): float
