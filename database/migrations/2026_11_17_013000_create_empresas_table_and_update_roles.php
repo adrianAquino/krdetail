@@ -13,8 +13,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Atualiza o ENUM tipo_usuario na tabela users para incluir 'dono'
-        DB::statement("ALTER TABLE `users` MODIFY COLUMN `tipo_usuario` ENUM('administrador', 'dono', 'funcionario', 'cliente') NOT NULL DEFAULT 'cliente'");
+        // 1. Atualiza o ENUM tipo_usuario na tabela users para incluir 'dono' (apenas MySQL)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE `users` MODIFY COLUMN `tipo_usuario` ENUM('administrador', 'dono', 'funcionario', 'cliente') NOT NULL DEFAULT 'cliente'");
+        }
 
         // 2. Cria a tabela empresas com todos os campos de Dados da Empresa
         if (!Schema::hasTable('empresas')) {
@@ -263,6 +265,8 @@ return new class extends Migration
         Schema::dropIfExists('empresas');
 
         DB::table('users')->where('tipo_usuario', 'dono')->update(['tipo_usuario' => 'funcionario']);
-        DB::statement("ALTER TABLE `users` MODIFY COLUMN `tipo_usuario` ENUM('administrador', 'funcionario', 'cliente') NOT NULL DEFAULT 'cliente'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE `users` MODIFY COLUMN `tipo_usuario` ENUM('administrador', 'funcionario', 'cliente') NOT NULL DEFAULT 'cliente'");
+        }
     }
 };
