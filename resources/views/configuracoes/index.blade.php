@@ -64,7 +64,7 @@
                         onclick="switchConfigTab('empresa')"
                         class="tab-btn py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 border-transparent text-muted-foreground hover:text-foreground hover:border-border whitespace-nowrap transition-colors cursor-pointer">
                     <x-icon name="briefcase" class="w-4 h-4" />
-                    Dados da Empresa
+                    {{ $isAdmin ? 'Listagem de Empresas' : 'Dados da Empresa' }}
                 </button>
                 <button type="button"
                         id="tab-equipe-btn"
@@ -113,7 +113,7 @@
     </div>
 
     @if(!$isCliente)
-        <!-- ABA 1: DADOS DA EMPRESA (CRUD COMPLETO) -->
+        <!-- ABA 1: DADOS DA EMPRESA -->
         <div id="tab-empresa" class="config-content space-y-6 hidden">
             @if($isFuncionario)
                 <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-xs text-amber-400">
@@ -122,173 +122,352 @@
                 </div>
             @endif
 
-            <!-- Barra Superior de Gestão de Empresas (Listagem / Seleção / Criação) -->
-            <x-card>
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 class="text-sm font-semibold text-foreground flex items-center gap-2">
-                            <x-icon name="briefcase" class="w-4 h-4 text-primary" />
-                            Empresas Cadastradas ({{ $empresas->count() }})
-                        </h2>
-                        <p class="text-xs text-muted-foreground">
-                            @if($isAdmin)
-                                Como Administrador Geral, você pode visualizar, criar, editar e excluir qualquer empresa do sistema.
-                            @elseif($isDono)
-                                Gerencie os dados cadastrais da sua empresa ou cadastre uma nova unidade.
-                            @else
-                                Unidade empresarial à qual seu perfil de colaborador está vinculado.
-                            @endif
-                        </p>
-                    </div>
+            @if($isAdmin)
+                <!-- VISÃO ADMINISTRADOR GERAL: LISTAGEM DE EMPRESAS + CRUD VIA MODAIS -->
+                <x-card>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+                        <div>
+                            <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
+                                <x-icon name="briefcase" class="w-5 h-5 text-primary" />
+                                Empresas Cadastradas no Sistema ({{ $empresas->count() }})
+                            </h2>
+                            <p class="text-xs text-muted-foreground mt-0.5">
+                                Visualize, cadastre, altere ou exclua empresas. A exclusão é bloqueada automaticamente se houver registros vinculados.
+                            </p>
+                        </div>
 
-                    @if($podeCriarEmpresa)
                         <x-button type="button" variant="primary" size="sm" onclick="openModal('modal-nova-empresa')" class="gap-1.5 self-start sm:self-auto">
                             <x-icon name="plus" class="w-4 h-4" />
                             Nova Empresa
                         </x-button>
-                    @endif
-                </div>
-
-                @if($empresas->count() > 0)
-                    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        @foreach($empresas as $empItem)
-                            @php
-                                $selecionada = $empresaAtual && (int) $empresaAtual->id === (int) $empItem->id;
-                            @endphp
-                            <div class="p-3.5 rounded-xl border transition-all flex items-start justify-between gap-3 {{ $selecionada ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-secondary/20 hover:border-border/80' }}">
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <a href="{{ route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empItem->id]) }}"
-                                           class="font-semibold text-sm text-foreground hover:text-primary truncate">
-                                            {{ $empItem->nome_fantasia }}
-                                        </a>
-                                        @if($selecionada)
-                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">Selecionada</span>
-                                        @endif
-                                    </div>
-                                    <p class="text-[11px] text-muted-foreground truncate mt-0.5">{{ $empItem->razao_social }}</p>
-                                    <p class="text-[11px] text-muted-foreground mt-1">
-                                        CNPJ: {{ $empItem->cnpj ?: 'Não informado' }} • Dono: {{ $empItem->dono?->name ?? 'Não atribuído' }}
-                                    </p>
-                                </div>
-
-                                @if(!$selecionada)
-                                    <a href="{{ route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empItem->id]) }}"
-                                       class="text-xs font-medium text-primary hover:underline shrink-0">
-                                        Abrir
-                                    </a>
-                                @endif
-                            </div>
-                        @endforeach
                     </div>
-                @endif
-            </x-card>
 
-            @if($empresaAtual)
-                <form action="{{ route('configuracoes.empresas.update', $empresaAtual->id) }}" method="POST" class="space-y-6">
-                    @csrf
-                    @method('PUT')
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-secondary/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">
+                                <tr>
+                                    <th class="px-4 py-3">Empresa</th>
+                                    <th class="px-4 py-3">CNPJ / IE</th>
+                                    <th class="px-4 py-3">Dono Responsável</th>
+                                    <th class="px-4 py-3">Contato</th>
+                                    <th class="px-4 py-3">Cidade / UF</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border text-xs">
+                                @forelse($empresas as $empItem)
+                                    <tr class="hover:bg-secondary/20 transition-colors">
+                                        <td class="px-4 py-3.5">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                                                    <x-icon name="briefcase" class="w-4 h-4" />
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="font-semibold text-foreground text-sm">{{ $empItem->nome_fantasia }}</p>
+                                                    <p class="text-[11px] text-muted-foreground truncate max-w-[260px]">{{ $empItem->razao_social }}</p>
+                                                    <p class="text-[10px] text-muted-foreground/80 mt-0.5">
+                                                        {{ $empItem->clientes_count ?? 0 }} cliente(s) • {{ $empItem->funcionarios_count ?? 0 }} colaborador(es) • {{ $empItem->servicos_count ?? 0 }} serviço(s)
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3.5 whitespace-nowrap">
+                                            <p class="font-medium text-foreground">{{ $empItem->cnpj ?: 'Não informado' }}</p>
+                                            <p class="text-[11px] text-muted-foreground">IE: {{ $empItem->inscricao_estadual ?: '-' }}</p>
+                                        </td>
+                                        <td class="px-4 py-3.5">
+                                            @if($empItem->dono)
+                                                <p class="font-medium text-foreground">{{ $empItem->dono->name }}</p>
+                                                <p class="text-[11px] text-muted-foreground">{{ $empItem->dono->email }}</p>
+                                            @else
+                                                <span class="text-muted-foreground italic">Não atribuído</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3.5 whitespace-nowrap">
+                                            <p class="text-foreground">{{ $empItem->whatsapp }}</p>
+                                            <p class="text-[11px] text-muted-foreground">{{ $empItem->email }}</p>
+                                        </td>
+                                        <td class="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
+                                            {{ $empItem->cidade ? $empItem->cidade . ($empItem->uf ? '/' . $empItem->uf : '') : '-' }}
+                                        </td>
+                                        <td class="px-4 py-3.5 whitespace-nowrap">
+                                            @if($empItem->ativo)
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                    Ativa
+                                                </span>
+                                            @else
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/10 text-zinc-400">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                                                    Inativa
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3.5 text-right whitespace-nowrap">
+                                            <div class="inline-flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onclick="openModal('modal-visualizar-empresa-{{ $empItem->id }}')"
+                                                    class="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                    title="Visualizar Empresa"
+                                                    aria-label="Visualizar {{ $empItem->nome_fantasia }}"
+                                                >
+                                                    <x-icon name="eye" class="w-4 h-4" />
+                                                </button>
 
+                                                <button
+                                                    type="button"
+                                                    onclick="openModal('modal-editar-empresa-{{ $empItem->id }}')"
+                                                    class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                                                    title="Alterar Empresa"
+                                                    aria-label="Alterar {{ $empItem->nome_fantasia }}"
+                                                >
+                                                    <x-icon name="edit" class="w-4 h-4" />
+                                                </button>
+
+                                                <form method="POST"
+                                                      action="{{ route('configuracoes.empresas.destroy', $empItem->id) }}"
+                                                      class="inline"
+                                                      onsubmit="return confirm('Tem certeza que deseja excluir a empresa &quot;{{ addslashes($empItem->nome_fantasia) }}&quot;?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button
+                                                        type="submit"
+                                                        class="p-1.5 rounded-md text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                                        title="Excluir Empresa"
+                                                        aria-label="Excluir {{ $empItem->nome_fantasia }}"
+                                                    >
+                                                        <x-icon name="trash-2" class="w-4 h-4" />
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="px-4 py-8 text-center text-muted-foreground">
+                                            Nenhuma empresa cadastrada no sistema até o momento.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </x-card>
+            @else
+                <!-- VISÃO DONO DA EMPRESA / FUNCIONÁRIO: APRESENTAÇÃO DOS DADOS DA EMPRESA -->
+                @if($isDono && $empresas->count() > 1)
                     <x-card>
-                        <div class="flex items-center justify-between gap-2 pb-4 mb-4 border-b border-border">
-                            <div class="flex items-center gap-2">
-                                <x-icon name="shield" class="w-5 h-5 text-primary" />
-                                <div>
-                                    <h2 class="text-sm font-semibold text-foreground">Identificação da Oficina ({{ $empresaAtual->nome_fantasia }})</h2>
-                                    <p class="text-xs text-muted-foreground">Estes dados aparecem nos relatórios, fichas de agendamento e ordens de serviço.</p>
-                                </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                            <div>
+                                <h2 class="text-sm font-semibold text-foreground">Suas Empresas ({{ $empresas->count() }})</h2>
+                                <p class="text-xs text-muted-foreground">Selecione qual unidade deseja visualizar ou gerenciar.</p>
                             </div>
                         </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @foreach($empresas as $empItem)
+                                @php
+                                    $selecionada = $empresaAtual && (int) $empresaAtual->id === (int) $empItem->id;
+                                @endphp
+                                <a href="{{ route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empItem->id]) }}"
+                                   class="p-3 rounded-xl border transition-all flex items-center justify-between gap-3 {{ $selecionada ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-secondary/20 hover:border-border/80' }}">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-sm text-foreground truncate">{{ $empItem->nome_fantasia }}</p>
+                                        <p class="text-[11px] text-muted-foreground truncate">{{ $empItem->cnpj ?: 'CNPJ não informado' }}</p>
+                                    </div>
+                                    @if($selecionada)
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold shrink-0">Em exibição</span>
+                                    @endif
+                                </a>
+                            @endforeach
+                        </div>
+                    </x-card>
+                @endif
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <x-input name="nome_fantasia" label="Nome Fantasia" :value="old('nome_fantasia', $empresaAtual->nome_fantasia)" maxlength="100" required :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="razao_social" label="Razão Social" :value="old('razao_social', $empresaAtual->razao_social)" maxlength="120" required :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="cnpj" label="CNPJ" :value="old('cnpj', $empresaAtual->cnpj)" maxlength="18" placeholder="00.000.000/0000-00" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="inscricao_estadual" label="Inscrição Estadual" :value="old('inscricao_estadual', $empresaAtual->inscricao_estadual)" maxlength="20" :disabled="!$podeGerenciarEmpresa" />
+                @if($empresaAtual)
+                    <!-- Cartão de Apresentação Principal -->
+                    <x-card>
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center text-primary shrink-0">
+                                    <x-icon name="briefcase" class="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h2 class="text-lg font-bold text-foreground">{{ $empresaAtual->nome_fantasia }}</h2>
+                                        @if($empresaAtual->ativo)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                Ativa
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                                                Inativa
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <p class="text-sm text-muted-foreground mt-0.5">{{ $empresaAtual->razao_social }}</p>
+                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                                        <span><strong>Clientes:</strong> {{ $empresaAtual->clientes_count ?? 0 }}</span>
+                                        <span><strong>Colaboradores:</strong> {{ $empresaAtual->funcionarios_count ?? 0 }}</span>
+                                        <span><strong>Serviços:</strong> {{ $empresaAtual->servicos_count ?? 0 }}</span>
+                                        <span><strong>Produtos:</strong> {{ $empresaAtual->produtos_count ?? 0 }}</span>
+                                    </div>
+                                </div>
+                            </div>
 
-                            @if($isAdmin)
-                                <div class="md:col-span-2">
-                                    <x-select name="dono_id" label="Dono da Empresa (Responsável Principal)">
-                                        <option value="">Selecione o dono responsável</option>
-                                        @foreach($donosDisponiveis as $donoOpcao)
-                                            <option value="{{ $donoOpcao->id }}" {{ (int) old('dono_id', $empresaAtual->dono_id) === (int) $donoOpcao->id ? 'selected' : '' }}>
-                                                {{ $donoOpcao->name }} ({{ $donoOpcao->email }} - {{ $donoOpcao->role_label }})
-                                            </option>
-                                        @endforeach
-                                    </x-select>
+                            @if($isDono)
+                                <div class="flex flex-wrap items-center gap-2 self-start lg:self-center">
+                                    <x-button type="button" variant="primary" size="sm" onclick="openModal('modal-editar-empresa-{{ $empresaAtual->id }}')" class="gap-1.5">
+                                        <x-icon name="edit" class="w-4 h-4" />
+                                        Editar Dados
+                                    </x-button>
+
+                                    <x-button type="button" variant="outline" size="sm" onclick="openModal('modal-nova-empresa')" class="gap-1.5">
+                                        <x-icon name="plus" class="w-4 h-4" />
+                                        Nova Empresa
+                                    </x-button>
+
+                                    <form method="POST"
+                                          action="{{ route('configuracoes.empresas.destroy', $empresaAtual->id) }}"
+                                          class="inline"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir esta empresa? A operação será bloqueada caso existam registros vinculados.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-400 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer">
+                                            <x-icon name="trash-2" class="w-4 h-4" />
+                                            Excluir
+                                        </button>
+                                    </form>
                                 </div>
                             @endif
                         </div>
                     </x-card>
 
-                    <x-card>
-                        <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
-                            <x-icon name="phone" class="w-5 h-5 text-primary" />
-                            <div>
-                                <h2 class="text-sm font-semibold text-foreground">Canais de Contato</h2>
-                                <p class="text-xs text-muted-foreground">Canais utilizados para contato com clientes e fornecedores.</p>
+                    <!-- Blocos de Apresentação Detalhada -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <x-card>
+                            <div class="flex items-center gap-2 pb-3 mb-4 border-b border-border">
+                                <x-icon name="shield" class="w-5 h-5 text-primary" />
+                                <div>
+                                    <h3 class="text-sm font-semibold text-foreground">Identificação da Oficina</h3>
+                                    <p class="text-xs text-muted-foreground">Dados exibidos em relatórios, agendamentos e ordens de serviço.</p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <x-input name="telefone" label="Telefone Fixo" :value="old('telefone', $empresaAtual->telefone)" maxlength="15" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="whatsapp" label="WhatsApp Comercial" :value="old('whatsapp', $empresaAtual->whatsapp)" maxlength="15" required :disabled="!$podeGerenciarEmpresa" />
-                            <x-input type="email" name="email" label="E-mail Comercial" :value="old('email', $empresaAtual->email)" maxlength="100" required :disabled="!$podeGerenciarEmpresa" />
-                        </div>
-                    </x-card>
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                    <dt class="text-muted-foreground">Nome Fantasia</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->nome_fantasia }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                    <dt class="text-muted-foreground">Razão Social</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->razao_social }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                    <dt class="text-muted-foreground">CNPJ</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->cnpj ?: 'Não informado' }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                    <dt class="text-muted-foreground">Inscrição Estadual</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->inscricao_estadual ?: 'Não informada' }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60 sm:col-span-2">
+                                    <dt class="text-muted-foreground">Dono / Responsável Principal</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">
+                                        {{ $empresaAtual->dono?->name ?? 'Não atribuído' }}
+                                        @if($empresaAtual->dono?->email)
+                                            <span class="text-xs font-normal text-muted-foreground">({{ $empresaAtual->dono->email }})</span>
+                                        @endif
+                                    </dd>
+                                </div>
+                            </dl>
+                        </x-card>
+
+                        <x-card>
+                            <div class="flex items-center gap-2 pb-3 mb-4 border-b border-border">
+                                <x-icon name="phone" class="w-5 h-5 text-primary" />
+                                <div>
+                                    <h3 class="text-sm font-semibold text-foreground">Canais de Contato & Atendimento</h3>
+                                    <p class="text-xs text-muted-foreground">Meios oficiais para comunicação com clientes e fornecedores.</p>
+                                </div>
+                            </div>
+
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                    <dt class="text-muted-foreground">WhatsApp Comercial</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->whatsapp }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                    <dt class="text-muted-foreground">Telefone Fixo</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->telefone ?: 'Não informado' }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60 sm:col-span-2">
+                                    <dt class="text-muted-foreground">E-mail Comercial</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->email }}</dd>
+                                </div>
+                                <div class="p-3 rounded-lg bg-secondary/25 border border-border/60 sm:col-span-2">
+                                    <dt class="text-muted-foreground">Horário de Atendimento</dt>
+                                    <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->horario_atendimento ?: 'Não informado' }}</dd>
+                                </div>
+                            </dl>
+                        </x-card>
+                    </div>
 
                     <x-card>
-                        <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
+                        <div class="flex items-center gap-2 pb-3 mb-4 border-b border-border">
                             <x-icon name="map-pin" class="w-5 h-5 text-primary" />
                             <div>
-                                <h2 class="text-sm font-semibold text-foreground">Endereço da Sede</h2>
-                                <p class="text-xs text-muted-foreground">Localização física para recepção dos veículos dos clientes.</p>
+                                <h3 class="text-sm font-semibold text-foreground">Endereço da Sede</h3>
+                                <p class="text-xs text-muted-foreground">Localização física para recepção dos veículos.</p>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <x-input name="cep" label="CEP" :value="old('cep', $empresaAtual->cep)" maxlength="9" :disabled="!$podeGerenciarEmpresa" />
-                            <div class="sm:col-span-2">
-                                <x-input name="logradouro" label="Logradouro" :value="old('logradouro', $empresaAtual->logradouro)" maxlength="100" :disabled="!$podeGerenciarEmpresa" />
+                        <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                <dt class="text-muted-foreground">CEP</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->cep ?: '-' }}</dd>
                             </div>
-                            <x-input name="numero" label="Número" :value="old('numero', $empresaAtual->numero)" maxlength="10" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="complemento" label="Complemento" :value="old('complemento', $empresaAtual->complemento)" maxlength="100" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="bairro" label="Bairro" :value="old('bairro', $empresaAtual->bairro)" maxlength="100" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="cidade" label="Cidade" :value="old('cidade', $empresaAtual->cidade)" maxlength="100" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="uf" label="UF" :value="old('uf', $empresaAtual->uf)" maxlength="2" :disabled="!$podeGerenciarEmpresa" />
-                            <x-input name="horario_atendimento" label="Horário de Atendimento" :value="old('horario_atendimento', $empresaAtual->horario_atendimento)" maxlength="100" :disabled="!$podeGerenciarEmpresa" />
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60 sm:col-span-2">
+                                <dt class="text-muted-foreground">Logradouro</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->logradouro ?: '-' }}</dd>
+                            </div>
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                <dt class="text-muted-foreground">Número</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->numero ?: '-' }}</dd>
+                            </div>
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                <dt class="text-muted-foreground">Complemento</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->complemento ?: '-' }}</dd>
+                            </div>
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                <dt class="text-muted-foreground">Bairro</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->bairro ?: '-' }}</dd>
+                            </div>
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                <dt class="text-muted-foreground">Cidade</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->cidade ?: '-' }}</dd>
+                            </div>
+                            <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                                <dt class="text-muted-foreground">UF</dt>
+                                <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $empresaAtual->uf ?: '-' }}</dd>
+                            </div>
+                        </dl>
+                    </x-card>
+                @else
+                    <x-card>
+                        <div class="py-10 text-center space-y-3">
+                            <p class="text-sm text-muted-foreground">Nenhuma empresa vinculada ao seu perfil ainda.</p>
+                            @if($podeCriarEmpresa)
+                                <x-button type="button" variant="primary" size="sm" onclick="openModal('modal-nova-empresa')" class="gap-1.5">
+                                    <x-icon name="plus" class="w-4 h-4" />
+                                    Nova Empresa
+                                </x-button>
+                            @endif
                         </div>
                     </x-card>
-
-                    @if($podeGerenciarEmpresa)
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                @if($empresas->count() > 1)
-                                    <button type="button"
-                                            onclick="if(confirm('Tem certeza que deseja excluir esta empresa? Esta ação só será permitida se não houver clientes ou colaboradores vinculados.')) document.getElementById('form-delete-empresa-{{ $empresaAtual->id }}').submit();"
-                                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-rose-400 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer">
-                                        <x-icon name="trash" class="w-4 h-4" />
-                                        Excluir Empresa
-                                    </button>
-                                @endif
-                            </div>
-
-                            <x-button type="submit" variant="primary" class="gap-2">
-                                <x-icon name="check" class="w-4 h-4" />
-                                Salvar Dados da Empresa
-                            </x-button>
-                        </div>
-                    @endif
-                </form>
-
-                @if($podeGerenciarEmpresa && $empresas->count() > 1)
-                    <form id="form-delete-empresa-{{ $empresaAtual->id }}"
-                          action="{{ route('configuracoes.empresas.destroy', $empresaAtual->id) }}"
-                          method="POST"
-                          class="hidden">
-                        @csrf
-                        @method('DELETE')
-                    </form>
                 @endif
             @endif
         </div>
@@ -462,7 +641,7 @@
                                                     class="p-1 text-muted-foreground hover:text-rose-400 transition-colors ml-1 cursor-pointer"
                                                     title="Excluir Usuário"
                                                 >
-                                                    <x-icon name="trash" class="w-4 h-4" />
+                                                    <x-icon name="trash-2" class="w-4 h-4" />
                                                 </button>
                                             </form>
                                         @endif
@@ -770,41 +949,285 @@
     @endif
 </div>
 
-@if($podeCriarEmpresa)
-    <!-- Modal Cadastrar Nova Empresa -->
-    <x-modal id="modal-nova-empresa" title="Cadastrar Nova Empresa" maxWidth="2xl">
-        <form action="{{ route('configuracoes.empresas.store') }}" method="POST" class="space-y-4">
-            @csrf
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <x-input name="nome_fantasia" label="Nome Fantasia" placeholder="Ex: Kraus Detail - Unidade 2" maxlength="100" required />
-                <x-input name="razao_social" label="Razão Social" placeholder="Ex: Kraus Estética Automotiva LTDA" maxlength="120" required />
-                <x-input name="cnpj" label="CNPJ" placeholder="00.000.000/0000-00" maxlength="18" />
-                <x-input name="inscricao_estadual" label="Inscrição Estadual" placeholder="ISENTO" maxlength="20" />
-                <x-input name="telefone" label="Telefone Fixo" placeholder="(11) 3214-5500" maxlength="15" />
-                <x-input name="whatsapp" label="WhatsApp Comercial" placeholder="(11) 98765-4321" maxlength="15" required />
-                <div class="sm:col-span-2">
-                    <x-input type="email" name="email" label="E-mail Comercial" placeholder="contato@empresa.com.br" maxlength="100" required />
+@if(!$isCliente)
+    @foreach($empresas as $empItem)
+        @php
+            $podeEditarEstaEmpresa = $usuarioLogado && $usuarioLogado->canManageEmpresa($empItem);
+        @endphp
+
+        <!-- Modal Visualizar Empresa -->
+        <x-modal id="modal-visualizar-empresa-{{ $empItem->id }}" :title="'Detalhes da Empresa: ' . $empItem->nome_fantasia" maxWidth="3xl">
+            <div class="space-y-5 text-xs">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border">
+                    <div>
+                        <p class="text-sm font-bold text-foreground">{{ $empItem->nome_fantasia }}</p>
+                        <p class="text-xs text-muted-foreground">{{ $empItem->razao_social }}</p>
+                    </div>
+                    @if($empItem->ativo)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Ativa
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                            Inativa
+                        </span>
+                    @endif
                 </div>
 
-                @if($isAdmin)
-                    <div class="sm:col-span-2">
-                        <x-select name="dono_id" label="Dono da Empresa">
-                            <option value="">Selecione o dono responsável</option>
-                            @foreach($donosDisponiveis as $donoOpcao)
-                                <option value="{{ $donoOpcao->id }}">{{ $donoOpcao->name }} ({{ $donoOpcao->email }})</option>
-                            @endforeach
-                        </x-select>
+                <!-- Resumo de Vínculos -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
+                        <span class="text-muted-foreground block">Clientes</span>
+                        <span class="font-bold text-foreground text-base">{{ $empItem->clientes_count ?? 0 }}</span>
                     </div>
-                @endif
+                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
+                        <span class="text-muted-foreground block">Colaboradores</span>
+                        <span class="font-bold text-foreground text-base">{{ $empItem->funcionarios_count ?? 0 }}</span>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
+                        <span class="text-muted-foreground block">Serviços</span>
+                        <span class="font-bold text-foreground text-base">{{ $empItem->servicos_count ?? 0 }}</span>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/30 border border-border">
+                        <span class="text-muted-foreground block">Produtos</span>
+                        <span class="font-bold text-foreground text-base">{{ $empItem->produtos_count ?? 0 }}</span>
+                    </div>
+                </div>
 
-                <x-input name="cep" label="CEP" placeholder="00000-000" maxlength="9" />
-                <x-input name="logradouro" label="Logradouro" placeholder="Avenida / Rua" maxlength="100" />
-                <x-input name="numero" label="Número" placeholder="100" maxlength="10" />
-                <x-input name="complemento" label="Complemento" placeholder="Galpão / Sala" maxlength="100" />
-                <x-input name="bairro" label="Bairro" placeholder="Centro" maxlength="100" />
-                <x-input name="cidade" label="Cidade" placeholder="São Paulo" maxlength="100" />
-                <x-input name="uf" label="UF" placeholder="SP" maxlength="2" />
-                <x-input name="horario_atendimento" label="Horário de Atendimento" value="Segunda a Sábado, 08:00 às 18:00" maxlength="100" />
+                <!-- Identificação da Oficina -->
+                <div class="space-y-2.5">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                        <x-icon name="shield" class="w-3.5 h-3.5" />
+                        Identificação da Oficina
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">CNPJ</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->cnpj ?: 'Não informado' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">Inscrição Estadual</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->inscricao_estadual ?: '-' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60 sm:col-span-2">
+                            <span class="text-muted-foreground block">Dono / Responsável Principal</span>
+                            <span class="font-semibold text-foreground">
+                                {{ $empItem->dono?->name ?? 'Não atribuído' }}
+                                @if($empItem->dono?->email)
+                                    ({{ $empItem->dono->email }})
+                                @endif
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canais de Contato -->
+                <div class="space-y-2.5">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                        <x-icon name="phone" class="w-3.5 h-3.5" />
+                        Canais de Contato
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">Telefone Fixo</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->telefone ?: '-' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">WhatsApp Comercial</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->whatsapp }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">E-mail Comercial</span>
+                            <span class="font-semibold text-foreground break-all">{{ $empItem->email }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endereço da Sede -->
+                <div class="space-y-2.5">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                        <x-icon name="map-pin" class="w-3.5 h-3.5" />
+                        Endereço da Sede & Horário
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">CEP</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->cep ?: '-' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60 sm:col-span-2">
+                            <span class="text-muted-foreground block">Logradouro</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->logradouro ?: '-' }}, {{ $empItem->numero ?: 'S/N' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">Complemento</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->complemento ?: '-' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">Bairro</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->bairro ?: '-' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60">
+                            <span class="text-muted-foreground block">Cidade / UF</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->cidade ?: '-' }}{{ $empItem->uf ? '/' . $empItem->uf : '' }}</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-secondary/20 border border-border/60 sm:col-span-3">
+                            <span class="text-muted-foreground block">Horário de Atendimento</span>
+                            <span class="font-semibold text-foreground">{{ $empItem->horario_atendimento ?: '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-border">
+                    <x-button type="button" variant="outline" onclick="closeModal('modal-visualizar-empresa-{{ $empItem->id }}')">
+                        Fechar
+                    </x-button>
+                    @if($podeEditarEstaEmpresa)
+                        <x-button type="button" variant="primary" class="gap-1.5" onclick="closeModal('modal-visualizar-empresa-{{ $empItem->id }}'); openModal('modal-editar-empresa-{{ $empItem->id }}');">
+                            <x-icon name="edit" class="w-4 h-4" />
+                            Alterar Dados
+                        </x-button>
+                    @endif
+                </div>
+            </div>
+        </x-modal>
+
+        @if($podeEditarEstaEmpresa)
+            <!-- Modal Editar Empresa -->
+            <x-modal id="modal-editar-empresa-{{ $empItem->id }}" :title="'Alterar Empresa: ' . $empItem->nome_fantasia" maxWidth="3xl">
+                <form action="{{ route('configuracoes.empresas.update', $empItem->id) }}" method="POST" class="space-y-5">
+                    @csrf
+                    @method('PUT')
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                            <x-icon name="shield" class="w-3.5 h-3.5" />
+                            Identificação da Oficina
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <x-input :id="'edit_emp_' . $empItem->id . '_nome_fantasia'" name="nome_fantasia" label="Nome Fantasia" :value="$empItem->nome_fantasia" maxlength="100" required />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_razao_social'" name="razao_social" label="Razão Social" :value="$empItem->razao_social" maxlength="120" required />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_cnpj'" name="cnpj" label="CNPJ" :value="$empItem->cnpj" maxlength="18" placeholder="00.000.000/0000-00" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_inscricao_estadual'" name="inscricao_estadual" label="Inscrição Estadual" :value="$empItem->inscricao_estadual" maxlength="20" />
+
+                            @if($isAdmin)
+                                <div class="sm:col-span-2">
+                                    <x-select :id="'edit_emp_' . $empItem->id . '_dono_id'" name="dono_id" label="Dono da Empresa (Responsável Principal)" placeholder="Selecione o dono responsável">
+                                        @foreach($donosDisponiveis as $donoOpcao)
+                                            <option value="{{ $donoOpcao->id }}" {{ (int) $empItem->dono_id === (int) $donoOpcao->id ? 'selected' : '' }}>
+                                                {{ $donoOpcao->name }} ({{ $donoOpcao->email }} - {{ $donoOpcao->role_label }})
+                                            </option>
+                                        @endforeach
+                                    </x-select>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                            <x-icon name="phone" class="w-3.5 h-3.5" />
+                            Canais de Contato
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <x-input :id="'edit_emp_' . $empItem->id . '_telefone'" name="telefone" label="Telefone Fixo" :value="$empItem->telefone" maxlength="15" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_whatsapp'" name="whatsapp" label="WhatsApp Comercial" :value="$empItem->whatsapp" maxlength="15" required />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_email'" type="email" name="email" label="E-mail Comercial" :value="$empItem->email" maxlength="100" required />
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                            <x-icon name="map-pin" class="w-3.5 h-3.5" />
+                            Endereço da Sede
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <x-input :id="'edit_emp_' . $empItem->id . '_cep'" name="cep" label="CEP" :value="$empItem->cep" maxlength="9" />
+                            <div class="sm:col-span-2">
+                                <x-input :id="'edit_emp_' . $empItem->id . '_logradouro'" name="logradouro" label="Logradouro" :value="$empItem->logradouro" maxlength="100" />
+                            </div>
+                            <x-input :id="'edit_emp_' . $empItem->id . '_numero'" name="numero" label="Número" :value="$empItem->numero" maxlength="10" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_complemento'" name="complemento" label="Complemento" :value="$empItem->complemento" maxlength="100" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_bairro'" name="bairro" label="Bairro" :value="$empItem->bairro" maxlength="100" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_cidade'" name="cidade" label="Cidade" :value="$empItem->cidade" maxlength="100" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_uf'" name="uf" label="UF" :value="$empItem->uf" maxlength="2" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_horario_atendimento'" name="horario_atendimento" label="Horário de Atendimento" :value="$empItem->horario_atendimento" maxlength="100" />
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t border-border">
+                        <x-button type="button" variant="outline" onclick="closeModal('modal-editar-empresa-{{ $empItem->id }}')">
+                            Cancelar
+                        </x-button>
+                        <x-button type="submit" variant="primary" class="gap-1.5">
+                            <x-icon name="save" class="w-4 h-4" />
+                            Salvar Alterações
+                        </x-button>
+                    </div>
+                </form>
+            </x-modal>
+        @endif
+    @endforeach
+@endif
+
+@if($podeCriarEmpresa)
+    <!-- Modal Cadastrar Nova Empresa -->
+    <x-modal id="modal-nova-empresa" title="Cadastrar Nova Empresa" maxWidth="3xl">
+        <form action="{{ route('configuracoes.empresas.store') }}" method="POST" class="space-y-5">
+            @csrf
+
+            <div class="space-y-3">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                    <x-icon name="shield" class="w-3.5 h-3.5" />
+                    Identificação da Oficina
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <x-input id="nova_emp_nome_fantasia" name="nome_fantasia" label="Nome Fantasia" placeholder="Ex: Kraus Detail - Unidade 2" maxlength="100" required />
+                    <x-input id="nova_emp_razao_social" name="razao_social" label="Razão Social" placeholder="Ex: Kraus Estética Automotiva LTDA" maxlength="120" required />
+                    <x-input id="nova_emp_cnpj" name="cnpj" label="CNPJ" placeholder="00.000.000/0000-00" maxlength="18" />
+                    <x-input id="nova_emp_inscricao_estadual" name="inscricao_estadual" label="Inscrição Estadual" placeholder="ISENTO" maxlength="20" />
+
+                    @if($isAdmin)
+                        <div class="sm:col-span-2">
+                            <x-select id="nova_emp_dono_id" name="dono_id" label="Dono da Empresa (Responsável Principal)" placeholder="Selecione o dono responsável">
+                                @foreach($donosDisponiveis as $donoOpcao)
+                                    <option value="{{ $donoOpcao->id }}">{{ $donoOpcao->name }} ({{ $donoOpcao->email }} - {{ $donoOpcao->role_label }})</option>
+                                @endforeach
+                            </x-select>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                    <x-icon name="phone" class="w-3.5 h-3.5" />
+                    Canais de Contato
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <x-input id="nova_emp_telefone" name="telefone" label="Telefone Fixo" placeholder="(11) 3214-5500" maxlength="15" />
+                    <x-input id="nova_emp_whatsapp" name="whatsapp" label="WhatsApp Comercial" placeholder="(11) 98765-4321" maxlength="15" required />
+                    <x-input id="nova_emp_email" type="email" name="email" label="E-mail Comercial" placeholder="contato@empresa.com.br" maxlength="100" required />
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                    <x-icon name="map-pin" class="w-3.5 h-3.5" />
+                    Endereço da Sede
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <x-input id="nova_emp_cep" name="cep" label="CEP" placeholder="00000-000" maxlength="9" />
+                    <div class="sm:col-span-2">
+                        <x-input id="nova_emp_logradouro" name="logradouro" label="Logradouro" placeholder="Avenida / Rua" maxlength="100" />
+                    </div>
+                    <x-input id="nova_emp_numero" name="numero" label="Número" placeholder="100" maxlength="10" />
+                    <x-input id="nova_emp_complemento" name="complemento" label="Complemento" placeholder="Galpão / Sala" maxlength="100" />
+                    <x-input id="nova_emp_bairro" name="bairro" label="Bairro" placeholder="Centro" maxlength="100" />
+                    <x-input id="nova_emp_cidade" name="cidade" label="Cidade" placeholder="São Paulo" maxlength="100" />
+                    <x-input id="nova_emp_uf" name="uf" label="UF" placeholder="SP" maxlength="2" />
+                    <x-input id="nova_emp_horario_atendimento" name="horario_atendimento" label="Horário de Atendimento" value="Segunda a Sábado, 08:00 às 18:00" maxlength="100" />
+                </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-border">

@@ -6,8 +6,11 @@ use App\Models\Cliente;
 use App\Models\Empresa;
 use App\Models\Funcionario;
 use App\Models\Pessoa;
+use App\Models\Produto;
+use App\Models\Servico;
 use App\Models\User;
 use App\Rules\CpfCnpj;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,10 +41,22 @@ class ConfiguracaoController extends Controller
         }
 
         // Equipe interna: filtra empresas conforme o papel
+        $empresaCounts = [
+            'clientes' => fn ($q) => $q->withoutGlobalScopes(),
+            'funcionarios' => fn ($q) => $q->withoutGlobalScopes(),
+            'servicos' => fn ($q) => $q->withoutGlobalScopes(),
+            'produtos' => fn ($q) => $q->withoutGlobalScopes(),
+            'usuarios',
+        ];
+
         if ($usuarioLogado->isAdministrador()) {
-            $empresas = Empresa::with('dono')->orderBy('nome_fantasia', 'asc')->get();
+            $empresas = Empresa::with('dono')
+                ->withCount($empresaCounts)
+                ->orderBy('nome_fantasia', 'asc')
+                ->get();
         } elseif ($usuarioLogado->isDono()) {
             $empresas = Empresa::with('dono')
+                ->withCount($empresaCounts)
                 ->where(function ($q) use ($usuarioLogado) {
                     $q->where('id', $usuarioLogado->empresa_id)
                         ->orWhere('dono_id', $usuarioLogado->id);
@@ -51,6 +66,7 @@ class ConfiguracaoController extends Controller
         } else {
             // Funcionário visualiza apenas a empresa à qual pertence
             $empresas = Empresa::with('dono')
+                ->withCount($empresaCounts)
                 ->where('id', $usuarioLogado->getEmpresaAtivaId())
                 ->get();
         }
@@ -357,28 +373,53 @@ class ConfiguracaoController extends Controller
         $usuarioLogado = Auth::user();
 
         if (!$usuarioLogado->canManageEmpresa($empresa)) {
-            return back()->with('error', 'Você não possui permissão para excluir esta empresa.');
+            return redirect()
+                ->route('configuracoes.index', ['tab' => 'empresa'])
+                ->with('error', 'Você não possui permissão para excluir esta empresa.');
+        }
+
+        $vinculos = [];
+
+        if (Cliente::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()) {
+            $vinculos[] = 'clientes';
+        }
+        if (
+            Funcionario::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()
+            || User::where('empresa_id', $empresa->id)->exists()
+        ) {
+            $vinculos[] = 'funcionários/usuários';
+        }
+        if (Servico::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()) {
+            $vinculos[] = 'serviços';
+        }
+        if (Produto::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()) {
+            $vinculos[] = 'produtos em estoque';
+        }
+
+        if (!empty($vinculos)) {
+            return redirect()
+                ->route('configuracoes.index', ['tab' => 'empresa'])
+                ->with('error', 'Não é possível excluir a empresa "' . $empresa->nome_fantasia . '", pois ela possui registros vinculados (' . implode(', ', $vinculos) . '). Remova ou transfira os vínculos antes de excluir.');
         }
 
         if (Empresa::count() <= 1) {
-            return back()->with('error', 'Não é possível excluir a única empresa ativa do sistema.');
+            return redirect()
+                ->route('configuracoes.index', ['tab' => 'empresa'])
+                ->with('error', 'Não é possível excluir a única empresa ativa do sistema.');
         }
 
-        $temClientes = Cliente::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists();
-        $temOutrosUsuarios = User::where('empresa_id', $empresa->id)
-            ->where('id', '!=', $usuarioLogado->id)
-            ->exists();
+        try {
+            $nome = $empresa->nome_fantasia;
+            $empresa->delete();
 
-        if ($temClientes || $temOutrosUsuarios) {
-            return back()->with('error', 'Não é possível excluir esta empresa pois ela possui clientes ou colaboradores vinculados.');
+            return redirect()
+                ->route('configuracoes.index', ['tab' => 'empresa'])
+                ->with('success', "Empresa \"{$nome}\" excluída com sucesso!");
+        } catch (QueryException $e) {
+            return redirect()
+                ->route('configuracoes.index', ['tab' => 'empresa'])
+                ->with('error', 'Não é possível excluir esta empresa pois existem restrições de integridade referencial no banco de dados.');
         }
-
-        $nome = $empresa->nome_fantasia;
-        $empresa->delete();
-
-        return redirect()
-            ->route('configuracoes.index', ['tab' => 'empresa'])
-            ->with('success', "Empresa \"{$nome}\" excluída com sucesso!");
     }
 
     /**
