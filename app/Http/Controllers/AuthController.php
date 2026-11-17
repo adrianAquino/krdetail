@@ -6,9 +6,12 @@ use App\Models\Cliente;
 use App\Models\Pessoa;
 use App\Models\User;
 use App\Rules\CpfCnpj;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -158,6 +161,83 @@ class AuthController extends Controller
             : 'Cadastro realizado com sucesso! Bem-vindo(a) ao Portal do Cliente.';
 
         return redirect()->route('dashboard')->with('success', $mensagem);
+    }
+
+    public function showForgotPasswordForm()
+    {
+        return view('auth.forgot-password');
+    }
+
+    public function sendResetLinkEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|max:100',
+        ], [
+            'email.required' => 'Informe o e-mail cadastrado.',
+            'email.email' => 'Informe um endereço de e-mail válido.',
+        ]);
+
+        $user = User::where('email', $validated['email'])
+            ->where('ativo', true)
+            ->first();
+
+        if (!$user) {
+            return back()
+                ->withErrors(['email' => 'Não encontramos uma conta ativa com este endereço de e-mail.'])
+                ->onlyInput('email');
+        }
+
+        $token = Password::createToken($user);
+        $user->sendPasswordResetNotification($token);
+
+        return back()->with('success', 'Enviamos um link de redefinição de senha para o seu e-mail! Verifique sua caixa de entrada e a pasta de spam.');
+    }
+
+    public function showResetPasswordForm(Request $request, string $token)
+    {
+        return view('auth.reset-password', [
+            'token' => $token,
+            'email' => (string) $request->query('email', ''),
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email|max:100',
+            'password' => 'required|string|min:8|max:64|confirmed',
+        ], [
+            'email.required' => 'Informe o endereço de e-mail.',
+            'email.email' => 'Informe um endereço de e-mail válido.',
+            'password.required' => 'Informe a nova senha.',
+            'password.min' => 'A nova senha deve ter pelo menos 8 caracteres.',
+            'password.confirmed' => 'A confirmação da nova senha não confere.',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => $password,
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return redirect()
+                ->route('login')
+                ->with('success', 'Sua senha foi redefinida com sucesso! Faça login com sua nova senha.');
+        }
+
+        return back()
+            ->withInput($request->only('email'))
+            ->withErrors([
+                'email' => 'Este link de redefinição de senha é inválido ou já expirou. Solicite um novo link.',
+            ]);
     }
 
     public function logout(Request $request)

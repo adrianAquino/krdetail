@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -303,5 +304,13 @@ class User extends Authenticatable
     public function lancamentosFinanceiros()
     {
         return $this->hasMany(LancamentoFinanceiro::class, 'usuario_id');
+    }
+
+    /**
+     * Envia a notificação de redefinição de senha personalizada em Português.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }

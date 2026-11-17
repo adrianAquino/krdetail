@@ -18,12 +18,17 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-// Autenticação e Auto-Cadastro (Visitantes)
+// Autenticação, Recuperação de Senha e Auto-Cadastro (Visitantes)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
     Route::get('/cadastro', [AuthController::class, 'showRegistrationForm'])->name('register');
     Route::post('/cadastro', [AuthController::class, 'register'])->name('register.post');
+
+    Route::get('/esqueci-senha', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+    Route::post('/esqueci-senha', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
+    Route::get('/redefinir-senha/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
+    Route::post('/redefinir-senha', [AuthController::class, 'resetPassword'])->name('password.update');
 });
 
 // Sistema (Usuários Autenticados: Equipe e Clientes)

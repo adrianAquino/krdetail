@@ -34,6 +34,10 @@
             <input type="checkbox" name="remember" class="rounded border-border text-primary focus:ring-primary bg-secondary/50">
             <span class="text-muted-foreground">Lembrar de mim</span>
         </label>
+
+        <a href="{{ route('password.request') }}" class="font-semibold text-primary hover:underline transition-colors">
+            Esqueci minha senha
+        </a>
     </div>
 
     <div>
