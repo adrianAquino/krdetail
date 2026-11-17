@@ -204,6 +204,11 @@
                                         @endforeach
                                     </select>
                                 </form>
+                                @if(empty($tarefa->funcionario_id) && $tarefa->status === 'pendente')
+                                    <span class="text-[11px] text-amber-500 dark:text-amber-400 font-medium block mt-1">
+                                        Atribua um funcionário antes de iniciar a tarefa.
+                                    </span>
+                                @endif
                             @else
                                 <p class="font-semibold text-foreground flex items-center gap-1.5">
                                     <x-icon name="user" class="w-3.5 h-3.5 text-primary" />

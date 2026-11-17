@@ -41,8 +41,11 @@ class ConcluirTarefaService
         if ($funcionario !== null) {
             $funcionarioModel = $funcionario instanceof Funcionario 
                 ? $funcionario 
-                : Funcionario::findOrFail($funcionario);
+                : Funcionario::find($funcionario);
             
+            if (!$funcionarioModel) {
+                throw new DomainException('Funcionário responsável não encontrado.');
+            }
             if (!$funcionarioModel->ativo) {
                 throw new DomainException('O funcionário responsável está inativo no sistema.');
             }

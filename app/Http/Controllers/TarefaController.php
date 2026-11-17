@@ -35,10 +35,11 @@ class TarefaController extends Controller
     public function iniciar(Request $request, Tarefa $tarefa, IniciarTarefaService $service)
     {
         try {
-            $funcionarioId = $request->input('funcionario_id')
-                ?? $tarefa->funcionario_id
-                ?? Funcionario::where('user_id', Auth::id())->where('ativo', true)->value('id')
-                ?? Funcionario::where('ativo', true)->value('id');
+            $funcionarioId = $request->input('funcionario_id') ?? $tarefa->funcionario_id;
+
+            if (!$funcionarioId) {
+                return back()->with('error', 'Não é possível iniciar a tarefa: é necessário atribuir um funcionário responsável antes de iniciar.');
+            }
 
             $service->iniciar($tarefa, $funcionarioId);
 
@@ -51,10 +52,11 @@ class TarefaController extends Controller
     public function concluir(Request $request, Tarefa $tarefa, ConcluirTarefaService $service)
     {
         try {
-            $funcionarioId = $request->input('funcionario_id')
-                ?? $tarefa->funcionario_id
-                ?? Funcionario::where('user_id', Auth::id())->where('ativo', true)->value('id')
-                ?? Funcionario::where('ativo', true)->value('id');
+            $funcionarioId = $request->input('funcionario_id') ?? $tarefa->funcionario_id;
+
+            if (!$funcionarioId) {
+                return back()->with('error', 'Não é possível concluir a tarefa: nenhum funcionário responsável está atribuído.');
+            }
 
             $service->concluir($tarefa, $funcionarioId, Auth::user());
 

@@ -48,17 +48,17 @@ class IniciarTarefaService
         if ($funcionario !== null) {
             $funcionarioModel = $funcionario instanceof Funcionario 
                 ? $funcionario 
-                : Funcionario::findOrFail($funcionario);
+                : Funcionario::find($funcionario);
         } elseif ($tarefaModel->funcionario_id) {
             $funcionarioModel = $tarefaModel->funcionario;
         }
 
         if (!$funcionarioModel) {
-            throw new DomainException('É necessário atribuir um funcionário responsável para iniciar a tarefa.');
+            throw new DomainException('Não é possível iniciar a tarefa: é necessário atribuir um funcionário responsável antes de iniciar.');
         }
 
         if (!$funcionarioModel->ativo) {
-            throw new DomainException('O funcionário responsável está inativo no sistema.');
+            throw new DomainException('Não é possível iniciar a tarefa: o funcionário responsável está inativo no sistema.');
         }
 
         // 4. Executa as alterações de estado dentro de transação
