@@ -2,17 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Cliente extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEmpresa;
 
     protected $table = 'clientes';
 
     protected $fillable = [
         'pessoa_id',
+        'empresa_id',
         'user_id',
         'nome',
         'cpf_cnpj',
@@ -71,6 +73,9 @@ class Cliente extends Model
                         'name' => $cliente->nome,
                         'telefone' => $cliente->telefone,
                     ];
+                    if ($cliente->empresa_id) {
+                        $dadosUser['empresa_id'] = $cliente->empresa_id;
+                    }
                     if (!empty($cliente->email)) {
                         $dadosUser['email'] = $cliente->email;
                     }

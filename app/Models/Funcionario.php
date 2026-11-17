@@ -2,13 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Model;
 
 class Funcionario extends Model
 {
+    use BelongsToEmpresa;
+
     protected $table = 'funcionarios';
 
     protected $fillable = [
+        'empresa_id',
         'user_id',
         'cargo',
         'ativo',

@@ -7,6 +7,7 @@
             ['route' => 'dashboard', 'label' => 'Meu Painel', 'icon' => 'layout-dashboard', 'active' => request()->routeIs('dashboard*')],
             ['route' => 'veiculos.index', 'label' => 'Meus Veículos', 'icon' => 'car', 'active' => request()->routeIs('veiculos*')],
             ['route' => 'agendamentos.index', 'label' => 'Meus Agendamentos', 'icon' => 'calendar', 'active' => request()->routeIs('agendamentos*')],
+            ['route' => 'configuracoes.index', 'label' => 'Configurações', 'icon' => 'settings', 'active' => request()->routeIs('configuracoes*')],
         ];
     } else {
         $menuItems = [
@@ -23,6 +24,8 @@
 
     $nomeUsuario = $usuarioLogado?->name ?? 'Usuário';
     $emailUsuario = $usuarioLogado?->email ?? '';
+    $papelUsuario = $usuarioLogado?->role_label ?? '';
+    $nomeEmpresa = $usuarioLogado?->empresa?->nome_fantasia ?? 'Kraus Detail';
     $configUrl = \Illuminate\Support\Facades\Route::has('configuracoes.index') ? route('configuracoes.index') : '#';
     $configActive = request()->routeIs('configuracoes*');
 @endphp
@@ -34,9 +37,9 @@
             <x-icon name="sparkles" class="h-5 w-5 text-primary-foreground" />
         </div>
         <div>
-            <span class="text-base font-bold text-foreground tracking-tight">Kraus Detail</span>
+            <span class="text-base font-bold text-foreground tracking-tight">{{ $nomeEmpresa }}</span>
             <p class="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
-                {{ $isCliente ? 'Portal do Cliente' : 'Estética Automotiva' }}
+                {{ $isCliente ? 'Portal do Cliente' : ($papelUsuario ?: 'Estética Automotiva') }}
             </p>
         </div>
     </div>
@@ -65,9 +68,9 @@
             <x-icon name="sparkles" class="h-6 w-6 text-primary-foreground" />
         </div>
         <div class="overflow-hidden">
-            <h1 class="text-lg font-bold text-sidebar-foreground truncate tracking-tight">Kraus Detail</h1>
+            <h1 class="text-lg font-bold text-sidebar-foreground truncate tracking-tight">{{ $nomeEmpresa }}</h1>
             <p class="text-xs text-muted-foreground truncate">
-                {{ $isCliente ? 'Portal do Cliente' : 'Estética Automotiva' }}
+                {{ $isCliente ? 'Portal do Cliente' : ($papelUsuario ?: 'Estética Automotiva') }}
             </p>
         </div>
     </div>
@@ -112,17 +115,15 @@
             id="user-menu-dropdown"
             class="hidden absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-border bg-card shadow-lg p-1.5 z-50 space-y-1"
         >
-            @if(!$isCliente)
-                <a
-                    href="{{ $configUrl }}"
-                    class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $configActive ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-secondary hover:text-foreground' }}"
-                >
-                    <x-icon name="settings" class="h-4 w-4 shrink-0" />
-                    <span>Configurações</span>
-                </a>
+            <a
+                href="{{ $configUrl }}"
+                class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $configActive ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-secondary hover:text-foreground' }}"
+            >
+                <x-icon name="settings" class="h-4 w-4 shrink-0" />
+                <span>{{ $isCliente ? 'Configurações & Perfil' : 'Configurações' }}</span>
+            </a>
 
-                <div class="border-t border-border/60 my-1"></div>
-            @endif
+            <div class="border-t border-border/60 my-1"></div>
 
             <form method="POST" action="{{ \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : '#' }}" class="w-full">
                 @csrf

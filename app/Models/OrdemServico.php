@@ -2,14 +2,29 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class OrdemServico extends Model
 {
     use HasFactory;
 
     protected $table = 'ordem_servicos';
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('empresa_os', function (Builder $builder) {
+            if (!Auth::hasUser()) {
+                return;
+            }
+            $user = Auth::user();
+            if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
+                $builder->whereHas('agendamento.cliente');
+            }
+        });
+    }
 
     protected $fillable = [
         'agendamento_id',

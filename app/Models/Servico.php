@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Servico extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEmpresa;
     protected $table = 'servicos';
-    protected $fillable = ['nome', 'descricao', 'preco_base', 'tempo_estimado_minutos', 'ativo',];
+    protected $fillable = ['empresa_id', 'nome', 'descricao', 'preco_base', 'tempo_estimado_minutos', 'ativo',];
     protected function casts(): array
     {
         return ['preco_base' => 'decimal:2', 'ativo' => 'boolean',];

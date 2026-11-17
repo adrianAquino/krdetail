@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class Agendamento extends Model
 {
@@ -38,6 +40,16 @@ class Agendamento extends Model
      */
     protected static function booted(): void
     {
+        static::addGlobalScope('empresa_agendamento', function (Builder $builder) {
+            if (!Auth::hasUser()) {
+                return;
+            }
+            $user = Auth::user();
+            if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
+                $builder->whereHas('cliente');
+            }
+        });
+
         static::saving(function (Agendamento $agendamento) {
             if (!$agendamento->exists || $agendamento->isDirty(['cliente_id', 'veiculo_id'])) {
                 if ($agendamento->veiculo_id && $agendamento->cliente_id) {

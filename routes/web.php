@@ -47,7 +47,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/agendamentos', [AgendamentoController::class, 'store'])->name('agendamentos.store');
     Route::get('/agendamentos/{agendamento}', [AgendamentoController::class, 'show'])->name('agendamentos.show');
 
-    // Rotas Exclusivas da Equipe Interna (Administrador / Funcionário)
+    // Configurações e Edição de Perfil (Acessível a todos os perfis autenticados, adaptado por papel)
+    Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');
+    Route::get('/configuracoes/geral', [ConfiguracaoController::class, 'index'])->name('configuracoes');
+    Route::put('/configuracoes/perfil', [ConfiguracaoController::class, 'updatePerfil'])->name('configuracoes.perfil.update');
+
+    // Rotas Exclusivas da Equipe Interna (Administrador / Dono / Funcionário)
     Route::middleware('staff')->group(function () {
         Route::delete('/veiculos/{veiculo}', [VeiculoController::class, 'destroy'])->name('veiculos.destroy');
 
@@ -104,11 +109,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/relatorios', [RelatorioController::class, 'index'])->name('relatorios.index');
         Route::get('/relatorios/geral', [RelatorioController::class, 'index'])->name('relatorios');
 
-        // Configurações do Sistema
-        Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');
-        Route::get('/configuracoes/geral', [ConfiguracaoController::class, 'index'])->name('configuracoes');
+        // Gestão de Empresas (CRUD Completo - Dono da Empresa / Administrador Geral)
+        Route::post('/configuracoes/empresas', [ConfiguracaoController::class, 'storeEmpresa'])->name('configuracoes.empresas.store');
+        Route::put('/configuracoes/empresas/{empresa}', [ConfiguracaoController::class, 'updateEmpresa'])->name('configuracoes.empresas.update');
+        Route::delete('/configuracoes/empresas/{empresa}', [ConfiguracaoController::class, 'destroyEmpresa'])->name('configuracoes.empresas.destroy');
+
+        // Gestão de Usuários & Equipe (Dono da Empresa / Administrador Geral)
         Route::post('/configuracoes/usuarios', [ConfiguracaoController::class, 'storeUsuario'])->name('configuracoes.usuarios.store');
         Route::put('/configuracoes/usuarios/{user}', [ConfiguracaoController::class, 'updateUsuario'])->name('configuracoes.usuarios.update');
         Route::patch('/configuracoes/usuarios/{user}/toggle-status', [ConfiguracaoController::class, 'toggleStatusUsuario'])->name('configuracoes.usuarios.toggle-status');
+        Route::delete('/configuracoes/usuarios/{user}', [ConfiguracaoController::class, 'destroyUsuario'])->name('configuracoes.usuarios.destroy');
     });
 });
