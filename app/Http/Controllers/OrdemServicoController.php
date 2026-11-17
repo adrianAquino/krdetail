@@ -93,13 +93,18 @@ class OrdemServicoController extends Controller
             return back()->with('error', "Não é possível concluir a OS: ainda restam {$tarefasPendentes} tarefas em andamento ou pendentes.");
         }
 
+        $agora = Carbon::now();
+
         $ordemServico->update([
             'status' => 'concluida',
-            'data_fim' => Carbon::now(),
+            'data_fim' => $agora,
         ]);
 
         if ($ordemServico->agendamento) {
-            $ordemServico->agendamento->update(['status' => 'concluido']);
+            $ordemServico->agendamento->update([
+                'status' => 'concluido',
+                'data_conclusao' => $agora,
+            ]);
         }
 
         return back()->with('success', 'Ordem de Serviço finalizada com sucesso! Veículo pronto para entrega.');

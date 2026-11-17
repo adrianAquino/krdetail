@@ -51,19 +51,22 @@ class AbrirOrdemServicoService
                 $numeroOS = $numeroBase . '-' . $contador++;
             }
 
-            // Cria a Ordem de Serviço
+            // Cria a Ordem de Serviço (data_fim fica nula até todas as tarefas serem concluídas)
             $ordemServico = OrdemServico::create([
                 'agendamento_id' => $agendamentoModel->id,
                 'numero' => $numeroOS,
                 'data_inicio' => Carbon::now(),
+                'data_fim' => null,
                 'status' => 'aberta',
                 'observacoes' => $observacoes ?? $agendamentoModel->observacoes,
             ]);
 
-            // Atualiza o agendamento para confirmado caso estivesse apenas agendado
+            // Atualiza o agendamento para confirmado caso estivesse apenas agendado e limpa conclusão real
+            $dadosAgendamento = ['data_conclusao' => null];
             if ($agendamentoModel->status === 'agendado') {
-                $agendamentoModel->update(['status' => 'confirmado']);
+                $dadosAgendamento['status'] = 'confirmado';
             }
+            $agendamentoModel->update($dadosAgendamento);
 
             // Cria automaticamente uma tarefa para cada serviço contratado
             // mantendo o vínculo com agendamento_servico para preservar valor e tempo históricos

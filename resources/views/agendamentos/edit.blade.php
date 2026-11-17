@@ -53,12 +53,18 @@
             (object)['id' => 4, 'nome' => 'Lavagem Detalhada Premium', 'preco_base' => 180.00, 'tempo_estimado_minutos' => 90, 'descricao' => 'Lavagem dois baldes com descontaminação'],
         ];
 
-        $servicosContratadosIds = old(
-            'servicos_ids',
-            isset($agendamentoObj->agendamentosServicos)
+        $possuiOS = isset($agendamentoObj->ordemServico) && $agendamentoObj->ordemServico !== null;
+        $valorOriginalInicio = \Carbon\Carbon::parse($agendamentoObj->data_inicio)->format('Y-m-d\TH:i');
+        $minDataInicio = \Carbon\Carbon::parse($agendamentoObj->data_inicio)->lt(now())
+            ? $valorOriginalInicio
+            : now()->format('Y-m-d\TH:i');
+
+        $servicosContratadosIds = collect(old('servicos'))->pluck('servico_id')->filter()->all();
+        if (empty($servicosContratadosIds)) {
+            $servicosContratadosIds = isset($agendamentoObj->agendamentosServicos)
                 ? collect($agendamentoObj->agendamentosServicos)->pluck('servico_id')->all()
-                : ($agendamentoObj->servicos_ids ?? [])
-        );
+                : ($agendamentoObj->servicos_ids ?? []);
+        }
 
         $clientesVeiculosJson = json_encode(
             collect($clientesDemo)->mapWithKeys(function ($cli) {
@@ -67,9 +73,22 @@
         );
     @endphp
 
+    @if($possuiOS)
+        <div class="mb-6">
+            <x-alert type="info" title="Ordem de Serviço Vinculada ({{ $agendamentoObj->ordemServico->numero }}):">
+                Como este agendamento já possui Ordem de Serviço gerada, o cliente, o veículo e os serviços contratados estão travados para manter a integridade operacional.
+            </x-alert>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('agendamentos.update', $agendamentoObj->id) }}" id="form-agendamento">
         @csrf
         @method('PUT')
+
+        @if($possuiOS)
+            <input type="hidden" name="cliente_id" value="{{ $agendamentoObj->cliente_id }}" />
+            <input type="hidden" name="veiculo_id" value="{{ $agendamentoObj->veiculo_id }}" />
+        @endif
 
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="lg:col-span-2 space-y-6">
@@ -77,7 +96,7 @@
                 <x-card title="Cliente & Veículo">
                     <div class="space-y-4">
                         <div>
-                            <x-select name="cliente_id" id="cliente_select" label="Cliente Responsável" required>
+                            <x-select name="{{ $possuiOS ? 'cliente_id_display' : 'cliente_id' }}" id="cliente_select" label="Cliente Responsável" required :disabled="$possuiOS">
                                 @foreach($clientesDemo as $cli)
                                     <option value="{{ $cli->id }}" {{ old('cliente_id', $agendamentoObj->cliente_id) == $cli->id ? 'selected' : '' }}>
                                         {{ $cli->nome }} — {{ $cli->telefone }}
@@ -92,10 +111,11 @@
                             </label>
                             <div class="relative">
                                 <select
-                                    name="veiculo_id"
+                                    name="{{ $possuiOS ? 'veiculo_id_display' : 'veiculo_id' }}"
                                     id="veiculo_select"
                                     required
-                                    class="block w-full rounded-lg bg-input/40 border border-border focus:border-ring focus:ring-ring/40 px-3 py-2 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
+                                    {{ $possuiOS ? 'disabled' : '' }}
+                                    class="block w-full rounded-lg bg-input/40 border border-border focus:border-ring focus:ring-ring/40 px-3 py-2 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
                                 </select>
                                 <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-muted-foreground">
@@ -115,27 +135,27 @@
                                 name="data_inicio"
                                 id="data_inicio"
                                 label="Data e Horário de Início"
-                                min="{{ now()->format('Y-m-d\TH:i') }}"
-                                :value="\Carbon\Carbon::parse($agendamentoObj->data_inicio)->format('Y-m-d\TH:i')"
+                                min="{{ $minDataInicio }}"
+                                :value="old('data_inicio', $valorOriginalInicio)"
+                                hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00."
                                 required
                             />
                             <p id="erro_data_inicio" class="text-xs text-destructive mt-1 font-medium hidden">
-                                A data e o horário não podem ser inferiores à data e horário atuais.
+                                A data e o horário devem ser futuros e dentro do expediente (Seg-Sáb, 08:00 às 18:00).
                             </p>
                         </div>
 
                         <div>
                             <x-input
                                 type="datetime-local"
-                                name="data_fim"
+                                name="data_hora_estimado_conclusao"
                                 id="data_fim"
-                                label="Previsão de Conclusão"
-                                min="{{ now()->format('Y-m-d\TH:i') }}"
+                                label="Previsão Estimada de Conclusão (+30min)"
                                 :value="$agendamentoObj->data_fim ? \Carbon\Carbon::parse($agendamentoObj->data_fim)->format('Y-m-d\TH:i') : ''"
+                                hint="Calculado automaticamente: soma dos serviços + 30 min de gargalo operacional."
+                                readonly
+                                class="cursor-not-allowed opacity-80"
                             />
-                            <p id="erro_data_fim" class="text-xs text-destructive mt-1 font-medium hidden">
-                                A previsão de conclusão não pode ser anterior à data de início ou à data atual.
-                            </p>
                         </div>
 
                         <div>
@@ -194,7 +214,8 @@
                                     data-tempo="{{ $servico->tempo_estimado_minutos }}"
                                     data-tempo-str="{{ $tempoFormatado }}"
                                     {{ $isContratado ? 'checked' : '' }}
-                                    class="mt-1 h-5 w-5 rounded border-border bg-input text-primary focus:ring-primary service-checkbox cursor-pointer"
+                                    {{ $possuiOS ? 'disabled' : '' }}
+                                    class="mt-1 h-5 w-5 rounded border-border bg-input text-primary focus:ring-primary service-checkbox cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                 />
 
                                 <div class="flex-1">
@@ -233,11 +254,26 @@
 
                         <div class="pt-4 border-t border-border space-y-2">
                             <div class="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>Tempo Total Estimado:</span>
-                                <span id="resumo-tempo-total" class="font-semibold text-foreground">0 min</span>
+                                <span>Tempo dos Serviços:</span>
+                                <span id="resumo-tempo-servicos" class="font-medium text-foreground">0min</span>
                             </div>
 
-                            <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Margem Operacional (Gargalo):</span>
+                                <span id="resumo-gargalo" class="font-medium text-amber-400">+30min</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Tempo Total Estimado:</span>
+                                <span id="resumo-tempo-total" class="font-semibold text-foreground">0min</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Previsão de Conclusão:</span>
+                                <span id="resumo-data-fim" class="font-semibold text-primary">--/--/---- --:--</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-sm pt-2 border-t border-border/50">
                                 <span class="font-bold text-foreground">Total Estimado:</span>
                                 <span id="resumo-valor-total" class="text-xl font-extrabold text-primary">R$ 0,00</span>
                             </div>
@@ -287,14 +323,59 @@
                 atualizarVeiculos();
             }
 
+            const GARGALO_MINUTOS = 30;
+            const valorOriginalInicio = "{{ $valorOriginalInicio }}";
             const checkboxes = document.querySelectorAll('.service-checkbox');
             const listaResumo = document.getElementById('resumo-servicos-lista');
             const resumoValorTotal = document.getElementById('resumo-valor-total');
+            const resumoTempoServicos = document.getElementById('resumo-tempo-servicos');
+            const resumoGargalo = document.getElementById('resumo-gargalo');
             const resumoTempoTotal = document.getElementById('resumo-tempo-total');
+            const resumoDataFim = document.getElementById('resumo-data-fim');
+            const formAgendamento = document.getElementById('form-agendamento');
+            const inputDataInicio = document.getElementById('data_inicio');
+            const inputDataFim = document.getElementById('data_fim');
+            const erroDataInicio = document.getElementById('erro_data_inicio');
+
+            let totalMinutosComGargaloAtual = 0;
+
+            function formatarDuracao(minutosTotais) {
+                if (minutosTotais <= 0) return '0min';
+                const horas = Math.floor(minutosTotais / 60);
+                const minutos = minutosTotais % 60;
+                if (horas > 0) {
+                    return minutos > 0 ? `${horas}h ${minutos}min` : `${horas}h 00min`;
+                }
+                return `${minutos}min`;
+            }
+
+            function atualizarPrevisaoConclusao() {
+                if (!inputDataInicio || !inputDataInicio.value || totalMinutosComGargaloAtual <= 0) {
+                    if (inputDataFim) inputDataFim.value = '';
+                    if (resumoDataFim) resumoDataFim.textContent = '--/--/---- --:--';
+                    return;
+                }
+
+                const inicio = new Date(inputDataInicio.value);
+                if (isNaN(inicio.getTime())) {
+                    if (inputDataFim) inputDataFim.value = '';
+                    if (resumoDataFim) resumoDataFim.textContent = '--/--/---- --:--';
+                    return;
+                }
+
+                const fim = new Date(inicio.getTime() + totalMinutosComGargaloAtual * 60000);
+                const pad = n => String(n).padStart(2, '0');
+
+                const valorLocal = `${fim.getFullYear()}-${pad(fim.getMonth() + 1)}-${pad(fim.getDate())}T${pad(fim.getHours())}:${pad(fim.getMinutes())}`;
+                const valorExibicao = `${pad(fim.getDate())}/${pad(fim.getMonth() + 1)}/${fim.getFullYear()} às ${pad(fim.getHours())}:${pad(fim.getMinutes())}`;
+
+                if (inputDataFim) inputDataFim.value = valorLocal;
+                if (resumoDataFim) resumoDataFim.textContent = valorExibicao;
+            }
 
             function atualizarResumoServicos() {
                 let totalValor = 0;
-                let totalMinutos = 0;
+                let totalMinutosServicos = 0;
                 const selecionados = [];
 
                 checkboxes.forEach(cb => {
@@ -304,7 +385,7 @@
                         const preco = parseFloat(cb.dataset.preco) || 0;
                         const tempo = parseInt(cb.dataset.tempo) || 0;
                         totalValor += preco;
-                        totalMinutos += tempo;
+                        totalMinutosServicos += tempo;
                         selecionados.push({
                             nome: cb.dataset.nome,
                             preco: preco,
@@ -317,6 +398,7 @@
 
                 if (selecionados.length === 0) {
                     listaResumo.innerHTML = '<p class="text-muted-foreground italic text-center py-4">Nenhum serviço selecionado.</p>';
+                    totalMinutosComGargaloAtual = 0;
                 } else {
                     let html = '';
                     selecionados.forEach(s => {
@@ -331,27 +413,19 @@
                         `;
                     });
                     listaResumo.innerHTML = html;
+                    totalMinutosComGargaloAtual = totalMinutosServicos + GARGALO_MINUTOS;
                 }
 
-                const horas = Math.floor(totalMinutos / 60);
-                const minutos = totalMinutos % 60;
-                let tempoStr = '';
-                if (horas > 0) tempoStr += `${horas}h `;
-                if (minutos > 0 || horas === 0) tempoStr += `${minutos}min`;
-
-                resumoTempoTotal.textContent = tempoStr;
+                if (resumoTempoServicos) resumoTempoServicos.textContent = formatarDuracao(totalMinutosServicos);
+                if (resumoGargalo) resumoGargalo.textContent = selecionados.length > 0 ? `+${GARGALO_MINUTOS}min` : '0min';
+                resumoTempoTotal.textContent = formatarDuracao(totalMinutosComGargaloAtual);
                 resumoValorTotal.textContent = `R$ ${totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+                atualizarPrevisaoConclusao();
             }
 
             checkboxes.forEach(cb => cb.addEventListener('change', atualizarResumoServicos));
             atualizarResumoServicos();
-
-            // Validação de datas (não permitir data menor que a atual)
-            const formAgendamento = document.getElementById('form-agendamento');
-            const inputDataInicio = document.getElementById('data_inicio');
-            const inputDataFim = document.getElementById('data_fim');
-            const erroDataInicio = document.getElementById('erro_data_inicio');
-            const erroDataFim = document.getElementById('erro_data_fim');
 
             function validarDatas() {
                 let valido = true;
@@ -361,10 +435,35 @@
 
                 if (inputDataInicio && inputDataInicio.value) {
                     const dtInicio = new Date(inputDataInicio.value);
-                    if (dtInicio < limiteMinimo) {
-                        erroDataInicio?.classList.remove('hidden');
+                    const hora = dtInicio.getHours();
+                    const minuto = dtInicio.getMinutes();
+                    const domingo = dtInicio.getDay() === 0;
+                    const foraExpediente = hora < 8 || hora > 18 || (hora === 18 && minuto > 0);
+                    const alterado = inputDataInicio.value !== valorOriginalInicio;
+
+                    if (alterado && dtInicio < limiteMinimo) {
+                        if (erroDataInicio) {
+                            erroDataInicio.textContent = 'A data e o horário não podem ser inferiores à data e horário atuais.';
+                            erroDataInicio.classList.remove('hidden');
+                        }
                         inputDataInicio.classList.add('border-destructive');
                         inputDataInicio.setCustomValidity('A data e o horário não podem ser inferiores à data e horário atuais.');
+                        valido = false;
+                    } else if (domingo) {
+                        if (erroDataInicio) {
+                            erroDataInicio.textContent = 'A oficina não realiza atendimentos aos domingos. Escolha entre segunda e sábado.';
+                            erroDataInicio.classList.remove('hidden');
+                        }
+                        inputDataInicio.classList.add('border-destructive');
+                        inputDataInicio.setCustomValidity('A oficina não realiza atendimentos aos domingos.');
+                        valido = false;
+                    } else if (foraExpediente) {
+                        if (erroDataInicio) {
+                            erroDataInicio.textContent = 'Horário fora do expediente comercial (08:00 às 18:00).';
+                            erroDataInicio.classList.remove('hidden');
+                        }
+                        inputDataInicio.classList.add('border-destructive');
+                        inputDataInicio.setCustomValidity('Horário fora do expediente comercial (08:00 às 18:00).');
                         valido = false;
                     } else {
                         erroDataInicio?.classList.add('hidden');
@@ -373,35 +472,13 @@
                     }
                 }
 
-                if (inputDataFim && inputDataFim.value) {
-                    const dtFim = new Date(inputDataFim.value);
-                    const dtInicio = inputDataInicio && inputDataInicio.value ? new Date(inputDataInicio.value) : limiteMinimo;
-                    if (dtFim < limiteMinimo || dtFim < dtInicio) {
-                        erroDataFim?.classList.remove('hidden');
-                        inputDataFim.classList.add('border-destructive');
-                        inputDataFim.setCustomValidity('A previsão de conclusão não pode ser anterior à data de início ou à data atual.');
-                        valido = false;
-                    } else {
-                        erroDataFim?.classList.add('hidden');
-                        inputDataFim.classList.remove('border-destructive');
-                        inputDataFim.setCustomValidity('');
-                    }
-                } else if (inputDataFim) {
-                    erroDataFim?.classList.add('hidden');
-                    inputDataFim.classList.remove('border-destructive');
-                    inputDataFim.setCustomValidity('');
-                }
-
+                atualizarPrevisaoConclusao();
                 return valido;
             }
 
             if (inputDataInicio) {
                 inputDataInicio.addEventListener('change', validarDatas);
                 inputDataInicio.addEventListener('input', validarDatas);
-            }
-            if (inputDataFim) {
-                inputDataFim.addEventListener('change', validarDatas);
-                inputDataFim.addEventListener('input', validarDatas);
             }
             if (formAgendamento) {
                 formAgendamento.addEventListener('submit', function (e) {

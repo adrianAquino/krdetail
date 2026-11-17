@@ -37,6 +37,10 @@ class ConcluirTarefaService
             throw new DomainException('A tarefa já foi concluída anteriormente.');
         }
 
+        if ($tarefaModel->status !== 'em_andamento' || !$tarefaModel->data_inicio) {
+            throw new DomainException('Não é possível concluir uma tarefa que ainda não foi iniciada. Clique em "Iniciar Tarefa" primeiro.');
+        }
+
         // 2. Validação do funcionário responsável
         if ($funcionario !== null) {
             $funcionarioModel = $funcionario instanceof Funcionario 
@@ -58,12 +62,9 @@ class ConcluirTarefaService
         return DB::transaction(function () use ($tarefaModel, $usuarioResponsavel) {
             $agora = Carbon::now();
 
-            // A) Marca a tarefa como concluída
+            // A) Marca a tarefa como concluída mantendo o horário original de abertura
             $tarefaModel->status = 'concluida';
             $tarefaModel->data_conclusao = $agora;
-            if (!$tarefaModel->data_inicio) {
-                $tarefaModel->data_inicio = $agora;
-            }
             $tarefaModel->save();
 
             // B) Lançamento financeiro automático
@@ -121,7 +122,10 @@ class ConcluirTarefaService
                     ]);
 
                     if ($ordemServico->agendamento) {
-                        $ordemServico->agendamento->update(['status' => 'concluido']);
+                        $ordemServico->agendamento->update([
+                            'status' => 'concluido',
+                            'data_conclusao' => $agora,
+                        ]);
                     }
                 }
             }

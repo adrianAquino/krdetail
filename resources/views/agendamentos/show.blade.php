@@ -4,21 +4,31 @@
     $osObj = $agendamentoObj?->ordemServico ?? $agendamentoObj?->ordem_servico ?? null;
     $servicosItens = $agendamentoObj?->agendamentosServicos ?? $agendamentoObj?->servicos_itens ?? [];
     $totalValor = collect($servicosItens)->sum(fn($i) => $i->valor_servico ?? $i->preco_base ?? 0);
-    $totalMinutos = collect($servicosItens)->sum(fn($i) => $i->tempo_estimado_minutos ?? 0);
-    $totalHoras = floor($totalMinutos / 60);
-    $minutosRestantes = $totalMinutos % 60;
-    $tempoTotalFormatado = $totalHoras > 0 ? "{$totalHoras}h " . ($minutosRestantes > 0 ? "{$minutosRestantes}min" : '') : "{$minutosRestantes}min";
+    $totalMinutosServicos = collect($servicosItens)->sum(fn($i) => $i->tempo_estimado_minutos ?? 0);
+    $gargaloMinutos = \App\Models\Agendamento::GARGALO_MINUTOS;
+    $totalMinutosComGargalo = $totalMinutosServicos > 0 ? $totalMinutosServicos + $gargaloMinutos : 0;
+
+    $tempoServicosFormatado = \App\Models\Agendamento::formatarMinutos((int) $totalMinutosServicos);
+    $tempoTotalFormatado = \App\Models\Agendamento::formatarMinutos((int) $totalMinutosComGargalo);
 
     $tarefas = $osObj ? $osObj->tarefas : collect();
     $totalTarefas = $tarefas->count();
     $tarefasConcluidas = $tarefas->where('status', 'concluida')->count();
     $progressoOs = $totalTarefas > 0 ? round(($tarefasConcluidas / $totalTarefas) * 100) : ($agendamentoObj?->status === 'concluido' ? 100 : 0);
+
+    $temTarefaIniciada = $tarefas->contains(fn ($t) => in_array($t->status, ['em_andamento', 'concluida'], true));
+    $podeCancelar = $agendamentoObj
+        && in_array($agendamentoObj->status, ['agendado', 'confirmado'], true)
+        && !$temTarefaIniciada
+        && (!$osObj || !in_array($osObj->status, ['em_andamento', 'concluida'], true));
+
+    $dataConclusaoReal = $agendamentoObj?->data_conclusao ?? $osObj?->data_fim ?? null;
 @endphp
 
 <x-layouts.app :title="'Agendamento #' . ($agendamentoObj?->id ?? 1)">
     <x-header
         :title="'Agendamento #' . str_pad($agendamentoObj?->id ?? 1, 5, '0', STR_PAD_LEFT)"
-        :subtitle="'Criado em ' . \Carbon\Carbon::parse($agendamentoObj?->created_at ?? now())->format('d/m/Y \à\s H:i')"
+        :subtitle="'Registrado em ' . \Carbon\Carbon::parse($agendamentoObj?->created_at ?? now())->format('d/m/Y \à\s H:i')"
     >
         <x-slot:actions>
             @if(!$isCliente)
@@ -26,7 +36,7 @@
                     <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="sm" icon="clipboard-list">
                         Acessar Ordem de Serviço ({{ $osObj->numero }})
                     </x-button>
-                @else
+                @elseif($agendamentoObj?->status !== 'cancelado')
                     <form method="POST" action="{{ route('ordens-servico.store') }}" class="inline">
                         @csrf
                         <input type="hidden" name="agendamento_id" value="{{ $agendamentoObj?->id ?? 1 }}" />
@@ -36,9 +46,24 @@
                     </form>
                 @endif
 
-                <x-button href="{{ route('agendamentos.edit', $agendamentoObj?->id ?? 1) }}" variant="secondary" size="sm" icon="pencil">
-                    Editar
-                </x-button>
+                @if(!in_array($agendamentoObj?->status, ['concluido', 'cancelado'], true))
+                    <x-button href="{{ route('agendamentos.edit', $agendamentoObj?->id ?? 1) }}" variant="secondary" size="sm" icon="pencil">
+                        Editar
+                    </x-button>
+                @endif
+            @endif
+
+            @if($podeCancelar)
+                <form method="POST"
+                      action="{{ route('agendamentos.cancelar', $agendamentoObj->id) }}"
+                      class="inline"
+                      onsubmit="return confirm('Tem certeza que deseja cancelar este agendamento?')">
+                    @csrf
+                    @method('PATCH')
+                    <x-button type="submit" variant="outline" size="sm" icon="ban" class="text-rose-400 border-rose-500/30 hover:bg-rose-500/10">
+                        Cancelar Agendamento
+                    </x-button>
+                </form>
             @endif
 
             <x-button href="{{ route('agendamentos.index') }}" variant="ghost" size="sm" icon="chevron-left">
@@ -50,25 +75,50 @@
     <div class="grid gap-6 lg:grid-cols-3">
         <!-- Coluna Esquerda: Status, Cliente e Veículo -->
         <div class="space-y-6">
-            <!-- Status & Datas -->
-            <x-card title="Situação do Agendamento">
+            <!-- Status & Linha do Tempo -->
+            <x-card title="Situação & Linha do Tempo">
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-muted-foreground uppercase font-semibold">Status</span>
                         <x-badge-status :status="$agendamentoObj?->status ?? 'agendado'" />
                     </div>
 
-                    <div class="pb-3 border-b border-border/60">
-                        <span class="text-xs text-muted-foreground uppercase font-semibold block mb-1">Horário Agendado</span>
-                        <p class="font-bold text-base text-foreground flex items-center gap-2">
-                            <x-icon name="clock" class="w-4 h-4 text-primary" />
-                            {{ \Carbon\Carbon::parse($agendamentoObj?->data_inicio ?? now())->format('d/m/Y \à\s H:i') }}
-                        </p>
-                        @if($agendamentoObj?->data_fim)
-                            <p class="text-xs text-muted-foreground mt-1 ml-6">
-                                Previsão de entrega: {{ \Carbon\Carbon::parse($agendamentoObj->data_fim)->format('d/m/Y H:i') }}
-                            </p>
-                        @endif
+                    <div class="space-y-2.5 pb-3 border-b border-border/60 text-xs">
+                        <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
+                            <span class="text-muted-foreground block">Registrado em</span>
+                            <span class="font-semibold text-foreground text-sm">
+                                {{ \Carbon\Carbon::parse($agendamentoObj?->created_at ?? now())->format('d/m/Y \à\s H:i') }}
+                            </span>
+                        </div>
+
+                        <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
+                            <span class="text-muted-foreground block">Horário Agendado (Entrada)</span>
+                            <span class="font-bold text-primary text-sm flex items-center gap-1.5 mt-0.5">
+                                <x-icon name="clock" class="w-4 h-4" />
+                                {{ \Carbon\Carbon::parse($agendamentoObj?->data_inicio ?? now())->format('d/m/Y \à\s H:i') }}
+                            </span>
+                        </div>
+
+                        <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
+                            <span class="text-muted-foreground block">Previsão Estimada de Conclusão (+30min)</span>
+                            <span class="font-semibold text-foreground text-sm">
+                                {{ $agendamentoObj?->data_fim ? \Carbon\Carbon::parse($agendamentoObj->data_fim)->format('d/m/Y \à\s H:i') : 'Não calculada' }}
+                            </span>
+                        </div>
+
+                        <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
+                            <span class="text-muted-foreground block">Abertura da Ordem de Serviço</span>
+                            <span class="font-semibold text-foreground text-sm">
+                                {{ $osObj?->data_inicio ? \Carbon\Carbon::parse($osObj->data_inicio)->format('d/m/Y \à\s H:i') : 'Aguardando abertura' }}
+                            </span>
+                        </div>
+
+                        <div class="p-2.5 rounded-lg {{ $dataConclusaoReal ? 'bg-success/10 border-success/30' : 'bg-secondary/30 border-border/60' }} border">
+                            <span class="text-muted-foreground block">Conclusão Real (Fechamento da OS)</span>
+                            <span class="font-semibold {{ $dataConclusaoReal ? 'text-success' : 'text-foreground' }} text-sm">
+                                {{ $dataConclusaoReal ? \Carbon\Carbon::parse($dataConclusaoReal)->format('d/m/Y \à\s H:i') : 'Aguardando conclusão' }}
+                            </span>
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-between text-xs text-muted-foreground">
@@ -184,10 +234,15 @@
                     @endforelse
                 </div>
 
-                <div class="mt-5 pt-4 border-t border-border flex items-center justify-between">
-                    <div>
-                        <span class="text-xs text-muted-foreground block">Tempo Total Estimado</span>
-                        <span class="font-bold text-foreground text-sm">{{ $tempoTotalFormatado }}</span>
+                <div class="mt-5 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-4">
+                    <div class="space-y-0.5">
+                        <span class="text-xs text-muted-foreground block">
+                            Tempo dos Serviços: <strong class="text-foreground">{{ $tempoServicosFormatado }}</strong>
+                            @if($totalMinutosServicos > 0)
+                                + <strong class="text-amber-400">30min gargalo</strong>
+                            @endif
+                        </span>
+                        <span class="font-bold text-foreground text-sm block">Tempo Total Estimado: {{ $tempoTotalFormatado }}</span>
                     </div>
 
                     <div class="text-right">
@@ -216,6 +271,10 @@
                                     <p class="text-xs text-muted-foreground mt-0.5">
                                         {{ $tarefasConcluidas }} de {{ $totalTarefas }} etapa(s) concluída(s) ({{ $progressoOs }}%)
                                     </p>
+                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground mt-1">
+                                        <span><strong>Abertura da OS:</strong> {{ $osObj->data_inicio ? \Carbon\Carbon::parse($osObj->data_inicio)->format('d/m/Y H:i') : '-' }}</span>
+                                        <span><strong>Fechamento da OS:</strong> {{ $osObj->data_fim ? \Carbon\Carbon::parse($osObj->data_fim)->format('d/m/Y H:i') : 'Em aberto' }}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -244,12 +303,8 @@
                                                     @if($tarefa->funcionario)
                                                         <span>Responsável: <strong class="text-foreground">{{ $tarefa->funcionario->nome }}</strong></span>
                                                     @endif
-                                                    @if($tarefa->data_inicio)
-                                                        <span>Início: {{ \Carbon\Carbon::parse($tarefa->data_inicio)->format('d/m H:i') }}</span>
-                                                    @endif
-                                                    @if($tarefa->data_conclusao)
-                                                        <span>Conclusão: {{ \Carbon\Carbon::parse($tarefa->data_conclusao)->format('d/m H:i') }}</span>
-                                                    @endif
+                                                    <span><strong>Abertura da Tarefa:</strong> {{ $tarefa->data_inicio ? \Carbon\Carbon::parse($tarefa->data_inicio)->format('d/m/Y H:i') : 'Não iniciada' }}</span>
+                                                    <span><strong>Encerramento da Tarefa:</strong> {{ $tarefa->data_conclusao ? \Carbon\Carbon::parse($tarefa->data_conclusao)->format('d/m/Y H:i') : 'Aguardando conclusão' }}</span>
                                                 </div>
                                                 @if(!empty($tarefa->observacoes))
                                                     <p class="text-xs text-muted-foreground italic mt-1">"{{ $tarefa->observacoes }}"</p>

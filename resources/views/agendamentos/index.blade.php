@@ -85,9 +85,14 @@
                                 <span class="font-bold text-base text-foreground">
                                     {{ \Carbon\Carbon::parse($ag->data_inicio)->format('H:i') }}
                                     @if($ag->data_fim)
-                                        - {{ \Carbon\Carbon::parse($ag->data_fim)->format('H:i') }}
+                                        - {{ \Carbon\Carbon::parse($ag->data_fim)->format('H:i') }} (est.)
                                     @endif
                                 </span>
+                                @if($ag->data_conclusao)
+                                    <span class="text-[11px] font-medium text-success bg-success/10 px-2 py-0.5 rounded border border-success/25">
+                                        Concluído em {{ \Carbon\Carbon::parse($ag->data_conclusao)->format('d/m H:i') }}
+                                    </span>
+                                @endif
                                 <x-badge-status :status="$ag->status" />
                                 @if(!empty($ag->origem))
                                     <span class="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">
@@ -155,7 +160,7 @@
                                     <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="secondary" size="sm" icon="clipboard-list">
                                         Ver OS
                                     </x-button>
-                                @else
+                                @elseif(!in_array($ag->status, ['cancelado', 'concluido'], true))
                                     <form method="POST" action="{{ route('ordens-servico.store') }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="agendamento_id" value="{{ $ag->id }}" />
@@ -169,9 +174,11 @@
                                     <x-icon name="eye" class="w-4 h-4" />
                                 </x-button>
 
-                                <x-button href="{{ route('agendamentos.edit', $ag->id) }}" variant="ghost" size="icon-sm" title="Editar">
-                                    <x-icon name="pencil" class="w-4 h-4" />
-                                </x-button>
+                                @if(!in_array($ag->status, ['concluido', 'cancelado'], true))
+                                    <x-button href="{{ route('agendamentos.edit', $ag->id) }}" variant="ghost" size="icon-sm" title="Editar">
+                                        <x-icon name="pencil" class="w-4 h-4" />
+                                    </x-button>
+                                @endif
 
                                 <form method="POST" action="{{ route('agendamentos.destroy', $ag->id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este agendamento?');" class="inline">
                                     @csrf

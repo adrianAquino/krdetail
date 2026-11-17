@@ -69,8 +69,13 @@
                             {{ $os->numero }}
                         </a>
                         <p class="text-[11px] text-muted-foreground mt-0.5">
-                            Aberta em {{ \Carbon\Carbon::parse($os->data_inicio)->format('d/m/Y H:i') }}
+                            Aberta em: {{ \Carbon\Carbon::parse($os->data_inicio)->format('d/m/Y H:i') }}
                         </p>
+                        @if($os->data_fim)
+                            <p class="text-[11px] text-success mt-0.5 font-medium">
+                                Fechada em: {{ \Carbon\Carbon::parse($os->data_fim)->format('d/m/Y H:i') }}
+                            </p>
+                        @endif
                     </td>
 
                     <td class="py-3.5 px-4">

@@ -111,14 +111,14 @@
                     </div>
 
                     <div>
-                        <span class="text-muted-foreground uppercase font-semibold block mb-1">Iniciada em</span>
+                        <span class="text-muted-foreground uppercase font-semibold block mb-1">Horário de Abertura da Tarefa</span>
                         <p class="font-medium text-foreground text-sm">
                             {{ $tarefa->data_inicio ? $tarefa->data_inicio->format('d/m/Y H:i') : 'Não iniciada' }}
                         </p>
                     </div>
 
                     <div>
-                        <span class="text-muted-foreground uppercase font-semibold block mb-1">Concluída em</span>
+                        <span class="text-muted-foreground uppercase font-semibold block mb-1">Horário de Encerramento da Tarefa</span>
                         <p class="font-medium text-foreground text-sm">
                             {{ $tarefa->data_conclusao ? $tarefa->data_conclusao->format('d/m/Y H:i') : ($tarefa->status === 'em_andamento' ? 'Em andamento' : 'Pendente') }}
                         </p>

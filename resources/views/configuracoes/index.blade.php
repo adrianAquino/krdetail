@@ -926,8 +926,9 @@
                         <x-input type="number" name="capacidade_boxes" label="Boxes de Detalhamento Simultâneos" value="4" min="1" max="10" :disabled="!$podeGerenciarEmpresa" />
 
                         <x-select name="antecedencia_cancelamento" label="Antecedência Mínima para Cancelar" :disabled="!$podeGerenciarEmpresa">
+                            <option value="1" selected>1 hora antes</option>
                             <option value="2">2 horas antes</option>
-                            <option value="12" selected>12 horas antes</option>
+                            <option value="12">12 horas antes</option>
                             <option value="24">24 horas antes</option>
                         </x-select>
                     </div>

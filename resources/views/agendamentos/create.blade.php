@@ -76,6 +76,11 @@
 
                 <!-- Seção 2: Data, Horário e Origem -->
                 <x-card title="Programação do Atendimento">
+                    @php
+                        $padraoInicio = now()->addDay()->isSunday()
+                            ? now()->addDays(2)->setHour(9)->setMinute(0)
+                            : now()->addDay()->setHour(9)->setMinute(0);
+                    @endphp
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <x-input
@@ -84,29 +89,29 @@
                                 id="data_inicio"
                                 label="Data e Horário Desejados"
                                 min="{{ now()->format('Y-m-d\TH:i') }}"
-                                :value="old('data_inicio', now()->addDay()->setHour(9)->setMinute(0)->format('Y-m-d\TH:i'))"
+                                :value="old('data_inicio', $padraoInicio->format('Y-m-d\TH:i'))"
+                                hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00."
                                 required
                             />
                             <p id="erro_data_inicio" class="text-xs text-destructive mt-1 font-medium hidden">
-                                A data e o horário não podem ser inferiores à data e horário atuais.
+                                A data e o horário devem ser futuros e dentro do expediente (Seg-Sáb, 08:00 às 18:00).
                             </p>
                         </div>
 
-                        @if(!$isCliente)
-                            <div>
-                                <x-input
-                                    type="datetime-local"
-                                    name="data_fim"
-                                    id="data_fim"
-                                    label="Previsão de Conclusão (Opcional)"
-                                    min="{{ now()->format('Y-m-d\TH:i') }}"
-                                    :value="old('data_fim', now()->addDay()->setHour(13)->setMinute(0)->format('Y-m-d\TH:i'))"
-                                />
-                                <p id="erro_data_fim" class="text-xs text-destructive mt-1 font-medium hidden">
-                                    A previsão de conclusão não pode ser anterior à data de início ou à data atual.
-                                </p>
-                            </div>
+                        <div>
+                            <x-input
+                                type="datetime-local"
+                                name="data_hora_estimado_conclusao"
+                                id="data_fim"
+                                label="Previsão Estimada de Conclusão (+30min de margem)"
+                                :value="old('data_hora_estimado_conclusao')"
+                                hint="Calculado automaticamente: soma dos serviços + 30 min de gargalo operacional."
+                                readonly
+                                class="cursor-not-allowed opacity-80"
+                            />
+                        </div>
 
+                        @if(!$isCliente)
                             <div>
                                 <x-select name="origem" label="Canal de Origem do Agendamento">
                                     <option value="WhatsApp" selected>WhatsApp</option>
@@ -161,6 +166,7 @@
                                     data-preco="{{ $servico->preco_base }}"
                                     data-tempo="{{ $servico->tempo_estimado_minutos }}"
                                     data-tempo-str="{{ $tempoFormatado }}"
+                                    {{ old('servicos.' . $servico->id . '.servico_id') ? 'checked' : '' }}
                                     class="mt-1 h-5 w-5 rounded border-border bg-input text-primary focus:ring-primary service-checkbox cursor-pointer"
                                 />
 
@@ -205,11 +211,26 @@
 
                         <div class="pt-4 border-t border-border space-y-2">
                             <div class="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>Tempo Total Estimado:</span>
-                                <span id="resumo-tempo-total" class="font-semibold text-foreground">0 min</span>
+                                <span>Tempo dos Serviços:</span>
+                                <span id="resumo-tempo-servicos" class="font-medium text-foreground">0min</span>
                             </div>
 
-                            <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Margem Operacional (Gargalo):</span>
+                                <span id="resumo-gargalo" class="font-medium text-amber-400">+30min</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Tempo Total Estimado:</span>
+                                <span id="resumo-tempo-total" class="font-semibold text-foreground">0min</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Previsão de Conclusão:</span>
+                                <span id="resumo-data-fim" class="font-semibold text-primary">--/--/---- --:--</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-sm pt-2 border-t border-border/50">
                                 <span class="font-bold text-foreground">Total Estimado:</span>
                                 <span id="resumo-valor-total" class="text-xl font-extrabold text-primary">R$ 0,00</span>
                             </div>
@@ -280,15 +301,59 @@
                 atualizarVeiculos();
             }
 
-            // Totalizador Dinâmico de Serviços
+            // Totalizador Dinâmico de Serviços e Cálculo Automático da Previsão (+30 min de gargalo)
+            const GARGALO_MINUTOS = 30;
             const checkboxes = document.querySelectorAll('.service-checkbox');
             const listaResumo = document.getElementById('resumo-servicos-lista');
             const resumoValorTotal = document.getElementById('resumo-valor-total');
+            const resumoTempoServicos = document.getElementById('resumo-tempo-servicos');
+            const resumoGargalo = document.getElementById('resumo-gargalo');
             const resumoTempoTotal = document.getElementById('resumo-tempo-total');
+            const resumoDataFim = document.getElementById('resumo-data-fim');
+            const formAgendamento = document.getElementById('form-agendamento');
+            const inputDataInicio = document.getElementById('data_inicio');
+            const inputDataFim = document.getElementById('data_fim');
+            const erroDataInicio = document.getElementById('erro_data_inicio');
+
+            let totalMinutosComGargaloAtual = 0;
+
+            function formatarDuracao(minutosTotais) {
+                if (minutosTotais <= 0) return '0min';
+                const horas = Math.floor(minutosTotais / 60);
+                const minutos = minutosTotais % 60;
+                if (horas > 0) {
+                    return minutos > 0 ? `${horas}h ${minutos}min` : `${horas}h 00min`;
+                }
+                return `${minutos}min`;
+            }
+
+            function atualizarPrevisaoConclusao() {
+                if (!inputDataInicio || !inputDataInicio.value || totalMinutosComGargaloAtual <= 0) {
+                    if (inputDataFim) inputDataFim.value = '';
+                    if (resumoDataFim) resumoDataFim.textContent = '--/--/---- --:--';
+                    return;
+                }
+
+                const inicio = new Date(inputDataInicio.value);
+                if (isNaN(inicio.getTime())) {
+                    if (inputDataFim) inputDataFim.value = '';
+                    if (resumoDataFim) resumoDataFim.textContent = '--/--/---- --:--';
+                    return;
+                }
+
+                const fim = new Date(inicio.getTime() + totalMinutosComGargaloAtual * 60000);
+                const pad = n => String(n).padStart(2, '0');
+
+                const valorLocal = `${fim.getFullYear()}-${pad(fim.getMonth() + 1)}-${pad(fim.getDate())}T${pad(fim.getHours())}:${pad(fim.getMinutes())}`;
+                const valorExibicao = `${pad(fim.getDate())}/${pad(fim.getMonth() + 1)}/${fim.getFullYear()} às ${pad(fim.getHours())}:${pad(fim.getMinutes())}`;
+
+                if (inputDataFim) inputDataFim.value = valorLocal;
+                if (resumoDataFim) resumoDataFim.textContent = valorExibicao;
+            }
 
             function atualizarResumoServicos() {
                 let totalValor = 0;
-                let totalMinutos = 0;
+                let totalMinutosServicos = 0;
                 const selecionados = [];
 
                 checkboxes.forEach(cb => {
@@ -298,7 +363,7 @@
                         const preco = parseFloat(cb.dataset.preco) || 0;
                         const tempo = parseInt(cb.dataset.tempo) || 0;
                         totalValor += preco;
-                        totalMinutos += tempo;
+                        totalMinutosServicos += tempo;
                         selecionados.push({
                             nome: cb.dataset.nome,
                             preco: preco,
@@ -311,6 +376,7 @@
 
                 if (selecionados.length === 0) {
                     listaResumo.innerHTML = '<p class="text-muted-foreground italic text-center py-4">Nenhum serviço selecionado ainda.</p>';
+                    totalMinutosComGargaloAtual = 0;
                 } else {
                     let html = '';
                     selecionados.forEach(s => {
@@ -325,42 +391,56 @@
                         `;
                     });
                     listaResumo.innerHTML = html;
+                    totalMinutosComGargaloAtual = totalMinutosServicos + GARGALO_MINUTOS;
                 }
 
-                // Formatar tempo total
-                const horas = Math.floor(totalMinutos / 60);
-                const minutos = totalMinutos % 60;
-                let tempoStr = '';
-                if (horas > 0) tempoStr += `${horas}h `;
-                if (minutos > 0 || horas === 0) tempoStr += `${minutos}min`;
-
-                resumoTempoTotal.textContent = tempoStr;
+                if (resumoTempoServicos) resumoTempoServicos.textContent = formatarDuracao(totalMinutosServicos);
+                if (resumoGargalo) resumoGargalo.textContent = selecionados.length > 0 ? `+${GARGALO_MINUTOS}min` : '0min';
+                resumoTempoTotal.textContent = formatarDuracao(totalMinutosComGargaloAtual);
                 resumoValorTotal.textContent = `R$ ${totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+                atualizarPrevisaoConclusao();
             }
 
             checkboxes.forEach(cb => cb.addEventListener('change', atualizarResumoServicos));
             atualizarResumoServicos();
 
-            // Validação de datas (não permitir data menor que a atual)
-            const formAgendamento = document.getElementById('form-agendamento');
-            const inputDataInicio = document.getElementById('data_inicio');
-            const inputDataFim = document.getElementById('data_fim');
-            const erroDataInicio = document.getElementById('erro_data_inicio');
-            const erroDataFim = document.getElementById('erro_data_fim');
-
             function validarDatas() {
                 let valido = true;
                 const agora = new Date();
                 agora.setSeconds(0, 0);
-                // Margem de 1 minuto para preenchimento
                 const limiteMinimo = new Date(agora.getTime() - 60000);
 
                 if (inputDataInicio && inputDataInicio.value) {
                     const dtInicio = new Date(inputDataInicio.value);
+                    const hora = dtInicio.getHours();
+                    const minuto = dtInicio.getMinutes();
+                    const domingo = dtInicio.getDay() === 0;
+                    const foraExpediente = hora < 8 || hora > 18 || (hora === 18 && minuto > 0);
+
                     if (dtInicio < limiteMinimo) {
-                        erroDataInicio?.classList.remove('hidden');
+                        if (erroDataInicio) {
+                            erroDataInicio.textContent = 'A data e o horário não podem ser inferiores à data e horário atuais.';
+                            erroDataInicio.classList.remove('hidden');
+                        }
                         inputDataInicio.classList.add('border-destructive');
                         inputDataInicio.setCustomValidity('A data e o horário não podem ser inferiores à data e horário atuais.');
+                        valido = false;
+                    } else if (domingo) {
+                        if (erroDataInicio) {
+                            erroDataInicio.textContent = 'A oficina não realiza atendimentos aos domingos. Escolha entre segunda e sábado.';
+                            erroDataInicio.classList.remove('hidden');
+                        }
+                        inputDataInicio.classList.add('border-destructive');
+                        inputDataInicio.setCustomValidity('A oficina não realiza atendimentos aos domingos.');
+                        valido = false;
+                    } else if (foraExpediente) {
+                        if (erroDataInicio) {
+                            erroDataInicio.textContent = 'Horário fora do expediente comercial (08:00 às 18:00).';
+                            erroDataInicio.classList.remove('hidden');
+                        }
+                        inputDataInicio.classList.add('border-destructive');
+                        inputDataInicio.setCustomValidity('Horário fora do expediente comercial (08:00 às 18:00).');
                         valido = false;
                     } else {
                         erroDataInicio?.classList.add('hidden');
@@ -369,35 +449,13 @@
                     }
                 }
 
-                if (inputDataFim && inputDataFim.value) {
-                    const dtFim = new Date(inputDataFim.value);
-                    const dtInicio = inputDataInicio && inputDataInicio.value ? new Date(inputDataInicio.value) : limiteMinimo;
-                    if (dtFim < limiteMinimo || dtFim < dtInicio) {
-                        erroDataFim?.classList.remove('hidden');
-                        inputDataFim.classList.add('border-destructive');
-                        inputDataFim.setCustomValidity('A previsão de conclusão não pode ser anterior à data de início ou à data atual.');
-                        valido = false;
-                    } else {
-                        erroDataFim?.classList.add('hidden');
-                        inputDataFim.classList.remove('border-destructive');
-                        inputDataFim.setCustomValidity('');
-                    }
-                } else if (inputDataFim) {
-                    erroDataFim?.classList.add('hidden');
-                    inputDataFim.classList.remove('border-destructive');
-                    inputDataFim.setCustomValidity('');
-                }
-
+                atualizarPrevisaoConclusao();
                 return valido;
             }
 
             if (inputDataInicio) {
                 inputDataInicio.addEventListener('change', validarDatas);
                 inputDataInicio.addEventListener('input', validarDatas);
-            }
-            if (inputDataFim) {
-                inputDataFim.addEventListener('change', validarDatas);
-                inputDataFim.addEventListener('input', validarDatas);
             }
             if (formAgendamento) {
                 formAgendamento.addEventListener('submit', function (e) {

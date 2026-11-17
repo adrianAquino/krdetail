@@ -41,11 +41,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/veiculos/{veiculo}/edit', [VeiculoController::class, 'edit'])->name('veiculos.edit');
     Route::put('/veiculos/{veiculo}', [VeiculoController::class, 'update'])->name('veiculos.update');
 
-    // Agendamentos (Clientes visualizam andamento/histórico e criam agendamentos próprios)
+    // Agendamentos (Clientes visualizam andamento/histórico e criam/cancelam agendamentos próprios)
     Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
     Route::get('/agendamentos/create', [AgendamentoController::class, 'create'])->name('agendamentos.create');
     Route::post('/agendamentos', [AgendamentoController::class, 'store'])->name('agendamentos.store');
     Route::get('/agendamentos/{agendamento}', [AgendamentoController::class, 'show'])->name('agendamentos.show');
+    Route::patch('/agendamentos/{agendamento}/cancelar', [AgendamentoController::class, 'cancelar'])->name('agendamentos.cancelar');
 
     // Configurações e Edição de Perfil (Acessível a todos os perfis autenticados, adaptado por papel)
     Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');

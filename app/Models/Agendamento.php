@@ -11,6 +11,8 @@ class Agendamento extends Model
 {
     use HasFactory;
 
+    public const GARGALO_MINUTOS = 30;
+
     protected $table = 'agendamentos';
 
     protected $fillable = [
@@ -18,6 +20,7 @@ class Agendamento extends Model
         'veiculo_id',
         'data_inicio',
         'data_fim',
+        'data_conclusao',
         'status',
         'origem',
         'observacoes',
@@ -28,6 +31,7 @@ class Agendamento extends Model
         return [
             'data_inicio' => 'datetime',
             'data_fim' => 'datetime',
+            'data_conclusao' => 'datetime',
         ];
     }
 
@@ -105,22 +109,69 @@ class Agendamento extends Model
     }
 
     /**
-     * Tempo total estimado formatado (ex: "3h 30min").
+     * Alias semântico para a previsão estimada de conclusão (data_fim + gargalo operacional).
+     */
+    public function getDataHoraEstimadaConclusaoAttribute()
+    {
+        return $this->data_fim;
+    }
+
+    /**
+     * Data e hora real de conclusão do agendamento (preenchida no fechamento da OS).
+     */
+    public function getDataHoraConclusaoAttribute()
+    {
+        return $this->data_conclusao;
+    }
+
+    /**
+     * Soma dos minutos estimados dos serviços contratados (sem gargalo).
+     */
+    public function getMinutosServicosAttribute(): int
+    {
+        if ($this->relationLoaded('agendamentosServicos')) {
+            return (int) $this->agendamentosServicos->sum(
+                fn ($item) => $item->tempo_estimado_minutos ?? $item->servico?->tempo_estimado_minutos ?? 0
+            );
+        }
+
+        if ($this->relationLoaded('servicos')) {
+            return (int) $this->servicos->sum(
+                fn ($servico) => $servico->pivot?->tempo_estimado_minutos ?? $servico->tempo_estimado_minutos ?? 0
+            );
+        }
+
+        return (int) $this->agendamentosServicos()->sum('tempo_estimado_minutos');
+    }
+
+    /**
+     * Tempo total estimado em minutos considerando os serviços + 30 minutos de gargalo.
+     */
+    public function getMinutosTotaisComGargaloAttribute(): int
+    {
+        $minutosServicos = $this->minutos_servicos;
+
+        return $minutosServicos > 0 ? $minutosServicos + self::GARGALO_MINUTOS : 0;
+    }
+
+    /**
+     * Tempo estimado apenas dos serviços formatado (ex: "3h 30min").
+     */
+    public function getTempoServicosAttribute(): string
+    {
+        return self::formatarMinutos($this->minutos_servicos);
+    }
+
+    /**
+     * Tempo total estimado formatado já incluindo o gargalo de 30min (ex: "4h 00min").
      */
     public function getTempoTotalAttribute(): string
     {
-        if ($this->relationLoaded('agendamentosServicos')) {
-            $minutosTotais = (int) $this->agendamentosServicos->sum(
-                fn ($item) => $item->tempo_estimado_minutos ?? $item->servico?->tempo_estimado_minutos ?? 0
-            );
-        } elseif ($this->relationLoaded('servicos')) {
-            $minutosTotais = (int) $this->servicos->sum(
-                fn ($servico) => $servico->pivot?->tempo_estimado_minutos ?? $servico->tempo_estimado_minutos ?? 0
-            );
-        } else {
-            $minutosTotais = (int) $this->agendamentosServicos()->sum('tempo_estimado_minutos');
-        }
+        return self::formatarMinutos($this->minutos_totais_com_gargalo);
+    }
 
+    public static function formatarMinutos(int $minutosTotais): string
+    {
         if ($minutosTotais <= 0) {
             return '0min';
         }

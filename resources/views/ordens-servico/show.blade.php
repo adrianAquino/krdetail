@@ -113,6 +113,37 @@
         </x-card>
     </div>
 
+    <!-- Marcos Temporais da Ordem de Serviço & Agendamento -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6 text-xs">
+        <div class="p-3.5 rounded-xl bg-card border border-border">
+            <span class="text-muted-foreground uppercase font-semibold block mb-1">Horário Agendado</span>
+            <p class="font-bold text-foreground text-sm">
+                {{ $osObj->agendamento?->data_inicio ? \Carbon\Carbon::parse($osObj->agendamento->data_inicio)->format('d/m/Y H:i') : '-' }}
+            </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-card border border-border">
+            <span class="text-muted-foreground uppercase font-semibold block mb-1">Previsão Estimada (+30min)</span>
+            <p class="font-bold text-foreground text-sm">
+                {{ $osObj->agendamento?->data_fim ? \Carbon\Carbon::parse($osObj->agendamento->data_fim)->format('d/m/Y H:i') : '-' }}
+            </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-card border border-border">
+            <span class="text-muted-foreground uppercase font-semibold block mb-1">Abertura da OS</span>
+            <p class="font-bold text-primary text-sm">
+                {{ $osObj->data_inicio ? \Carbon\Carbon::parse($osObj->data_inicio)->format('d/m/Y H:i') : '-' }}
+            </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl {{ $osObj->data_fim ? 'bg-success/10 border-success/30' : 'bg-card border-border' }} border">
+            <span class="text-muted-foreground uppercase font-semibold block mb-1">Fechamento da OS</span>
+            <p class="font-bold {{ $osObj->data_fim ? 'text-success' : 'text-foreground' }} text-sm">
+                {{ $osObj->data_fim ? \Carbon\Carbon::parse($osObj->data_fim)->format('d/m/Y H:i') : 'Em aberto (aguardando conclusão das tarefas)' }}
+            </p>
+        </div>
+    </div>
+
     @if(!$todasConcluidas && $osObj->status === 'em_andamento')
         <div class="mb-6">
             <x-alert type="info" title="Fluxo Operacional Automatizado:">
@@ -218,16 +249,16 @@
                         </div>
 
                         <div>
-                            <span class="text-muted-foreground uppercase font-semibold block mb-1">Início da Execução</span>
+                            <span class="text-muted-foreground uppercase font-semibold block mb-1">Horário de Abertura da Tarefa</span>
                             <p class="font-medium text-foreground">
                                 {{ $tarefa->data_inicio ? \Carbon\Carbon::parse($tarefa->data_inicio)->format('d/m/Y H:i') : 'Ainda não iniciada' }}
                             </p>
                         </div>
 
                         <div>
-                            <span class="text-muted-foreground uppercase font-semibold block mb-1">Conclusão da Tarefa</span>
+                            <span class="text-muted-foreground uppercase font-semibold block mb-1">Horário de Encerramento da Tarefa</span>
                             <p class="font-medium text-foreground">
-                                {{ $tarefa->data_conclusao ? \Carbon\Carbon::parse($tarefa->data_conclusao)->format('d/m/Y H:i') : 'Em execução / pendente' }}
+                                {{ $tarefa->data_conclusao ? \Carbon\Carbon::parse($tarefa->data_conclusao)->format('d/m/Y H:i') : ($tarefa->status === 'em_andamento' ? 'Em andamento' : 'Aguardando execução') }}
                             </p>
                         </div>
                     </div>
