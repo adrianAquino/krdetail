@@ -717,71 +717,111 @@
 
     <!-- ABA MEU PERFIL (DISPONÍVEL PARA CLIENTE, FUNCIONÁRIO, DONO E ADMIN) -->
     <div id="tab-perfil" class="config-content space-y-6 hidden">
-        <form action="{{ route('configuracoes.perfil.update') }}" method="POST" class="space-y-6">
-            @csrf
-            @method('PUT')
-
-            <x-card>
-                <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
-                    <x-icon name="user" class="w-5 h-5 text-primary" />
+        <!-- Cartão de Apresentação Principal do Perfil -->
+        <x-card>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-primary font-bold text-base shrink-0">
+                        {{ strtoupper(substr($usuarioLogado->name, 0, 2)) }}
+                    </div>
                     <div>
-                        <h2 class="text-sm font-semibold text-foreground">Meus Dados Pessoais</h2>
-                        <p class="text-xs text-muted-foreground">Mantenha seus dados de identificação e contato atualizados.</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-lg font-bold text-foreground">{{ $usuarioLogado->name }}</h2>
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                                <x-icon name="shield" class="w-3 h-3" />
+                                {{ $usuarioLogado->role_label }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-muted-foreground mt-0.5">{{ $usuarioLogado->email }}</p>
+                        @if($usuarioLogado->empresa)
+                            <p class="text-xs text-muted-foreground mt-1">
+                                <strong>Empresa Vinculada:</strong> {{ $usuarioLogado->empresa->nome_fantasia }}
+                            </p>
+                        @endif
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <x-input name="name" label="Nome Completo" :value="old('name', $usuarioLogado->name)" minlength="3" maxlength="100" required />
-                    <x-input name="cpf_cnpj" label="CPF / CNPJ" :value="old('cpf_cnpj', $cpfCnpjAtual)" maxlength="18" placeholder="000.000.000-00" />
-                    <x-input type="email" name="email" label="E-mail de Acesso" :value="old('email', $usuarioLogado->email)" maxlength="100" required />
-                    <x-input name="telefone" label="Telefone / WhatsApp" :value="old('telefone', $usuarioLogado->telefone)" maxlength="15" placeholder="(11) 99999-9999" />
+                <div class="self-start sm:self-center">
+                    <x-button type="button" variant="primary" size="sm" onclick="openModal('modal-editar-meu-perfil')" class="gap-1.5">
+                        <x-icon name="edit" class="w-4 h-4" />
+                        Editar Meu Perfil
+                    </x-button>
                 </div>
+            </div>
+        </x-card>
+
+        <!-- Blocos de Apresentação (Somente Leitura) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <x-card>
+                <div class="flex items-center gap-2 pb-3 mb-4 border-b border-border">
+                    <x-icon name="user" class="w-5 h-5 text-primary" />
+                    <div>
+                        <h3 class="text-sm font-semibold text-foreground">Meus Dados Pessoais</h3>
+                        <p class="text-xs text-muted-foreground">Informações de identificação e contato cadastradas.</p>
+                    </div>
+                </div>
+
+                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">Nome Completo</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $usuarioLogado->name }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">CPF / CNPJ</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $cpfCnpjAtual ?: 'Não informado' }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">E-mail de Acesso</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5 break-all">{{ $usuarioLogado->email }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">Telefone / WhatsApp</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $usuarioLogado->telefone ?: 'Não informado' }}</dd>
+                    </div>
+                </dl>
             </x-card>
 
             <x-card>
-                <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
+                <div class="flex items-center gap-2 pb-3 mb-4 border-b border-border">
                     <x-icon name="map-pin" class="w-5 h-5 text-primary" />
                     <div>
-                        <h2 class="text-sm font-semibold text-foreground">Meu Endereço</h2>
+                        <h3 class="text-sm font-semibold text-foreground">Meu Endereço</h3>
                         <p class="text-xs text-muted-foreground">Endereço sincronizado automaticamente com seu cadastro unificado.</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <x-input name="cep" id="perfil_cep" label="CEP" :value="old('cep', $cepAtual)" maxlength="9" placeholder="00000-000" />
-                    <div class="sm:col-span-2">
-                        <x-input name="logradouro" id="perfil_logradouro" label="Logradouro" :value="old('logradouro', $logradouroAtual)" maxlength="100" />
+                <dl class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">CEP</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $cepAtual ?: '-' }}</dd>
                     </div>
-                    <x-input name="numero" label="Número" :value="old('numero', $numeroAtual)" maxlength="10" />
-                    <x-input name="complemento" label="Complemento" :value="old('complemento', $complementoAtual)" maxlength="100" />
-                    <x-input name="bairro" id="perfil_bairro" label="Bairro" :value="old('bairro', $bairroAtual)" maxlength="100" />
-                    <x-input name="cidade" id="perfil_cidade" label="Cidade" :value="old('cidade', $cidadeAtual)" maxlength="100" />
-                    <x-input name="estado" id="perfil_estado" label="UF" :value="old('estado', $estadoAtual)" maxlength="2" placeholder="SP" />
-                </div>
-            </x-card>
-
-            <x-card>
-                <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
-                    <x-icon name="lock" class="w-5 h-5 text-primary" />
-                    <div>
-                        <h2 class="text-sm font-semibold text-foreground">Segurança & Senha</h2>
-                        <p class="text-xs text-muted-foreground">Preencha apenas se desejar alterar sua senha atual.</p>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60 sm:col-span-2">
+                        <dt class="text-muted-foreground">Logradouro</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $logradouroAtual ?: '-' }}</dd>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <x-input type="password" name="password" label="Nova Senha" minlength="6" maxlength="64" placeholder="••••••••" />
-                    <x-input type="password" name="password_confirmation" label="Confirmar Nova Senha" minlength="6" maxlength="64" placeholder="••••••••" />
-                </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">Número</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $numeroAtual ?: '-' }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">Complemento</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $complementoAtual ?: '-' }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">Bairro</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $bairroAtual ?: '-' }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60 sm:col-span-2">
+                        <dt class="text-muted-foreground">Cidade</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $cidadeAtual ?: '-' }}</dd>
+                    </div>
+                    <div class="p-3 rounded-lg bg-secondary/25 border border-border/60">
+                        <dt class="text-muted-foreground">UF</dt>
+                        <dd class="font-semibold text-foreground text-sm mt-0.5">{{ $estadoAtual ?: '-' }}</dd>
+                    </div>
+                </dl>
             </x-card>
-
-            <div class="flex justify-end">
-                <x-button type="submit" variant="primary" class="gap-2">
-                    <x-icon name="check" class="w-4 h-4" />
-                    Salvar Meu Perfil
-                </x-button>
-            </div>
-        </form>
+        </div>
     </div>
 
     @if($isCliente && $empresaAtual)
@@ -1242,6 +1282,67 @@
         </form>
     </x-modal>
 @endif
+
+<!-- Modal Editar Meu Perfil (Cliente, Funcionário, Dono e Administrador) -->
+<x-modal id="modal-editar-meu-perfil" title="Editar Meu Perfil" maxWidth="3xl">
+    <form action="{{ route('configuracoes.perfil.update') }}" method="POST" class="space-y-5">
+        @csrf
+        @method('PUT')
+
+        <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                <x-icon name="user" class="w-3.5 h-3.5" />
+                Meus Dados Pessoais
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <x-input id="meu_perfil_name" name="name" label="Nome Completo" :value="$usuarioLogado->name" minlength="3" maxlength="100" required />
+                <x-input id="meu_perfil_cpf_cnpj" name="cpf_cnpj" label="CPF / CNPJ" :value="$cpfCnpjAtual" maxlength="18" placeholder="000.000.000-00" />
+                <x-input id="meu_perfil_email" type="email" name="email" label="E-mail de Acesso" :value="$usuarioLogado->email" maxlength="100" required />
+                <x-input id="meu_perfil_telefone" name="telefone" label="Telefone / WhatsApp" :value="$usuarioLogado->telefone" maxlength="15" placeholder="(11) 99999-9999" />
+            </div>
+        </div>
+
+        <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                <x-icon name="map-pin" class="w-3.5 h-3.5" />
+                Meu Endereço
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <x-input id="meu_perfil_cep" name="cep" label="CEP" :value="$cepAtual" maxlength="9" placeholder="00000-000" />
+                <div class="sm:col-span-2">
+                    <x-input id="meu_perfil_logradouro" name="logradouro" label="Logradouro" :value="$logradouroAtual" maxlength="100" />
+                </div>
+                <x-input id="meu_perfil_numero" name="numero" label="Número" :value="$numeroAtual" maxlength="10" />
+                <x-input id="meu_perfil_complemento" name="complemento" label="Complemento" :value="$complementoAtual" maxlength="100" />
+                <x-input id="meu_perfil_bairro" name="bairro" label="Bairro" :value="$bairroAtual" maxlength="100" />
+                <x-input id="meu_perfil_cidade" name="cidade" label="Cidade" :value="$cidadeAtual" maxlength="100" />
+                <x-input id="meu_perfil_estado" name="estado" label="UF" :value="$estadoAtual" maxlength="2" placeholder="SP" />
+            </div>
+        </div>
+
+        <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
+                <x-icon name="shield" class="w-3.5 h-3.5" />
+                Segurança & Senha
+            </h4>
+            <p class="text-xs text-muted-foreground">Preencha os campos abaixo apenas se desejar alterar sua senha atual.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <x-input id="meu_perfil_password" type="password" name="password" label="Nova Senha" minlength="6" maxlength="64" placeholder="••••••••" />
+                <x-input id="meu_perfil_password_confirmation" type="password" name="password_confirmation" label="Confirmar Nova Senha" minlength="6" maxlength="64" placeholder="••••••••" />
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-border">
+            <x-button type="button" variant="outline" onclick="closeModal('modal-editar-meu-perfil')">
+                Cancelar
+            </x-button>
+            <x-button type="submit" variant="primary" class="gap-1.5">
+                <x-icon name="save" class="w-4 h-4" />
+                Salvar Meu Perfil
+            </x-button>
+        </div>
+    </form>
+</x-modal>
 
 @if($podeGerenciarUsuarios)
     <!-- Modal Novo Usuário -->
