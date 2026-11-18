@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 858" width="980" height="858" font-family="Arial, Helvetica, sans-serif">
+<defs><marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#4B5563"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<line x1="285" y1="148" x2="935" y2="148" stroke="#6B7280" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="935" y1="148" x2="935" y2="538" stroke="#6B7280" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="935" y1="538" x2="285" y2="538" stroke="#6B7280" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="285" y1="538" x2="285" y2="148" stroke="#6B7280" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="610" y1="252" x2="610" y2="434" stroke="#6B7280" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="285" y1="148" x2="935" y2="148" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="935" y1="148" x2="935" y2="252" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="935" y1="252" x2="285" y2="252" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="285" y1="252" x2="285" y2="148" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="285" y1="434" x2="935" y2="434" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="935" y1="434" x2="935" y2="538" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="935" y1="538" x2="285" y2="538" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<line x1="285" y1="538" x2="285" y2="434" stroke="#D95D00" stroke-width="2" stroke-dasharray="6,4"/>
+<rect x="573" y="18" width="74" height="74" rx="3" fill="#2B59C3"/>
+<ellipse cx="610" cy="42" rx="17" ry="5.5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="593" y1="42" x2="593" y2="68" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="627" y1="42" x2="627" y2="68" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<path d="M 593 54 A 17 5.5 0 0 0 627 54" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<path d="M 593 68 A 17 5.5 0 0 0 627 68" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<text x="562" y="50" font-size="15" font-weight="bold" text-anchor="end" fill="#2B59C3">MySQL 8</text>
+<text x="562" y="69" font-size="13" text-anchor="end" fill="#2B59C3">(Principal 3FN)</text>
+<line x1="650" y1="55" x2="794" y2="55" stroke="#4B5563" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrowHead)"/>
+<text x="722" y="46" font-size="12" text-anchor="middle" fill="#2B59C3">Sincronia</text>
+<text x="722" y="72" font-size="12" text-anchor="middle" fill="#2B59C3">e Testes</text>
+<rect x="798" y="18" width="74" height="74" rx="3" fill="#2B59C3"/>
+<ellipse cx="835" cy="42" rx="17" ry="5.5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="818" y1="42" x2="818" y2="68" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="852" y1="42" x2="852" y2="68" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<path d="M 818 54 A 17 5.5 0 0 0 852 54" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<path d="M 818 68 A 17 5.5 0 0 0 852 68" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<text x="882" y="50" font-size="15" font-weight="bold" text-anchor="start" fill="#2B59C3">SQLite</text>
+<text x="882" y="69" font-size="13" text-anchor="start" fill="#2B59C3">(Testes)</text>
+<line x1="332" y1="169" x2="332" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="332" y1="224" x2="332" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="341" y1="169" x2="341" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="341" y1="224" x2="341" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="350" y1="169" x2="350" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="350" y1="224" x2="350" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="359" y1="169" x2="359" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="359" y1="224" x2="359" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="368" y1="169" x2="368" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="368" y1="224" x2="368" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="314" y1="186" x2="321" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="379" y1="186" x2="386" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="314" y1="195" x2="321" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="379" y1="195" x2="386" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="314" y1="204" x2="321" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="379" y1="204" x2="386" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="314" y1="213" x2="321" y2="213" stroke="#D95D00" stroke-width="2"/>
+<line x1="379" y1="213" x2="386" y2="213" stroke="#D95D00" stroke-width="2"/>
+<rect x="321" y="176" width="58" height="48" rx="4" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="350" y="204" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">OS</text>
+<line x1="457" y1="169" x2="457" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="457" y1="224" x2="457" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="466" y1="169" x2="466" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="466" y1="224" x2="466" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="475" y1="169" x2="475" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="475" y1="224" x2="475" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="484" y1="169" x2="484" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="484" y1="224" x2="484" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="493" y1="169" x2="493" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="493" y1="224" x2="493" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="439" y1="186" x2="446" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="504" y1="186" x2="511" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="439" y1="195" x2="446" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="504" y1="195" x2="511" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="439" y1="204" x2="446" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="504" y1="204" x2="511" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="439" y1="213" x2="446" y2="213" stroke="#D95D00" stroke-width="2"/>
+<line x1="504" y1="213" x2="511" y2="213" stroke="#D95D00" stroke-width="2"/>
+<rect x="446" y="176" width="58" height="48" rx="4" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="475" y="204" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Tarefa</text>
+<line x1="727" y1="169" x2="727" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="727" y1="224" x2="727" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="736" y1="169" x2="736" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="736" y1="224" x2="736" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="745" y1="169" x2="745" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="745" y1="224" x2="745" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="754" y1="169" x2="754" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="754" y1="224" x2="754" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="763" y1="169" x2="763" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="763" y1="224" x2="763" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="709" y1="186" x2="716" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="774" y1="186" x2="781" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="709" y1="195" x2="716" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="774" y1="195" x2="781" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="709" y1="204" x2="716" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="774" y1="204" x2="781" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="709" y1="213" x2="716" y2="213" stroke="#D95D00" stroke-width="2"/>
+<line x1="774" y1="213" x2="781" y2="213" stroke="#D95D00" stroke-width="2"/>
+<rect x="716" y="176" width="58" height="48" rx="4" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="745" y="204" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Estoque</text>
+<line x1="852" y1="169" x2="852" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="852" y1="224" x2="852" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="861" y1="169" x2="861" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="861" y1="224" x2="861" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="870" y1="169" x2="870" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="870" y1="224" x2="870" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="879" y1="169" x2="879" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="879" y1="224" x2="879" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="888" y1="169" x2="888" y2="176" stroke="#D95D00" stroke-width="2"/>
+<line x1="888" y1="224" x2="888" y2="231" stroke="#D95D00" stroke-width="2"/>
+<line x1="834" y1="186" x2="841" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="899" y1="186" x2="906" y2="186" stroke="#D95D00" stroke-width="2"/>
+<line x1="834" y1="195" x2="841" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="899" y1="195" x2="906" y2="195" stroke="#D95D00" stroke-width="2"/>
+<line x1="834" y1="204" x2="841" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="899" y1="204" x2="906" y2="204" stroke="#D95D00" stroke-width="2"/>
+<line x1="834" y1="213" x2="841" y2="213" stroke="#D95D00" stroke-width="2"/>
+<line x1="899" y1="213" x2="906" y2="213" stroke="#D95D00" stroke-width="2"/>
+<rect x="841" y="176" width="58" height="48" rx="4" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="870" y="204" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Models</text>
+<rect x="596" y="164" width="28" height="28" rx="3" fill="#D95D00"/>
+<line x1="610" y1="168" x2="610" y2="175" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="610" y1="181" x2="610" y2="188" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="600" y1="178" x2="607" y2="178" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="613" y1="178" x2="620" y2="178" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="607" y1="172" x2="610" y2="175" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="613" y1="172" x2="610" y2="175" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="607" y1="184" x2="610" y2="181" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="613" y1="184" x2="610" y2="181" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="610" y="212" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Regras</text>
+<text x="610" y="227" font-size="12" text-anchor="middle" fill="#D95D00">Eloquent</text>
+<rect x="575" y="303" width="70" height="70" rx="3" fill="#D95D00"/>
+<circle cx="600" cy="338" r="10" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="625" cy="325" r="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="625" cy="338" r="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="625" cy="351" r="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="609" y1="334" x2="620" y2="327" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="610" y1="338" x2="620" y2="338" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="609" y1="342" x2="620" y2="349" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="655" y="326" font-size="14" font-weight="bold" text-anchor="start" fill="#D95D00">Camada de</text>
+<text x="655" y="344" font-size="14" font-weight="bold" text-anchor="start" fill="#D95D00">Serviços</text>
+<text x="655" y="361" font-size="12" text-anchor="start" fill="#D95D00">(Transações)</text>
+<rect x="312" y="458" width="76" height="52" rx="11" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="350" y="488" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Cadastros</text>
+<rect x="437" y="458" width="76" height="52" rx="11" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="475" y="488" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Agenda</text>
+<rect x="707" y="458" width="76" height="52" rx="11" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="745" y="488" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">OS</text>
+<rect x="832" y="458" width="76" height="52" rx="11" fill="#FFFFFF" stroke="#D95D00" stroke-width="2"/>
+<text x="870" y="488" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Painel</text>
+<rect x="596" y="452" width="28" height="28" rx="3" fill="#D95D00"/>
+<line x1="610" y1="456" x2="610" y2="463" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="610" y1="469" x2="610" y2="476" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="600" y1="466" x2="607" y2="466" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="613" y1="466" x2="620" y2="466" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="607" y1="460" x2="610" y2="463" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="613" y1="460" x2="610" y2="463" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="607" y1="472" x2="610" y2="469" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="613" y1="472" x2="610" y2="469" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="610" y="500" font-size="12" font-weight="bold" text-anchor="middle" fill="#D95D00">Controllers</text>
+<text x="610" y="515" font-size="12" text-anchor="middle" fill="#D95D00">MVC</text>
+<rect x="147" y="140" width="70" height="70" rx="3" fill="#3F7D20"/>
+<ellipse cx="182" cy="163" rx="15" ry="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="167" y1="163" x2="171" y2="189" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="197" y1="163" x2="193" y2="189" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<path d="M 171 189 A 11 4 0 0 0 193 189" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<text x="136" y="170" font-size="14" font-weight="bold" text-anchor="end" fill="#3F7D20">APIs Externas</text>
+<text x="136" y="188" font-size="12" text-anchor="end" fill="#3F7D20">(CEP/SMTP/Libras)</text>
+<rect x="147" y="290" width="70" height="70" rx="3" fill="#232F3E"/>
+<line x1="182" y1="305" x2="200" y2="315" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="200" y1="315" x2="200" y2="335" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="200" y1="335" x2="182" y2="345" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="182" y1="345" x2="164" y2="335" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="164" y1="335" x2="164" y2="315" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="164" y1="315" x2="182" y2="305" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="182" y1="325" x2="182" y2="345" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="182" y1="325" x2="164" y2="315" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="182" y1="325" x2="200" y2="315" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="136" y="320" font-size="14" font-weight="bold" text-anchor="end" fill="#1F2937">Views Blade</text>
+<text x="136" y="338" font-size="12" text-anchor="end" fill="#1F2937">&amp; Scripts JS</text>
+<rect x="147" y="440" width="70" height="70" rx="3" fill="#754FDB"/>
+<circle cx="182" cy="475" r="20" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<ellipse cx="182" cy="475" rx="9" ry="20" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="163" y1="468" x2="201" y2="468" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="163" y1="482" x2="201" y2="482" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="136" y="470" font-size="14" font-weight="bold" text-anchor="end" fill="#754FDB">Tailwind CSS</text>
+<text x="136" y="488" font-size="12" text-anchor="end" fill="#754FDB">&amp; Vite 8</text>
+<rect x="147" y="660" width="70" height="70" rx="3" fill="#754FDB"/>
+<line x1="165" y1="680" x2="182" y2="674" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="182" y1="674" x2="199" y2="680" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="199" y1="680" x2="197" y2="703" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="197" y1="703" x2="182" y2="715" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="182" y1="715" x2="167" y2="703" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="167" y1="703" x2="165" y2="680" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="166" y1="686" x2="198" y2="686" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="182" y="700" font-size="11" font-weight="bold" text-anchor="middle" fill="#FFFFFF">WEB</text>
+<text x="136" y="690" font-size="14" font-weight="bold" text-anchor="end" fill="#754FDB">Acesso Web</text>
+<text x="136" y="708" font-size="13" text-anchor="end" fill="#754FDB">HTTPS</text>
+<circle cx="288" cy="684" r="9" fill="none" stroke="#1F2937" stroke-width="2"/>
+<path d="M 270 711 A 18 13 0 0 1 306 711 Z" fill="none" stroke="#1F2937" stroke-width="2"/>
+<polygon points="392,667 416,678 412,704 392,722 372,704 368,678" fill="#FFFFFF" stroke="#1F2937" stroke-width="2"/>
+<path d="M 385 692 A 7 7 0 0 1 399 692" fill="none" stroke="#1F2937" stroke-width="2"/>
+<rect x="382" y="692" width="20" height="15" rx="2" fill="none" stroke="#1F2937" stroke-width="2"/>
+<circle cx="392" cy="698" r="2" fill="#1F2937"/><line x1="392" y1="700" x2="392" y2="704" stroke="#1F2937" stroke-width="2"/>
+<rect x="575" y="660" width="70" height="70" rx="3" fill="#D95D00"/>
+<circle cx="600" cy="695" r="10" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="625" cy="682" r="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="625" cy="695" r="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="625" cy="708" r="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="609" y1="691" x2="620" y2="684" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="610" y1="695" x2="620" y2="695" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="609" y1="699" x2="620" y2="706" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<text x="655" y="690" font-size="14" font-weight="bold" text-anchor="start" fill="#D95D00">Roteamento</text>
+<text x="655" y="708" font-size="13" text-anchor="start" fill="#D95D00">Laravel (Web)</text>
+<path d="M 264 695 L 220 695" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 314 695 L 362 695" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 420 695 L 571 695" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 392 664 L 392 620 Q 392 608 380 608 L 194 608 Q 182 608 182 596 L 182 514" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 182 438 L 182 364" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 182 288 L 182 214" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 658 L 610 594 Q 610 582 598 582 L 362 582 Q 350 582 350 570 L 350 514" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 658 L 610 594 Q 610 582 598 582 L 487 582 Q 475 582 475 570 L 475 514" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 658 L 610 594 Q 610 582 622 582 L 733 582 Q 745 582 745 570 L 745 514" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 658 L 610 594 Q 610 582 622 582 L 858 582 Q 870 582 870 570 L 870 514" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 350 455 L 350 417 Q 350 405 362 405 L 598 405 Q 610 405 610 393 L 610 376" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 475 455 L 475 417 Q 475 405 487 405 L 598 405 Q 610 405 610 393 L 610 376" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 745 455 L 745 417 Q 745 405 733 405 L 622 405 Q 610 405 610 393 L 610 376" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 870 455 L 870 417 Q 870 405 858 405 L 622 405 Q 610 405 610 393 L 610 376" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 301 L 610 286 Q 610 274 598 274 L 362 274 Q 350 274 350 262 L 350 233" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 301 L 610 286 Q 610 274 598 274 L 487 274 Q 475 274 475 262 L 475 233" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 301 L 610 286 Q 610 274 622 274 L 733 274 Q 745 274 745 262 L 745 233" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 610 301 L 610 286 Q 610 274 622 274 L 858 274 Q 870 274 870 262 L 870 233" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 350 168 L 350 130 Q 350 118 362 118 L 599.7 118 Q 610 118 610 107.7 L 610 95" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 475 168 L 475 130 Q 475 118 487 118 L 599.7 118 Q 610 118 610 107.7 L 610 95" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 745 168 L 745 130 Q 745 118 733 118 L 620.4 118 Q 610 118 610 107.7 L 610 95" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<path d="M 870 168 L 870 130 Q 870 118 858 118 L 620.4 118 Q 610 118 610 107.7 L 610 95" fill="none" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowHead)"/>
+<rect x="24" y="778" width="932" height="66" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1"/>
+<text x="42" y="804" font-size="12" font-weight="bold" text-anchor="start" fill="#1F2937">LEGENDA:</text>
+<rect x="124" y="792" width="14" height="14" rx="3" fill="#754FDB"/>
+<text x="145" y="804" font-size="12" text-anchor="start" fill="#4B5563">Interface &amp; Acesso Web</text>
+<rect x="300" y="792" width="14" height="14" rx="3" fill="#232F3E"/>
+<text x="321" y="804" font-size="12" text-anchor="start" fill="#4B5563">Templates Blade &amp; JS</text>
+<rect x="470" y="792" width="14" height="14" rx="3" fill="#3F7D20"/>
+<text x="491" y="804" font-size="12" text-anchor="start" fill="#4B5563">APIs (ViaCEP / SMTP / Libras)</text>
+<rect x="705" y="792" width="14" height="14" rx="3" fill="#2B59C3"/>
+<text x="726" y="804" font-size="12" text-anchor="start" fill="#4B5563">Bancos (MySQL 8 / SQLite)</text>
+<rect x="124" y="820" width="14" height="14" rx="3" fill="#D95D00"/>
+<text x="145" y="832" font-size="12" text-anchor="start" fill="#4B5563">Roteamento, MVC &amp; Camada de Serviços</text>
+<polygon points="432,819 439,822 437,830 432,835 427,830 425,822" fill="#FFFFFF" stroke="#1F2937" stroke-width="1.6"/>
+<text x="446" y="832" font-size="12" text-anchor="start" fill="#4B5563">Escudo: Auth, Permissões (RBAC) &amp; CSRF</text>
+<line x1="705" y1="827" x2="725" y2="827" stroke="#D95D00" stroke-width="2" stroke-dasharray="5,3"/>
+<text x="732" y="832" font-size="12" text-anchor="start" fill="#4B5563">Camadas Internas Laravel 13</text>
+</svg>

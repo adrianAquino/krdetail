@@ -12,7 +12,7 @@
                 Relatórios & Desempenho
             </h1>
             <p class="text-sm text-muted-foreground mt-1">
-                Acompanhe as métricas financeiras de receitas e despesas e o desempenho operacional da oficina.
+                Acompanhe as métricas financeiras de receitas e despesas e o desempenho operacional da estética.
             </p>
         </div>
 
