@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Cliente;
 use App\Models\User;
 use App\Models\Veiculo;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class VeiculoController extends Controller
 {
@@ -14,15 +16,18 @@ class VeiculoController extends Controller
     {
         /** @var User|null $user */
         $user = Auth::user();
-        $query = Veiculo::with('cliente')->withCount('agendamentos');
 
         if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
-            $query->where('cliente_id', $cliente->id);
+            $query = Veiculo::with('cliente')
+                ->withCount(['agendamentos' => fn ($q) => $q->where('cliente_id', $cliente->id)])
+                ->where('cliente_id', $cliente->id);
+        } else {
+            $query = Veiculo::with('cliente')->withCount('agendamentos');
         }
 
-        if ($request->filled('busca')) {
-            $busca = $request->busca;
+        $busca = $request->string('busca')->trim()->toString();
+        if ($busca !== '') {
             $query->where(function ($q) use ($busca, $user) {
                 $q->where('placa', 'like', "%{$busca}%")
                     ->orWhere('marca', 'like', "%{$busca}%")
@@ -34,7 +39,7 @@ class VeiculoController extends Controller
             });
         }
 
-        $veiculos = $query->orderByDesc('created_at')->paginate(15);
+        $veiculos = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
         return view('veiculos.index', compact('veiculos'));
     }
@@ -66,22 +71,48 @@ class VeiculoController extends Controller
             $request->merge(['cliente_id' => $cliente->id]);
         }
 
+        $placaNormalizada = strtoupper((string) preg_replace('/[\s\-]+/', '', $request->string('placa')->toString()));
+        $request->merge(['placa' => $placaNormalizada]);
+
+        $clienteRule = Rule::exists('clientes', 'id');
+        if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
+            $empresaId = $user->getEmpresaAtivaId();
+            $clienteRule = $clienteRule->where('empresa_id', $empresaId ?? -1);
+        }
+
         $validated = $request->validate([
-            'cliente_id' => 'required|exists:clientes,id',
-            'placa' => 'required|string|min:7|max:8|unique:veiculos,placa',
+            'cliente_id' => ['required', 'integer', $clienteRule],
+            'placa' => [
+                'required',
+                'bail',
+                'string',
+                'size:7',
+                'regex:/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/',
+                Rule::unique('veiculos', 'placa'),
+            ],
             'marca' => 'required|string|max:50',
             'modelo' => 'required|string|max:80',
             'cor' => 'nullable|string|max:40',
             'ano' => 'nullable|integer|min:1950|max:' . (date('Y') + 1),
             'observacoes' => 'nullable|string|max:500',
+        ], [
+            'placa.size' => 'A placa deve conter exatamente 7 caracteres (sem hífen).',
+            'placa.regex' => 'Informe uma placa válida no padrão brasileiro ou Mercosul (ex: ABC1D23 ou ABC1234).',
+            'placa.unique' => 'Já existe um veículo cadastrado com esta placa.',
+            'cliente_id.exists' => 'O cliente selecionado é inválido ou não pertence à sua empresa.',
         ]);
 
         if ($user instanceof User && $user->isCliente()) {
             $validated['cliente_id'] = $user->ensureClienteProfile()->id;
         }
 
-        $validated['placa'] = strtoupper($validated['placa']);
-        $veiculo = Veiculo::create($validated);
+        try {
+            $veiculo = Veiculo::create($validated);
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Não foi possível cadastrar o veículo. Verifique se a placa já está cadastrada.');
+        }
 
         return redirect()->route('veiculos.show', $veiculo)->with('success', 'Veículo cadastrado com sucesso!');
     }
@@ -96,9 +127,18 @@ class VeiculoController extends Controller
             if ((int) $veiculo->cliente_id !== (int) $cliente->id) {
                 abort(403, 'Você não tem permissão para visualizar este veículo.');
             }
-        }
 
-        $veiculo->load(['cliente', 'agendamentos.servicos', 'agendamentos.ordemServico.tarefas']);
+            $veiculo->load([
+                'cliente',
+                'agendamentos' => function ($q) use ($cliente) {
+                    $q->where('cliente_id', $cliente->id)
+                        ->with(['servicos', 'ordemServico.tarefas'])
+                        ->orderByDesc('data_inicio');
+                },
+            ]);
+        } else {
+            $veiculo->load(['cliente', 'agendamentos.servicos', 'agendamentos.ordemServico.tarefas']);
+        }
 
         return view('veiculos.show', compact('veiculo'));
     }
@@ -134,22 +174,48 @@ class VeiculoController extends Controller
             $request->merge(['cliente_id' => $cliente->id]);
         }
 
+        $placaNormalizada = strtoupper((string) preg_replace('/[\s\-]+/', '', $request->string('placa')->toString()));
+        $request->merge(['placa' => $placaNormalizada]);
+
+        $clienteRule = Rule::exists('clientes', 'id');
+        if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
+            $empresaId = $user->getEmpresaAtivaId();
+            $clienteRule = $clienteRule->where('empresa_id', $empresaId ?? -1);
+        }
+
         $validated = $request->validate([
-            'cliente_id' => 'required|exists:clientes,id',
-            'placa' => 'required|string|min:7|max:8|unique:veiculos,placa,' . $veiculo->id,
+            'cliente_id' => ['required', 'integer', $clienteRule],
+            'placa' => [
+                'required',
+                'bail',
+                'string',
+                'size:7',
+                'regex:/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/',
+                Rule::unique('veiculos', 'placa')->ignore($veiculo->id),
+            ],
             'marca' => 'required|string|max:50',
             'modelo' => 'required|string|max:80',
             'cor' => 'nullable|string|max:40',
             'ano' => 'nullable|integer|min:1950|max:' . (date('Y') + 1),
             'observacoes' => 'nullable|string|max:500',
+        ], [
+            'placa.size' => 'A placa deve conter exatamente 7 caracteres (sem hífen).',
+            'placa.regex' => 'Informe uma placa válida no padrão brasileiro ou Mercosul (ex: ABC1D23 ou ABC1234).',
+            'placa.unique' => 'Já existe outro veículo cadastrado com esta placa.',
+            'cliente_id.exists' => 'O cliente selecionado é inválido ou não pertence à sua empresa.',
         ]);
 
         if ($user instanceof User && $user->isCliente()) {
             $validated['cliente_id'] = $user->ensureClienteProfile()->id;
         }
 
-        $validated['placa'] = strtoupper($validated['placa']);
-        $veiculo->update($validated);
+        try {
+            $veiculo->update($validated);
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Não foi possível atualizar o veículo. Verifique se a placa já está em uso.');
+        }
 
         return redirect()->route('veiculos.show', $veiculo)->with('success', 'Veículo atualizado com sucesso!');
     }
@@ -162,7 +228,7 @@ class VeiculoController extends Controller
             abort(403);
         }
 
-        if ($veiculo->agendamentos()->exists()) {
+        if ($veiculo->agendamentos()->withoutGlobalScopes()->exists()) {
             return redirect()
                 ->back()
                 ->with('error', 'Não é possível excluir este veículo, pois ele já possui agendamentos ou serviços realizados vinculados ao seu histórico.');
@@ -170,7 +236,7 @@ class VeiculoController extends Controller
 
         try {
             $veiculo->delete();
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             return redirect()
                 ->back()
                 ->with('error', 'Não é possível excluir este veículo, pois ele possui serviços realizados vinculados.');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Servico;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class ServicoController extends Controller
@@ -11,18 +12,19 @@ class ServicoController extends Controller
     {
         $query = Servico::query();
 
-        if ($request->filled('busca')) {
-            $busca = $request->input('busca');
-            $query->where('nome', 'like', "%{$busca}%")
-                  ->orWhere('descricao', 'like', "%{$busca}%");
+        $busca = $request->string('busca')->trim()->toString();
+        if ($busca !== '') {
+            $query->where(function ($q) use ($busca) {
+                $q->where('nome', 'like', "%{$busca}%")
+                    ->orWhere('descricao', 'like', "%{$busca}%");
+            });
         }
 
-        if ($request->filled('status')) {
-            if ($request->input('status') === 'ativo') {
-                $query->where('ativo', true);
-            } elseif ($request->input('status') === 'inativo') {
-                $query->where('ativo', false);
-            }
+        $status = $request->string('status')->toString();
+        if ($status === 'ativo') {
+            $query->where('ativo', true);
+        } elseif ($status === 'inativo') {
+            $query->where('ativo', false);
         }
 
         $servicos = $query->orderBy('nome', 'asc')->paginate(12)->withQueryString();
@@ -45,7 +47,7 @@ class ServicoController extends Controller
             'ativo' => 'sometimes|boolean',
         ]);
 
-        $validated['ativo'] = $request->has('ativo');
+        $validated['ativo'] = $request->boolean('ativo');
 
         Servico::create($validated);
 
@@ -67,7 +69,7 @@ class ServicoController extends Controller
             'ativo' => 'sometimes|boolean',
         ]);
 
-        $validated['ativo'] = $request->has('ativo');
+        $validated['ativo'] = $request->boolean('ativo');
 
         $servico->update($validated);
 
@@ -76,12 +78,23 @@ class ServicoController extends Controller
 
     public function destroy(Servico $servico)
     {
-        if ($servico->agendamentos()->count() > 0) {
+        if ($servico->agendamentosServicos()->exists()) {
             $servico->update(['ativo' => false]);
-            return redirect()->route('servicos.index')->with('info', 'O serviço possui histórico e foi desativado em vez de excluído.');
+
+            return redirect()
+                ->route('servicos.index')
+                ->with('info', 'O serviço possui histórico e foi desativado em vez de excluído.');
         }
 
-        $servico->delete();
+        try {
+            $servico->delete();
+        } catch (QueryException $e) {
+            $servico->update(['ativo' => false]);
+
+            return redirect()
+                ->route('servicos.index')
+                ->with('info', 'O serviço possui vínculos históricos e foi desativado em vez de excluído.');
+        }
 
         return redirect()->route('servicos.index')->with('success', 'Serviço excluído com sucesso!');
     }

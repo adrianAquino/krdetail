@@ -14,21 +14,28 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ConfiguracaoController extends Controller
 {
+    private const UFS_BRASIL = [
+        'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+        'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+        'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+    ];
+
     public function index(Request $request)
     {
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
         $usuarioLogado->load(['pessoa', 'empresa', 'cliente']);
 
-        // Se for Cliente: carrega apenas os dados do próprio perfil e informações de contato da oficina vinculada
+        // Se for Cliente: carrega apenas os dados do próprio perfil e informações da empresa vinculada
         if ($usuarioLogado->isCliente()) {
             $cliente = $usuarioLogado->ensureClienteProfile();
             $cliente->load(['pessoa', 'empresa']);
-            $empresaAtual = $cliente->empresa ?? $usuarioLogado->empresa ?? Empresa::first();
+            $empresaAtual = $cliente->empresa ?? $usuarioLogado->empresa;
 
             return view('configuracoes.index', [
                 'isCliente' => true,
@@ -49,6 +56,8 @@ class ConfiguracaoController extends Controller
             'usuarios',
         ];
 
+        $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
+
         if ($usuarioLogado->isAdministrador()) {
             $empresas = Empresa::with('dono')
                 ->withCount($empresaCounts)
@@ -58,37 +67,49 @@ class ConfiguracaoController extends Controller
             $empresas = Empresa::with('dono')
                 ->withCount($empresaCounts)
                 ->where(function ($q) use ($usuarioLogado) {
-                    $q->where('id', $usuarioLogado->empresa_id)
-                        ->orWhere('dono_id', $usuarioLogado->id);
+                    if ($usuarioLogado->empresa_id) {
+                        $q->where('id', $usuarioLogado->empresa_id)
+                            ->orWhere('dono_id', $usuarioLogado->id);
+                    } else {
+                        $q->where('dono_id', $usuarioLogado->id);
+                    }
                 })
                 ->orderBy('nome_fantasia', 'asc')
                 ->get();
-        } else {
-            // Funcionário visualiza apenas a empresa à qual pertence
+        } elseif ($empresaAtivaId) {
+            // Funcionário visualiza apenas a empresa ativa à qual pertence
             $empresas = Empresa::with('dono')
                 ->withCount($empresaCounts)
-                ->where('id', $usuarioLogado->getEmpresaAtivaId())
+                ->where('id', $empresaAtivaId)
                 ->get();
+        } else {
+            $empresas = collect();
         }
 
         $empresaSelecionadaId = $request->query('empresa_id');
         $empresaAtual = null;
 
-        if ($empresaSelecionadaId) {
+        if ($empresaSelecionadaId && is_scalar($empresaSelecionadaId)) {
             $empresaAtual = $empresas->firstWhere('id', (int) $empresaSelecionadaId);
         }
 
-        if (!$empresaAtual) {
-            $empresaAtual = $empresas->firstWhere('id', $usuarioLogado->getEmpresaAtivaId()) ?? $empresas->first();
+        if (! $empresaAtual && $empresaAtivaId) {
+            $empresaAtual = $empresas->firstWhere('id', $empresaAtivaId);
         }
 
-        // Listagem de usuários:
-        // - Administrador Geral vê todos os usuários do sistema
-        // - Dono da Empresa e Funcionário veem apenas os usuários vinculados à sua empresa
+        if (! $empresaAtual) {
+            $empresaAtual = $empresas->first();
+        }
+
         $queryUsuarios = User::with(['empresa', 'funcionario'])->orderBy('name', 'asc');
 
-        if (!$usuarioLogado->isAdministrador()) {
-            $queryUsuarios->where('empresa_id', $usuarioLogado->getEmpresaAtivaId());
+        if (! $usuarioLogado->isAdministrador()) {
+            $idsGerenciaveis = $empresas->pluck('id')->filter()->values();
+            if ($idsGerenciaveis->isNotEmpty()) {
+                $queryUsuarios->whereIn('empresa_id', $idsGerenciaveis);
+            } else {
+                $queryUsuarios->whereRaw('1 = 0');
+            }
         }
 
         $usuarios = $queryUsuarios->get()->map(function (User $u) {
@@ -107,7 +128,10 @@ class ConfiguracaoController extends Controller
         });
 
         $donosDisponiveis = $usuarioLogado->isAdministrador()
-            ? User::whereIn('tipo_usuario', ['dono', 'administrador', 'funcionario'])->orderBy('name')->get()
+            ? User::whereIn('tipo_usuario', ['dono', 'administrador', 'funcionario'])
+                ->where('ativo', true)
+                ->orderBy('name')
+                ->get()
             : collect([$usuarioLogado]);
 
         return view('configuracoes.index', [
@@ -131,12 +155,20 @@ class ConfiguracaoController extends Controller
             ? $user->ensureClienteProfile()
             : Cliente::withoutGlobalScopes()->where('user_id', $user->id)->first();
 
+        $estadoRaw = $request->string('estado')->trim()->upper()->toString();
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+            'cpf_cnpj' => CpfCnpj::normalizar($request->input('cpf_cnpj')),
+            'estado' => $estadoRaw !== '' ? $estadoRaw : null,
+        ]);
+
         $rules = [
             'name' => 'required|string|min:3|max:100',
             'email' => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
-            'telefone' => 'nullable|string|max:15',
+            'telefone' => $cliente ? 'required|string|min:10|max:15' : 'nullable|string|max:15',
             'cpf_cnpj' => [
                 'nullable',
+                'bail',
                 'string',
                 'max:18',
                 new CpfCnpj,
@@ -148,9 +180,13 @@ class ConfiguracaoController extends Controller
             'complemento' => 'nullable|string|max:100',
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
-            'estado' => 'nullable|string|max:2',
-            'password' => 'nullable|string|min:6|max:64|confirmed',
+            'estado' => ['nullable', 'string', 'size:2', Rule::in(self::UFS_BRASIL)],
+            'password' => 'nullable|string|min:8|max:64|confirmed',
         ];
+
+        if ($request->filled('password')) {
+            $rules['current_password'] = 'required|current_password';
+        }
 
         if ($cliente) {
             $rules['cpf_cnpj'][] = Rule::unique('clientes', 'cpf_cnpj')->ignore($cliente->id);
@@ -159,55 +195,82 @@ class ConfiguracaoController extends Controller
         $validated = $request->validate($rules, [
             'email.unique' => 'Este e-mail já está em uso por outra conta.',
             'cpf_cnpj.unique' => 'Este CPF/CNPJ já está vinculado a outro cadastro.',
-            'password.min' => 'A nova senha deve ter pelo menos 6 caracteres.',
+            'estado.in' => 'Informe uma sigla de UF válida (ex: SP, RJ).',
+            'current_password.required' => 'Informe sua senha atual para definir uma nova senha.',
+            'current_password.current_password' => 'A senha atual informada não confere.',
+            'password.min' => 'A nova senha deve ter pelo menos 8 caracteres.',
             'password.confirmed' => 'A confirmação da nova senha não confere.',
         ]);
 
-        DB::transaction(function () use ($user, $cliente, $validated) {
-            $dadosUser = [
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'telefone' => $validated['telefone'] ?? null,
-            ];
-
-            if (!empty($validated['password'])) {
-                $dadosUser['password'] = $validated['password'];
-            }
-
-            $user->update($dadosUser);
-
-            if ($user->pessoa_id) {
-                Pessoa::where('id', $user->pessoa_id)->update([
-                    'nome' => $validated['name'],
+        try {
+            DB::transaction(function () use ($request, $user, $cliente, $validated) {
+                $dadosUser = [
+                    'name' => $validated['name'],
                     'email' => $validated['email'],
                     'telefone' => $validated['telefone'] ?? null,
-                    'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
-                    'cep' => $validated['cep'] ?? null,
-                    'logradouro' => $validated['logradouro'] ?? null,
-                    'numero' => $validated['numero'] ?? null,
-                    'complemento' => $validated['complemento'] ?? null,
-                    'bairro' => $validated['bairro'] ?? null,
-                    'cidade' => $validated['cidade'] ?? null,
-                    'estado' => isset($validated['estado']) ? strtoupper($validated['estado']) : null,
-                ]);
-            }
+                ];
 
-            if ($cliente) {
-                $cliente->update([
-                    'nome' => $validated['name'],
-                    'email' => $validated['email'],
-                    'telefone' => $validated['telefone'] ?? '',
-                    'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
-                    'cep' => $validated['cep'] ?? null,
-                    'logradouro' => $validated['logradouro'] ?? null,
-                    'numero' => $validated['numero'] ?? null,
-                    'complemento' => $validated['complemento'] ?? null,
-                    'bairro' => $validated['bairro'] ?? null,
-                    'cidade' => $validated['cidade'] ?? null,
-                    'estado' => isset($validated['estado']) ? strtoupper($validated['estado']) : null,
-                ]);
-            }
-        });
+                $alterouSenha = ! empty($validated['password']);
+                if ($alterouSenha) {
+                    $dadosUser['password'] = $validated['password'];
+                    $dadosUser['remember_token'] = Str::random(60);
+                }
+
+                $user->update($dadosUser);
+
+                if ($user->pessoa_id) {
+                    $pessoa = Pessoa::withTrashed()->find($user->pessoa_id);
+                    if ($pessoa) {
+                        if ($pessoa->trashed()) {
+                            $pessoa->restore();
+                        }
+
+                        Pessoa::withoutEvents(function () use ($pessoa, $validated) {
+                            $pessoa->update([
+                                'nome' => $validated['name'],
+                                'email' => $validated['email'],
+                                'telefone' => $validated['telefone'] ?? null,
+                                'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
+                                'cep' => $validated['cep'] ?? null,
+                                'logradouro' => $validated['logradouro'] ?? null,
+                                'numero' => $validated['numero'] ?? null,
+                                'complemento' => $validated['complemento'] ?? null,
+                                'bairro' => $validated['bairro'] ?? null,
+                                'cidade' => $validated['cidade'] ?? null,
+                                'estado' => $validated['estado'] ?? null,
+                            ]);
+                        });
+                    }
+                }
+
+                if ($cliente) {
+                    $cliente->update([
+                        'nome' => $validated['name'],
+                        'email' => $validated['email'],
+                        'telefone' => $validated['telefone'] ?? '',
+                        'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
+                        'cep' => $validated['cep'] ?? null,
+                        'logradouro' => $validated['logradouro'] ?? null,
+                        'numero' => $validated['numero'] ?? null,
+                        'complemento' => $validated['complemento'] ?? null,
+                        'bairro' => $validated['bairro'] ?? null,
+                        'cidade' => $validated['cidade'] ?? null,
+                        'estado' => $validated['estado'] ?? null,
+                    ]);
+                }
+
+                if ($alterouSenha && $request->hasSession()) {
+                    DB::table('sessions')
+                        ->where('user_id', $user->id)
+                        ->where('id', '!=', $request->session()->getId())
+                        ->delete();
+                }
+            });
+        } catch (QueryException $e) {
+            return back()
+                ->withInput($request->except(['password', 'password_confirmation', 'current_password']))
+                ->with('error', 'Não foi possível salvar os dados do perfil devido a conflito de e-mail ou CPF/CNPJ.');
+        }
 
         return redirect()
             ->route('configuracoes.index', ['tab' => 'perfil'])
@@ -223,14 +286,28 @@ class ConfiguracaoController extends Controller
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->isAdministrador() && !$usuarioLogado->isDono()) {
+        if (! $usuarioLogado->isAdministrador() && ! $usuarioLogado->isDono()) {
             return back()->with('error', 'Para cadastrar uma empresa, é necessário estar logado como Dono de Empresa ou Administrador Geral do Sistema.');
         }
+
+        $ufRaw = $request->string('uf')->trim()->upper()->toString();
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+            'cnpj' => CpfCnpj::normalizar($request->input('cnpj')),
+            'uf' => $ufRaw !== '' ? $ufRaw : null,
+        ]);
 
         $validated = $request->validate([
             'nome_fantasia' => 'required|string|max:100',
             'razao_social' => 'required|string|max:120',
-            'cnpj' => 'nullable|string|max:20|unique:empresas,cnpj',
+            'cnpj' => [
+                'nullable',
+                'bail',
+                'string',
+                'max:20',
+                new CpfCnpj(apenasCnpj: true),
+                Rule::unique('empresas', 'cnpj')->whereNull('deleted_at'),
+            ],
             'inscricao_estadual' => 'nullable|string|max:20',
             'telefone' => 'nullable|string|max:20',
             'whatsapp' => 'required|string|max:20',
@@ -241,49 +318,61 @@ class ConfiguracaoController extends Controller
             'complemento' => 'nullable|string|max:100',
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
-            'uf' => 'nullable|string|max:2',
+            'uf' => ['nullable', 'string', 'size:2', Rule::in(self::UFS_BRASIL)],
             'horario_atendimento' => 'nullable|string|max:100',
-            'dono_id' => 'nullable|exists:users,id',
+            'dono_id' => [
+                'nullable',
+                Rule::exists('users', 'id')
+                    ->where('ativo', true)
+                    ->whereIn('tipo_usuario', ['dono', 'funcionario', 'administrador']),
+            ],
         ]);
 
-        $empresa = DB::transaction(function () use ($validated, $usuarioLogado) {
-            $donoId = $usuarioLogado->isDono()
-                ? $usuarioLogado->id
-                : ($validated['dono_id'] ?? null);
+        try {
+            $empresa = DB::transaction(function () use ($validated, $usuarioLogado) {
+                $donoId = $usuarioLogado->isDono()
+                    ? $usuarioLogado->id
+                    : ($validated['dono_id'] ?? null);
 
-            $novaEmpresa = Empresa::create([
-                'dono_id' => $donoId,
-                'nome_fantasia' => $validated['nome_fantasia'],
-                'razao_social' => $validated['razao_social'],
-                'cnpj' => $validated['cnpj'] ?? null,
-                'inscricao_estadual' => $validated['inscricao_estadual'] ?? null,
-                'telefone' => $validated['telefone'] ?? null,
-                'whatsapp' => $validated['whatsapp'],
-                'email' => $validated['email'],
-                'cep' => $validated['cep'] ?? null,
-                'logradouro' => $validated['logradouro'] ?? null,
-                'numero' => $validated['numero'] ?? null,
-                'complemento' => $validated['complemento'] ?? null,
-                'bairro' => $validated['bairro'] ?? null,
-                'cidade' => $validated['cidade'] ?? null,
-                'uf' => isset($validated['uf']) ? strtoupper($validated['uf']) : null,
-                'horario_atendimento' => $validated['horario_atendimento'] ?? null,
-                'ativo' => true,
-            ]);
+                $novaEmpresa = Empresa::create([
+                    'dono_id' => $donoId,
+                    'nome_fantasia' => $validated['nome_fantasia'],
+                    'razao_social' => $validated['razao_social'],
+                    'cnpj' => $validated['cnpj'] ?? null,
+                    'inscricao_estadual' => $validated['inscricao_estadual'] ?? null,
+                    'telefone' => $validated['telefone'] ?? null,
+                    'whatsapp' => $validated['whatsapp'],
+                    'email' => $validated['email'],
+                    'cep' => $validated['cep'] ?? null,
+                    'logradouro' => $validated['logradouro'] ?? null,
+                    'numero' => $validated['numero'] ?? null,
+                    'complemento' => $validated['complemento'] ?? null,
+                    'bairro' => $validated['bairro'] ?? null,
+                    'cidade' => $validated['cidade'] ?? null,
+                    'uf' => $validated['uf'] ?? null,
+                    'horario_atendimento' => $validated['horario_atendimento'] ?? null,
+                    'ativo' => true,
+                ]);
 
-            if ($donoId) {
-                $donoUser = User::find($donoId);
-                if ($donoUser) {
-                    $dadosDono = ['empresa_id' => $novaEmpresa->id];
-                    if (!$donoUser->isAdministrador()) {
-                        $dadosDono['tipo_usuario'] = 'dono';
+                if ($donoId) {
+                    $donoUser = User::find($donoId);
+                    // Preserva a empresa original caso o Dono já opere outra unidade e nunca vincula empresa fixa a Admin
+                    if ($donoUser && ! $donoUser->isAdministrador()) {
+                        $dadosDono = ['tipo_usuario' => 'dono'];
+                        if (empty($donoUser->empresa_id)) {
+                            $dadosDono['empresa_id'] = $novaEmpresa->id;
+                        }
+                        $donoUser->update($dadosDono);
                     }
-                    $donoUser->update($dadosDono);
                 }
-            }
 
-            return $novaEmpresa;
-        });
+                return $novaEmpresa;
+            });
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Não foi possível cadastrar a empresa. Verifique se o CNPJ informado já está em uso.');
+        }
 
         return redirect()
             ->route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empresa->id])
@@ -299,14 +388,28 @@ class ConfiguracaoController extends Controller
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->canManageEmpresa($empresa)) {
+        if (! $usuarioLogado->canManageEmpresa($empresa)) {
             return back()->with('error', 'Você não possui permissão para alterar os dados da empresa.');
         }
+
+        $ufRaw = $request->string('uf')->trim()->upper()->toString();
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+            'cnpj' => CpfCnpj::normalizar($request->input('cnpj')),
+            'uf' => $ufRaw !== '' ? $ufRaw : null,
+        ]);
 
         $validated = $request->validate([
             'nome_fantasia' => 'required|string|max:100',
             'razao_social' => 'required|string|max:120',
-            'cnpj' => ['nullable', 'string', 'max:20', Rule::unique('empresas', 'cnpj')->ignore($empresa->id)],
+            'cnpj' => [
+                'nullable',
+                'bail',
+                'string',
+                'max:20',
+                new CpfCnpj(apenasCnpj: true),
+                Rule::unique('empresas', 'cnpj')->whereNull('deleted_at')->ignore($empresa->id),
+            ],
             'inscricao_estadual' => 'nullable|string|max:20',
             'telefone' => 'nullable|string|max:20',
             'whatsapp' => 'required|string|max:20',
@@ -317,46 +420,58 @@ class ConfiguracaoController extends Controller
             'complemento' => 'nullable|string|max:100',
             'bairro' => 'nullable|string|max:100',
             'cidade' => 'nullable|string|max:100',
-            'uf' => 'nullable|string|max:2',
+            'uf' => ['nullable', 'string', 'size:2', Rule::in(self::UFS_BRASIL)],
             'horario_atendimento' => 'nullable|string|max:100',
-            'dono_id' => 'nullable|exists:users,id',
+            'dono_id' => [
+                'nullable',
+                Rule::exists('users', 'id')
+                    ->where('ativo', true)
+                    ->whereIn('tipo_usuario', ['dono', 'funcionario', 'administrador']),
+            ],
         ]);
 
-        DB::transaction(function () use ($empresa, $validated, $usuarioLogado) {
-            $dados = [
-                'nome_fantasia' => $validated['nome_fantasia'],
-                'razao_social' => $validated['razao_social'],
-                'cnpj' => $validated['cnpj'] ?? null,
-                'inscricao_estadual' => $validated['inscricao_estadual'] ?? null,
-                'telefone' => $validated['telefone'] ?? null,
-                'whatsapp' => $validated['whatsapp'],
-                'email' => $validated['email'],
-                'cep' => $validated['cep'] ?? null,
-                'logradouro' => $validated['logradouro'] ?? null,
-                'numero' => $validated['numero'] ?? null,
-                'complemento' => $validated['complemento'] ?? null,
-                'bairro' => $validated['bairro'] ?? null,
-                'cidade' => $validated['cidade'] ?? null,
-                'uf' => isset($validated['uf']) ? strtoupper($validated['uf']) : null,
-                'horario_atendimento' => $validated['horario_atendimento'] ?? null,
-            ];
+        try {
+            DB::transaction(function () use ($empresa, $validated, $usuarioLogado) {
+                $dados = [
+                    'nome_fantasia' => $validated['nome_fantasia'],
+                    'razao_social' => $validated['razao_social'],
+                    'cnpj' => $validated['cnpj'] ?? null,
+                    'inscricao_estadual' => $validated['inscricao_estadual'] ?? null,
+                    'telefone' => $validated['telefone'] ?? null,
+                    'whatsapp' => $validated['whatsapp'],
+                    'email' => $validated['email'],
+                    'cep' => $validated['cep'] ?? null,
+                    'logradouro' => $validated['logradouro'] ?? null,
+                    'numero' => $validated['numero'] ?? null,
+                    'complemento' => $validated['complemento'] ?? null,
+                    'bairro' => $validated['bairro'] ?? null,
+                    'cidade' => $validated['cidade'] ?? null,
+                    'uf' => $validated['uf'] ?? null,
+                    'horario_atendimento' => $validated['horario_atendimento'] ?? null,
+                ];
 
-            if ($usuarioLogado->isAdministrador() && array_key_exists('dono_id', $validated)) {
-                $dados['dono_id'] = $validated['dono_id'];
-            }
-
-            $empresa->update($dados);
-
-            if (!empty($dados['dono_id'])) {
-                $donoUser = User::find($dados['dono_id']);
-                if ($donoUser && !$donoUser->isAdministrador()) {
-                    $donoUser->update([
-                        'tipo_usuario' => 'dono',
-                        'empresa_id' => $empresa->id,
-                    ]);
+                if ($usuarioLogado->isAdministrador() && array_key_exists('dono_id', $validated)) {
+                    $dados['dono_id'] = $validated['dono_id'];
                 }
-            }
-        });
+
+                $empresa->update($dados);
+
+                if (! empty($dados['dono_id'])) {
+                    $donoUser = User::find($dados['dono_id']);
+                    if ($donoUser && ! $donoUser->isAdministrador()) {
+                        $dadosDono = ['tipo_usuario' => 'dono'];
+                        if (empty($donoUser->empresa_id)) {
+                            $dadosDono['empresa_id'] = $empresa->id;
+                        }
+                        $donoUser->update($dadosDono);
+                    }
+                }
+            });
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Não foi possível atualizar os dados da empresa. Verifique o CNPJ informado.');
+        }
 
         return redirect()
             ->route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empresa->id])
@@ -372,7 +487,7 @@ class ConfiguracaoController extends Controller
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->canManageEmpresa($empresa)) {
+        if (! $usuarioLogado->canManageEmpresa($empresa)) {
             return redirect()
                 ->route('configuracoes.index', ['tab' => 'empresa'])
                 ->with('error', 'Você não possui permissão para excluir esta empresa.');
@@ -396,7 +511,7 @@ class ConfiguracaoController extends Controller
             $vinculos[] = 'produtos em estoque';
         }
 
-        if (!empty($vinculos)) {
+        if (! empty($vinculos)) {
             return redirect()
                 ->route('configuracoes.index', ['tab' => 'empresa'])
                 ->with('error', 'Não é possível excluir a empresa "' . $empresa->nome_fantasia . '", pois ela possui registros vinculados (' . implode(', ', $vinculos) . '). Remova ou transfira os vínculos antes de excluir.');
@@ -424,17 +539,24 @@ class ConfiguracaoController extends Controller
 
     /**
      * Cadastra um novo usuário no sistema.
-     * Funcionários e Clientes não podem criar usuários.
-     * Dono só pode criar usuários para sua própria empresa.
      */
     public function storeUsuario(Request $request)
     {
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->canManageUsers()) {
+        if (! $usuarioLogado->canManageUsers()) {
             return back()->with('error', 'Você não possui permissão para cadastrar outros usuários.');
         }
+
+        $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
+        if (! $usuarioLogado->isAdministrador() && ! $empresaAtivaId) {
+            return back()->with('error', 'Seu usuário não está vinculado a uma empresa ativa.');
+        }
+
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+        ]);
 
         $rolesPermitidos = $usuarioLogado->isAdministrador()
             ? ['administrador', 'dono', 'funcionario', 'cliente']
@@ -447,45 +569,51 @@ class ConfiguracaoController extends Controller
             'tipo_usuario' => ['required', Rule::in($rolesPermitidos)],
             'empresa_id' => 'nullable|exists:empresas,id',
             'cargo' => 'nullable|string|max:80',
-            'password' => 'required|string|min:6|max:64',
+            'password' => 'required|string|min:8|max:64',
         ]);
 
-        DB::transaction(function () use ($validated, $usuarioLogado) {
-            $empresaId = $usuarioLogado->isAdministrador()
-                ? ($validated['empresa_id'] ?? $usuarioLogado->getEmpresaAtivaId())
-                : $usuarioLogado->getEmpresaAtivaId();
+        try {
+            DB::transaction(function () use ($validated, $usuarioLogado, $empresaAtivaId) {
+                $empresaId = $usuarioLogado->isAdministrador()
+                    ? ($validated['empresa_id'] ?? $empresaAtivaId)
+                    : $empresaAtivaId;
 
-            if ($validated['tipo_usuario'] === 'administrador') {
-                $empresaId = null;
-            }
+                if ($validated['tipo_usuario'] === 'administrador') {
+                    $empresaId = null;
+                }
 
-            $user = User::create([
-                'empresa_id' => $empresaId,
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'telefone' => $validated['telefone'] ?? null,
-                'tipo_usuario' => $validated['tipo_usuario'],
-                'password' => $validated['password'],
-                'ativo' => true,
-            ]);
+                $user = User::create([
+                    'empresa_id' => $empresaId,
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'telefone' => $validated['telefone'] ?? null,
+                    'tipo_usuario' => $validated['tipo_usuario'],
+                    'password' => $validated['password'],
+                    'ativo' => true,
+                ]);
 
-            if (in_array($validated['tipo_usuario'], ['dono', 'funcionario'], true)) {
-                $cargoPadrao = $validated['tipo_usuario'] === 'dono'
-                    ? 'Proprietário / Especialista'
-                    : 'Operador de Detalhamento';
+                if (in_array($validated['tipo_usuario'], ['dono', 'funcionario'], true)) {
+                    $cargoPadrao = $validated['tipo_usuario'] === 'dono'
+                        ? 'Proprietário / Especialista'
+                        : 'Operador de Detalhamento';
 
-                Funcionario::withoutGlobalScopes()->updateOrCreate(
-                    ['user_id' => $user->id],
-                    [
-                        'empresa_id' => $empresaId,
-                        'cargo' => !empty($validated['cargo']) ? $validated['cargo'] : $cargoPadrao,
-                        'ativo' => true,
-                    ]
-                );
-            } elseif ($validated['tipo_usuario'] === 'cliente') {
-                $user->ensureClienteProfile();
-            }
-        });
+                    Funcionario::withoutGlobalScopes()->updateOrCreate(
+                        ['user_id' => $user->id],
+                        [
+                            'empresa_id' => $empresaId,
+                            'cargo' => ! empty($validated['cargo']) ? $validated['cargo'] : $cargoPadrao,
+                            'ativo' => true,
+                        ]
+                    );
+                } elseif ($validated['tipo_usuario'] === 'cliente') {
+                    $user->ensureClienteProfile();
+                }
+            });
+        } catch (QueryException $e) {
+            return back()
+                ->withInput($request->except('password'))
+                ->with('error', 'Não foi possível cadastrar o usuário. Verifique se o e-mail já está em uso.');
+        }
 
         return redirect()
             ->route('configuracoes.index', ['tab' => 'equipe'])
@@ -494,23 +622,36 @@ class ConfiguracaoController extends Controller
 
     /**
      * Atualiza dados de um usuário.
-     * Funcionário não pode alterar dados de outros funcionários.
-     * Dono só pode alterar usuários da própria empresa.
      */
     public function updateUsuario(Request $request, User $user)
     {
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->canManageUsers()) {
+        if (! $usuarioLogado->canManageUsers()) {
             return back()->with('error', 'Um funcionário não pode alterar dados de outros funcionários ou usuários.');
         }
 
         if ($usuarioLogado->isDono()) {
-            if ($user->isAdministrador() || (int) $user->empresa_id !== (int) $usuarioLogado->getEmpresaAtivaId()) {
+            $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
+            $podeGerenciarAlvo = $empresaAtivaId !== null
+                && ! $user->isAdministrador()
+                && ((int) $user->empresa_id === (int) $empresaAtivaId);
+
+            if (! $podeGerenciarAlvo) {
                 return back()->with('error', 'Você só pode gerenciar usuários vinculados à sua empresa.');
             }
+
+            // Protege o proprietário titular da empresa contra alterações por outro usuário secundário
+            $ehTitularDaEmpresa = Empresa::where('id', $empresaAtivaId)->where('dono_id', $user->id)->exists();
+            if ($ehTitularDaEmpresa && (int) $user->id !== (int) $usuarioLogado->id) {
+                return back()->with('error', 'Não é permitido alterar os dados ou permissões do proprietário titular da empresa.');
+            }
         }
+
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+        ]);
 
         $rolesPermitidos = $usuarioLogado->isAdministrador()
             ? ['administrador', 'dono', 'funcionario', 'cliente']
@@ -523,60 +664,76 @@ class ConfiguracaoController extends Controller
             'tipo_usuario' => ['required', Rule::in($rolesPermitidos)],
             'empresa_id' => 'nullable|exists:empresas,id',
             'cargo' => 'nullable|string|max:80',
-            'password' => 'nullable|string|min:6|max:64',
+            'password' => 'nullable|string|min:8|max:64',
         ]);
 
-        DB::transaction(function () use ($user, $validated, $usuarioLogado) {
-            $empresaId = $usuarioLogado->isAdministrador()
-                ? ($validated['empresa_id'] ?? $user->empresa_id ?? $usuarioLogado->getEmpresaAtivaId())
-                : $usuarioLogado->getEmpresaAtivaId();
+        if ((int) $user->id === (int) $usuarioLogado->id && $validated['tipo_usuario'] !== $user->tipo_usuario) {
+            return back()->with('error', 'Você não pode alterar seu próprio perfil de acesso por esta tela.');
+        }
 
-            if ($validated['tipo_usuario'] === 'administrador') {
-                $empresaId = null;
-            }
+        try {
+            DB::transaction(function () use ($user, $validated, $usuarioLogado) {
+                if ($validated['tipo_usuario'] === 'administrador') {
+                    $empresaId = null;
+                } elseif ($usuarioLogado->isAdministrador()) {
+                    $empresaId = array_key_exists('empresa_id', $validated) && $validated['empresa_id'] !== null
+                        ? (int) $validated['empresa_id']
+                        : ($user->empresa_id ?? $usuarioLogado->getEmpresaAtivaId());
+                } else {
+                    $empresaId = $usuarioLogado->getEmpresaAtivaId();
+                }
 
-            $dados = [
-                'empresa_id' => $empresaId,
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'telefone' => $validated['telefone'] ?? null,
-                'tipo_usuario' => $validated['tipo_usuario'],
-            ];
-
-            if (!empty($validated['password'])) {
-                $dados['password'] = $validated['password'];
-            }
-
-            $user->update($dados);
-
-            if (in_array($validated['tipo_usuario'], ['dono', 'funcionario'], true)) {
-                $cargoPadrao = $validated['tipo_usuario'] === 'dono'
-                    ? 'Proprietário / Especialista'
-                    : 'Operador de Detalhamento';
-
-                $dadosFunc = [
+                $dados = [
                     'empresa_id' => $empresaId,
-                    'ativo' => (bool) $user->ativo,
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'telefone' => $validated['telefone'] ?? null,
+                    'tipo_usuario' => $validated['tipo_usuario'],
                 ];
-                if (!empty($validated['cargo'])) {
-                    $dadosFunc['cargo'] = $validated['cargo'];
-                } elseif (!$user->funcionario) {
-                    $dadosFunc['cargo'] = $cargoPadrao;
+
+                if (! empty($validated['password'])) {
+                    $dados['password'] = $validated['password'];
+                    $dados['remember_token'] = Str::random(60);
                 }
 
-                Funcionario::withoutGlobalScopes()->updateOrCreate(
-                    ['user_id' => $user->id],
-                    $dadosFunc
-                );
-            } else {
-                // Se deixou de ser dono/funcionário, inativa o registro de prestador de serviço
-                Funcionario::withoutGlobalScopes()->where('user_id', $user->id)->update(['ativo' => false]);
+                $user->update($dados);
 
-                if ($validated['tipo_usuario'] === 'cliente') {
-                    $user->ensureClienteProfile();
+                if (in_array($validated['tipo_usuario'], ['dono', 'funcionario'], true)) {
+                    $cargoPadrao = $validated['tipo_usuario'] === 'dono'
+                        ? 'Proprietário / Especialista'
+                        : 'Operador de Detalhamento';
+
+                    $dadosFunc = [
+                        'empresa_id' => $empresaId,
+                        'ativo' => (bool) $user->ativo,
+                    ];
+                    if (! empty($validated['cargo'])) {
+                        $dadosFunc['cargo'] = $validated['cargo'];
+                    } elseif (! $user->funcionario) {
+                        $dadosFunc['cargo'] = $cargoPadrao;
+                    }
+
+                    Funcionario::withoutGlobalScopes()->updateOrCreate(
+                        ['user_id' => $user->id],
+                        $dadosFunc
+                    );
+                } else {
+                    Funcionario::withoutGlobalScopes()->where('user_id', $user->id)->update(['ativo' => false]);
+
+                    if ($validated['tipo_usuario'] === 'cliente') {
+                        $user->ensureClienteProfile();
+                    }
                 }
-            }
-        });
+
+                if (! empty($validated['password'])) {
+                    DB::table('sessions')->where('user_id', $user->id)->delete();
+                }
+            });
+        } catch (QueryException $e) {
+            return back()
+                ->withInput($request->except('password'))
+                ->with('error', 'Não foi possível atualizar o usuário. Verifique se o e-mail já está em uso.');
+        }
 
         return redirect()
             ->route('configuracoes.index', ['tab' => 'equipe'])
@@ -588,7 +745,7 @@ class ConfiguracaoController extends Controller
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->canManageUsers()) {
+        if (! $usuarioLogado->canManageUsers()) {
             return back()->with('error', 'Você não possui permissão para alterar o status de outros usuários.');
         }
 
@@ -597,13 +754,27 @@ class ConfiguracaoController extends Controller
         }
 
         if ($usuarioLogado->isDono()) {
-            if ($user->isAdministrador() || (int) $user->empresa_id !== (int) $usuarioLogado->getEmpresaAtivaId()) {
+            $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
+            if ($empresaAtivaId === null || $user->isAdministrador() || (int) $user->empresa_id !== (int) $empresaAtivaId) {
                 return back()->with('error', 'Você só pode gerenciar usuários vinculados à sua empresa.');
+            }
+
+            if (Empresa::where('id', $empresaAtivaId)->where('dono_id', $user->id)->exists()) {
+                return back()->with('error', 'Não é permitido desativar o proprietário titular da empresa.');
             }
         }
 
-        $novoStatus = !$user->ativo;
-        $user->update(['ativo' => $novoStatus]);
+        $novoStatus = ! $user->ativo;
+        $dadosUpdate = ['ativo' => $novoStatus];
+        if (! $novoStatus) {
+            $dadosUpdate['remember_token'] = Str::random(60);
+        }
+
+        $user->update($dadosUpdate);
+
+        if (! $novoStatus) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
 
         Funcionario::withoutGlobalScopes()
             ->where('user_id', $user->id)
@@ -621,7 +792,7 @@ class ConfiguracaoController extends Controller
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (!$usuarioLogado->canManageUsers()) {
+        if (! $usuarioLogado->canManageUsers()) {
             return back()->with('error', 'Você não possui permissão para excluir usuários.');
         }
 
@@ -630,9 +801,14 @@ class ConfiguracaoController extends Controller
         }
 
         if ($usuarioLogado->isDono()) {
-            if ($user->isAdministrador() || (int) $user->empresa_id !== (int) $usuarioLogado->getEmpresaAtivaId()) {
+            $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
+            if ($empresaAtivaId === null || $user->isAdministrador() || (int) $user->empresa_id !== (int) $empresaAtivaId) {
                 return back()->with('error', 'Você só pode gerenciar usuários vinculados à sua empresa.');
             }
+        }
+
+        if (Empresa::where('dono_id', $user->id)->exists()) {
+            return back()->with('error', 'Não é possível excluir um usuário que é proprietário titular de uma empresa. Transfira a titularidade ou desative o acesso.');
         }
 
         $func = Funcionario::withoutGlobalScopes()->where('user_id', $user->id)->first();
@@ -645,7 +821,26 @@ class ConfiguracaoController extends Controller
         }
 
         $nome = $user->name;
-        $user->delete();
+
+        try {
+            DB::transaction(function () use ($user) {
+                $pessoaId = $user->pessoa_id;
+
+                DB::table('sessions')->where('user_id', $user->id)->delete();
+                $user->delete();
+
+                if ($pessoaId) {
+                    $aindaEmUso = User::where('pessoa_id', $pessoaId)->exists()
+                        || Cliente::withoutGlobalScopes()->where('pessoa_id', $pessoaId)->exists();
+
+                    if (! $aindaEmUso) {
+                        Pessoa::where('id', $pessoaId)->delete();
+                    }
+                }
+            });
+        } catch (QueryException $e) {
+            return back()->with('error', 'Não é possível excluir este usuário pois existem vínculos ativos no banco de dados. Desative o acesso dele.');
+        }
 
         return redirect()
             ->route('configuracoes.index', ['tab' => 'equipe'])
