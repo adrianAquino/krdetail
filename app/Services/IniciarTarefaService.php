@@ -2,87 +2,118 @@
 
 namespace App\Services;
 
+use App\Models\Agendamento;
 use App\Models\Funcionario;
+use App\Models\OrdemServico;
 use App\Models\Tarefa;
-use Carbon\Carbon;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 
 class IniciarTarefaService
 {
     /**
-     * Inicia a execução de uma tarefa por um colaborador.
-     *
-     * @param Tarefa|int $tarefa
-     * @param Funcionario|int|null $funcionario
-     * @return Tarefa
-     * @throws DomainException
+     * Inicia a execução de uma tarefa pendente, validando bloqueios da OS,
+     * agendamento e vínculo do funcionário com a mesma empresa.
      */
     public function iniciar(Tarefa|int $tarefa, Funcionario|int|null $funcionario = null): Tarefa
     {
-        $tarefaModel = $tarefa instanceof Tarefa 
-            ? $tarefa 
-            : Tarefa::with(['ordemServico.agendamento', 'funcionario'])->findOrFail($tarefa);
+        return DB::transaction(function () use ($tarefa, $funcionario) {
+            $tarefaId = $tarefa instanceof Tarefa ? $tarefa->id : (int) $tarefa;
 
-        // 1. Verifica se a tarefa já está concluída ou em andamento
-        if ($tarefaModel->status === 'concluida') {
-            throw new DomainException('A tarefa já foi concluída e não pode ser iniciada novamente.');
-        }
+            $ordemServicoId = $tarefa instanceof Tarefa && $tarefa->ordem_servico_id
+                ? (int) $tarefa->ordem_servico_id
+                : (int) Tarefa::withoutGlobalScopes()->where('id', $tarefaId)->value('ordem_servico_id');
 
-        if ($tarefaModel->status === 'em_andamento') {
-            throw new DomainException('A tarefa já está em andamento.');
-        }
-
-        // 2. Verifica se a Ordem de Serviço pai permite execução
-        if ($tarefaModel->ordemServico) {
-            if ($tarefaModel->ordemServico->status === 'cancelada') {
-                throw new DomainException('Não é possível iniciar uma tarefa pertencente a uma Ordem de Serviço cancelada.');
-            }
-            if ($tarefaModel->ordemServico->status === 'concluida') {
-                throw new DomainException('Não é possível iniciar uma tarefa pertencente a uma Ordem de Serviço já concluída.');
-            }
-        }
-
-        // 3. Valida e obtém o funcionário responsável
-        $funcionarioModel = null;
-        if ($funcionario !== null) {
-            $funcionarioModel = $funcionario instanceof Funcionario 
-                ? $funcionario 
-                : Funcionario::find($funcionario);
-        } elseif ($tarefaModel->funcionario_id) {
-            $funcionarioModel = $tarefaModel->funcionario;
-        }
-
-        if (!$funcionarioModel) {
-            throw new DomainException('Não é possível iniciar a tarefa: é necessário atribuir um funcionário responsável antes de iniciar.');
-        }
-
-        if (!$funcionarioModel->ativo) {
-            throw new DomainException('Não é possível iniciar a tarefa: o funcionário responsável está inativo no sistema.');
-        }
-
-        // 4. Executa as alterações de estado dentro de transação
-        return DB::transaction(function () use ($tarefaModel, $funcionarioModel) {
-            $tarefaModel->update([
-                'funcionario_id' => $funcionarioModel->id,
-                'status' => 'em_andamento',
-                'data_inicio' => Carbon::now(),
-            ]);
-
-            // Se a Ordem de Serviço pai estava aberta, transiciona para em_andamento
-            if ($tarefaModel->ordemServico && $tarefaModel->ordemServico->status === 'aberta') {
-                $tarefaModel->ordemServico->update(['status' => 'em_andamento']);
+            if ($ordemServicoId <= 0) {
+                throw new \DomainException('Tarefa não encontrada.');
             }
 
-            // Se o agendamento pai ainda não estava em andamento, atualiza para consistência
-            if ($tarefaModel->ordemServico && $tarefaModel->ordemServico->agendamento) {
-                $agendamento = $tarefaModel->ordemServico->agendamento;
-                if (!in_array($agendamento->status, ['em_andamento', 'concluido', 'cancelado'])) {
-                    $agendamento->update(['status' => 'em_andamento']);
+            // Ordem fixa de lock: OrdemServico -> Tarefa -> Agendamento -> Funcionario
+            $ordemServico = OrdemServico::withoutGlobalScopes()
+                ->lockForUpdate()
+                ->findOrFail($ordemServicoId);
+
+            $tarefaModel = Tarefa::withoutGlobalScopes()
+                ->where('ordem_servico_id', $ordemServico->id)
+                ->lockForUpdate()
+                ->findOrFail($tarefaId);
+
+            $agendamento = Agendamento::withoutGlobalScopes()
+                ->with('cliente')
+                ->lockForUpdate()
+                ->findOrFail($ordemServico->agendamento_id);
+
+            if (in_array($ordemServico->status, ['cancelada', 'concluida'], true)) {
+                throw new \DomainException('Não é possível iniciar tarefas de uma Ordem de Serviço cancelada ou concluída.');
+            }
+
+            if (in_array($agendamento->status, ['cancelado', 'concluido'], true)) {
+                throw new \DomainException('Não é possível iniciar tarefas de um agendamento cancelado ou concluído.');
+            }
+
+            if ($tarefaModel->status !== 'pendente') {
+                throw new \DomainException('Apenas tarefas com status pendente podem ser iniciadas.');
+            }
+
+            $empresaOsId = $agendamento->cliente?->empresa_id;
+
+            if ($funcionario !== null) {
+                $funcionarioId = $funcionario instanceof Funcionario ? $funcionario->id : (int) $funcionario;
+                $funcModel = Funcionario::withoutGlobalScopes()
+                    ->lockForUpdate()
+                    ->find($funcionarioId);
+
+                if (!$funcModel) {
+                    throw new \DomainException('Funcionário informado não foi encontrado.');
                 }
+
+                if (!$funcModel->ativo) {
+                    throw new \DomainException('Não é possível iniciar a tarefa com um funcionário inativo.');
+                }
+
+                if ($empresaOsId !== null && (int) $funcModel->empresa_id !== (int) $empresaOsId) {
+                    throw new \DomainException('O funcionário selecionado não pertence à mesma empresa desta Ordem de Serviço.');
+                }
+
+                $tarefaModel->funcionario_id = $funcModel->id;
+            } elseif ($tarefaModel->funcionario_id) {
+                $funcAtual = Funcionario::withoutGlobalScopes()
+                    ->lockForUpdate()
+                    ->find($tarefaModel->funcionario_id);
+
+                if ($funcAtual && !$funcAtual->ativo) {
+                    throw new \DomainException('O funcionário atribuído a esta tarefa está inativo.');
+                }
+
+                if ($funcAtual && $empresaOsId !== null && (int) $funcAtual->empresa_id !== (int) $empresaOsId) {
+                    throw new \DomainException('O funcionário atribuído não pertence à mesma empresa desta Ordem de Serviço.');
+                }
+            } else {
+                throw new \DomainException('Atribua um funcionário responsável antes de iniciar a tarefa.');
             }
 
-            return $tarefaModel->fresh(['funcionario.user', 'ordemServico', 'agendamentoServico.servico']);
+            $agora = now();
+
+            $tarefaModel->status = 'em_andamento';
+            if (!$tarefaModel->data_inicio) {
+                $tarefaModel->data_inicio = $agora;
+            }
+            $tarefaModel->save();
+
+            if ($ordemServico->status === 'aberta') {
+                $ordemServico->status = 'em_andamento';
+                $ordemServico->save();
+            }
+
+            if (in_array($agendamento->status, ['agendado', 'confirmado'], true)) {
+                $agendamento->status = 'em_andamento';
+                $agendamento->save();
+            }
+
+            return $tarefaModel->fresh([
+                'ordemServico.agendamento.cliente.pessoa',
+                'agendamentoServico.servico',
+                'funcionario.user',
+            ]);
         });
     }
 }

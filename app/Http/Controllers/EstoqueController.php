@@ -5,81 +5,144 @@ namespace App\Http\Controllers;
 use App\Models\MovimentacaoEstoque;
 use App\Models\Produto;
 use App\Services\MovimentarEstoqueService;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class EstoqueController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Lista níveis de estoque, produtos inativos e histórico de movimentações.
+     */
+    public function index(Request $request): View
     {
-        $todosProdutos = Produto::orderBy('nome', 'asc')->get();
+        $tabRaw = $request->string('tab')->toString();
+        $tabAtiva = in_array($tabRaw, ['produtos', 'inativos', 'movimentacoes'], true)
+            ? $tabRaw
+            : 'produtos';
 
-        $produtosAtivos = $todosProdutos->where('ativo', true)->values();
-        $produtosInativos = $todosProdutos->where('ativo', false)->values();
+        $busca = trim($request->string('busca')->toString());
 
-        $totalItens = $todosProdutos->count();
-        $itensAtivos = $produtosAtivos->count();
-        $itensInativos = $produtosInativos->count();
+        $produtosAtivosBase = Produto::where('ativo', true);
+        $produtosInativosBase = Produto::where('ativo', false);
 
-        $itensCriticos = $produtosAtivos->filter(fn ($p) => $p->quantidade_estoque <= $p->estoque_minimo)->count();
-        $valorTotalEstoque = $produtosAtivos->sum(fn ($p) => $p->valor_total_estoque);
+        $produtosAtivos = (clone $produtosAtivosBase)
+            ->when($busca !== '', fn ($q) => $q->where('nome', 'like', "%{$busca}%"))
+            ->orderBy('nome')
+            ->get();
+
+        $produtosInativos = (clone $produtosInativosBase)
+            ->when($busca !== '', fn ($q) => $q->where('nome', 'like', "%{$busca}%"))
+            ->orderBy('nome')
+            ->get();
+
+        $movimentacoes = MovimentacaoEstoque::with(['produto', 'usuario'])
+            ->when($busca !== '', function ($q) use ($busca) {
+                $q->where(function ($sub) use ($busca) {
+                    $sub->where('motivo', 'like', "%{$busca}%")
+                        ->orWhereHas('produto', fn ($pq) => $pq->where('nome', 'like', "%{$busca}%"));
+                });
+            })
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        $todosAtivos = $produtosAtivosBase->get();
+        $itensAtivosCount = $todosAtivos->count();
+        $itensInativosCount = $produtosInativosBase->count();
+
+        $itensCriticosCount = $todosAtivos->filter(function (Produto $p) {
+            return (float) $p->estoque_minimo > 0 && (float) $p->quantidade_estoque <= (float) $p->estoque_minimo;
+        })->count();
+
+        $valorTotalEstoque = round($todosAtivos->sum(function (Produto $p) {
+            return (float) $p->quantidade_estoque * (float) ($p->custo_por_volume ?? 0);
+        }), 2);
 
         $kpis = [
-            'total_itens' => $totalItens,
-            'itens_ativos' => $itensAtivos,
-            'itens_inativos' => $itensInativos,
-            'itens_criticos' => $itensCriticos,
+            'total_itens' => $itensAtivosCount + $itensInativosCount,
+            'itens_ativos' => $itensAtivosCount,
+            'itens_inativos' => $itensInativosCount,
+            'itens_criticos' => $itensCriticosCount,
             'valor_total_estoque' => $valorTotalEstoque,
         ];
 
-        $movimentacoes = MovimentacaoEstoque::with(['produto', 'usuario'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-
-        $tabAtiva = $request->query('tab', 'produtos');
-
-        return view('estoque.index', [
-            'produtos' => $produtosAtivos,
-            'produtosAtivos' => $produtosAtivos,
-            'produtosInativos' => $produtosInativos,
-            'kpis' => $kpis,
-            'movimentacoes' => $movimentacoes,
-            'tabAtiva' => $tabAtiva,
-        ]);
+        return view('estoque.index', compact(
+            'produtosAtivos',
+            'produtosInativos',
+            'movimentacoes',
+            'kpis',
+            'tabAtiva',
+            'busca'
+        ));
     }
 
-    public function movimentar(Request $request, MovimentarEstoqueService $service)
+    /**
+     * Registra uma movimentação manual de estoque (entrada, saída ou ajuste).
+     */
+    public function movimentar(Request $request, MovimentarEstoqueService $service): RedirectResponse
     {
+        $tipoMovimentacao = $request->string('tipo_movimentacao')->toString();
+        $minQuantidade = $tipoMovimentacao === 'ajuste' ? '0' : '0.001';
+
+        $user = Auth::user();
+        $produtoRule = Rule::exists('produtos', 'id');
+
+        if ($user && ($user->isDono() || $user->isFuncionario())) {
+            $empresaId = $user->getEmpresaAtivaId();
+            $produtoRule = $empresaId !== null
+                ? $produtoRule->where('empresa_id', $empresaId)
+                : $produtoRule->whereRaw('1 = 0');
+        }
+
         $validated = $request->validate([
-            'produto_id' => 'required|exists:produtos,id',
-            'tipo_movimentacao' => 'required|in:entrada,saida,ajuste',
-            'modo_quantidade' => 'nullable|in:volume,unidades',
-            'quantidade' => 'required|numeric|min:0.001|max:999999',
-            'motivo' => 'required|string|max:150',
-            'observacoes' => 'nullable|string|max:500',
+            'produto_id' => ['required', 'integer', $produtoRule],
+            'tipo_movimentacao' => ['required', Rule::in(['entrada', 'saida', 'ajuste'])],
+            'modo_quantidade' => ['nullable', Rule::in(['volume', 'unidades'])],
+            'quantidade' => ['required', 'numeric', "min:{$minQuantidade}", 'max:999999999.999'],
+            'motivo' => ['required', 'string', 'max:150'],
+            'observacoes' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $produto = Produto::findOrFail((int) $validated['produto_id']);
+        $modo = $validated['modo_quantidade'] ?? 'volume';
+        $quantidadeInformada = (float) $validated['quantidade'];
+
+        $volumeUnitario = (float) ($produto->volume_unitario ?? 1);
+        $quantidadeVolume = $modo === 'unidades'
+            ? round($quantidadeInformada * max(0.001, $volumeUnitario), 3)
+            : round($quantidadeInformada, 3);
+
+        if ($validated['tipo_movimentacao'] !== 'ajuste' && (int) round($quantidadeVolume * 1000) < 1) {
+            return back()
+                ->withInput()
+                ->with('error', 'A quantidade convertida para o estoque deve ser maior que zero (mín. 0,001).');
+        }
+
+        if ($quantidadeVolume > MovimentarEstoqueService::QUANTIDADE_MAXIMA) {
+            return back()
+                ->withInput()
+                ->with('error', 'O volume calculado excede o limite máximo suportado pelo estoque.');
+        }
+
         try {
-            $produto = Produto::findOrFail($validated['produto_id']);
-            $modo = $validated['modo_quantidade'] ?? 'volume';
-            $volUnit = (float) ($produto->volume_unitario > 0 ? $produto->volume_unitario : 1);
-
-            $quantidadeVolume = $modo === 'unidades'
-                ? (float) $validated['quantidade'] * $volUnit
-                : (float) $validated['quantidade'];
-
             $service->movimentar(
                 produto: $produto,
                 tipo: $validated['tipo_movimentacao'],
                 quantidade: $quantidadeVolume,
-                usuario: Auth::user(),
+                usuario: $user,
                 motivo: $validated['motivo'],
                 observacoes: $validated['observacoes'] ?? null
             );
 
             return back()->with('success', 'Movimentação de estoque registrada com sucesso!');
         } catch (\DomainException|\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (QueryException) {
+            return back()->withInput()->with('error', 'Não foi possível registrar a movimentação no momento.');
         }
     }
 }
