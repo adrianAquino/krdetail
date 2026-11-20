@@ -117,6 +117,7 @@ class ConcluirTarefaService
                 $servicoNome = $agendamentoServico?->servico?->nome ?? 'Serviço de Estética Automotiva';
 
                 LancamentoFinanceiro::create([
+                    'empresa_id' => $empresaOsId,
                     'tarefa_id' => $tarefaModel->id,
                     'usuario_id' => $usuarioId,
                     'tipo' => 'receita',

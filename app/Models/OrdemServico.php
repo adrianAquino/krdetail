@@ -20,8 +20,26 @@ class OrdemServico extends Model
                 return;
             }
             $user = Auth::user();
-            if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
-                $builder->whereHas('agendamento.cliente');
+            if (!($user instanceof User)) {
+                return;
+            }
+            if ($user->isDono() || $user->isFuncionario()) {
+                $empresaId = $user->getEmpresaAtivaId();
+                if ($empresaId === null) {
+                    $builder->whereRaw('1 = 0');
+                    return;
+                }
+                $builder->whereHas('agendamento', function (Builder $aq) use ($empresaId) {
+                    $aq->withoutGlobalScopes()->whereHas('cliente', function (Builder $cq) use ($empresaId) {
+                        $cq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                    });
+                });
+            } elseif ($user->isCliente()) {
+                $builder->whereHas('agendamento', function (Builder $aq) use ($user) {
+                    $aq->withoutGlobalScopes()->whereHas('cliente', function (Builder $cq) use ($user) {
+                        $cq->withoutGlobalScopes()->where('user_id', $user->id);
+                    });
+                });
             }
         });
     }

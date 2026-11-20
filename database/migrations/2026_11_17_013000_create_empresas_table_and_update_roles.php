@@ -106,10 +106,9 @@ return new class extends Migration
             });
         }
 
-        // 4. Localiza (ou cria) Rafael Kraus e altera seu papel para 'dono'
+        // 4. Localiza (ou cria) Rafael Kraus por e-mail exato e altera seu papel para 'dono'
         $rafael = DB::table('users')
-            ->where('name', 'like', '%Rafael Kraus%')
-            ->orWhere('email', 'like', '%rafael%')
+            ->where('email', 'rafaelkraus@krdetail.com')
             ->first();
 
         if ($rafael) {
@@ -232,34 +231,18 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (Schema::hasColumn('produtos', 'empresa_id')) {
-            Schema::table('produtos', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('empresa_id');
-            });
-        }
+        foreach (['produtos', 'servicos', 'funcionarios', 'clientes', 'users'] as $tabela) {
+            if (Schema::hasColumn($tabela, 'empresa_id')) {
+                if (Schema::hasIndex($tabela, "{$tabela}_empresa_id_index")) {
+                    Schema::table($tabela, function (Blueprint $table) {
+                        $table->dropIndex(['empresa_id']);
+                    });
+                }
 
-        if (Schema::hasColumn('servicos', 'empresa_id')) {
-            Schema::table('servicos', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('empresa_id');
-            });
-        }
-
-        if (Schema::hasColumn('funcionarios', 'empresa_id')) {
-            Schema::table('funcionarios', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('empresa_id');
-            });
-        }
-
-        if (Schema::hasColumn('clientes', 'empresa_id')) {
-            Schema::table('clientes', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('empresa_id');
-            });
-        }
-
-        if (Schema::hasColumn('users', 'empresa_id')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('empresa_id');
-            });
+                Schema::table($tabela, function (Blueprint $table) {
+                    $table->dropConstrainedForeignId('empresa_id');
+                });
+            }
         }
 
         Schema::dropIfExists('empresas');

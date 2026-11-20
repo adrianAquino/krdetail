@@ -49,15 +49,30 @@ class Agendamento extends Model
                 return;
             }
             $user = Auth::user();
-            if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
-                $builder->whereHas('cliente');
+            if (!($user instanceof User)) {
+                return;
+            }
+            if ($user->isDono() || $user->isFuncionario()) {
+                $empresaId = $user->getEmpresaAtivaId();
+                if ($empresaId === null) {
+                    $builder->whereRaw('1 = 0');
+                    return;
+                }
+                $builder->whereHas('cliente', function (Builder $cq) use ($empresaId) {
+                    $cq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                });
+            } elseif ($user->isCliente()) {
+                $builder->whereHas('cliente', function (Builder $cq) use ($user) {
+                    $cq->withoutGlobalScopes()->where('user_id', $user->id);
+                });
             }
         });
 
         static::saving(function (Agendamento $agendamento) {
             if (!$agendamento->exists || $agendamento->isDirty(['cliente_id', 'veiculo_id'])) {
                 if ($agendamento->veiculo_id && $agendamento->cliente_id) {
-                    $veiculoPertenceAoCliente = Veiculo::where('id', $agendamento->veiculo_id)
+                    $veiculoPertenceAoCliente = Veiculo::withoutGlobalScopes()
+                        ->where('id', $agendamento->veiculo_id)
                         ->where('cliente_id', $agendamento->cliente_id)
                         ->exists();
 
@@ -141,7 +156,11 @@ class Agendamento extends Model
             );
         }
 
-        return (int) $this->agendamentosServicos()->sum('tempo_estimado_minutos');
+        return (int) $this->agendamentosServicos()
+            ->withoutGlobalScopes()
+            ->with('servico')
+            ->get()
+            ->sum(fn ($item) => $item->tempo_estimado_minutos ?? $item->servico?->tempo_estimado_minutos ?? 0);
     }
 
     /**

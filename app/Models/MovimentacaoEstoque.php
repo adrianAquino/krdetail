@@ -20,8 +20,20 @@ class MovimentacaoEstoque extends Model
                 return;
             }
             $user = Auth::user();
-            if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
-                $builder->whereHas('produto');
+            if (!($user instanceof User)) {
+                return;
+            }
+            if ($user->isDono() || $user->isFuncionario()) {
+                $empresaId = $user->getEmpresaAtivaId();
+                if ($empresaId === null) {
+                    $builder->whereRaw('1 = 0');
+                    return;
+                }
+                $builder->whereHas('produto', function (Builder $pq) use ($empresaId) {
+                    $pq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                });
+            } elseif ($user->isCliente()) {
+                $builder->whereRaw('1 = 0');
             }
         });
     }

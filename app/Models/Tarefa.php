@@ -43,20 +43,42 @@ class Tarefa extends Model
                 return;
             }
             $user = Auth::user();
-            if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
-                $builder->whereHas('ordemServico.agendamento.cliente');
+            if (!($user instanceof User)) {
+                return;
+            }
+            if ($user->isDono() || $user->isFuncionario()) {
+                $empresaId = $user->getEmpresaAtivaId();
+                if ($empresaId === null) {
+                    $builder->whereRaw('1 = 0');
+                    return;
+                }
+                $builder->whereHas('ordemServico', function (Builder $oq) use ($empresaId) {
+                    $oq->withoutGlobalScopes()->whereHas('agendamento', function (Builder $aq) use ($empresaId) {
+                        $aq->withoutGlobalScopes()->whereHas('cliente', function (Builder $cq) use ($empresaId) {
+                            $cq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                        });
+                    });
+                });
+            } elseif ($user->isCliente()) {
+                $builder->whereHas('ordemServico', function (Builder $oq) use ($user) {
+                    $oq->withoutGlobalScopes()->whereHas('agendamento', function (Builder $aq) use ($user) {
+                        $aq->withoutGlobalScopes()->whereHas('cliente', function (Builder $cq) use ($user) {
+                            $cq->withoutGlobalScopes()->where('user_id', $user->id);
+                        });
+                    });
+                });
             }
         });
 
         static::saving(function (Tarefa $tarefa) {
             if ($tarefa->ordem_servico_id && $tarefa->agendamento_servico_id) {
-                $osAgendamentoId = $tarefa->relationLoaded('ordemServico') && $tarefa->ordemServico
+                $osAgendamentoId = (!$tarefa->isDirty('ordem_servico_id') && $tarefa->relationLoaded('ordemServico') && $tarefa->ordemServico)
                     ? $tarefa->ordemServico->agendamento_id
-                    : OrdemServico::where('id', $tarefa->ordem_servico_id)->value('agendamento_id');
+                    : OrdemServico::withoutGlobalScopes()->where('id', $tarefa->ordem_servico_id)->value('agendamento_id');
 
-                $itemAgendamentoId = $tarefa->relationLoaded('agendamentoServico') && $tarefa->agendamentoServico
+                $itemAgendamentoId = (!$tarefa->isDirty('agendamento_servico_id') && $tarefa->relationLoaded('agendamentoServico') && $tarefa->agendamentoServico)
                     ? $tarefa->agendamentoServico->agendamento_id
-                    : AgendamentoServico::where('id', $tarefa->agendamento_servico_id)->value('agendamento_id');
+                    : AgendamentoServico::withoutGlobalScopes()->where('id', $tarefa->agendamento_servico_id)->value('agendamento_id');
 
                 if ($osAgendamentoId !== null && $itemAgendamentoId !== null && (int) $osAgendamentoId !== (int) $itemAgendamentoId) {
                     throw new \DomainException(

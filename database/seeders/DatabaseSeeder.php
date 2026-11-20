@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Empresa;
 use App\Models\Funcionario;
+use App\Models\Pessoa;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -18,9 +19,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $pessoaAdmin = Pessoa::updateOrCreate(
+            ['email' => 'admin@krdetail.com'],
+            [
+                'nome' => 'Administrador',
+                'telefone' => '(11) 99999-9999',
+            ]
+        );
+
         User::updateOrCreate(
             ['email' => 'admin@krdetail.com'],
             [
+                'pessoa_id' => $pessoaAdmin->id,
                 'name' => 'Administrador',
                 'password' => Hash::make('12345678'),
                 'telefone' => '(11) 99999-9999',
@@ -29,9 +39,18 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $pessoaDono = Pessoa::updateOrCreate(
+            ['email' => 'rafaelkraus@krdetail.com'],
+            [
+                'nome' => 'Rafael Kraus',
+                'telefone' => '(11) 98765-4321',
+            ]
+        );
+
         $dono = User::updateOrCreate(
             ['email' => 'rafaelkraus@krdetail.com'],
             [
+                'pessoa_id' => $pessoaDono->id,
                 'name' => 'Rafael Kraus',
                 'password' => Hash::make('12345678'),
                 'telefone' => '(11) 98765-4321',
