@@ -1,10 +1,10 @@
-<x-layouts.app :title="'Editar Agendamento #' . ($agendamento->id ?? 1)">
+<x-layouts.app :title="'Editar Agendamento #' . ($agendamento?->id ?? 1)">
     <x-header
-        :title="'Editar Agendamento #' . ($agendamento->id ?? 1)"
+        :title="'Editar Agendamento #' . ($agendamento?->id ?? 1)"
         subtitle="Atualize o horário, status ou serviços vinculados a este agendamento."
     >
         <x-slot:actions>
-            <x-button href="{{ route('agendamentos.show', $agendamento->id ?? 1) }}" variant="outline" size="sm" icon="eye">
+            <x-button href="{{ route('agendamentos.show', $agendamento?->id ?? 1) }}" variant="outline" size="sm" icon="eye">
                 Ver Detalhes
             </x-button>
             <x-button href="{{ route('agendamentos.index') }}" variant="ghost" size="sm" icon="chevron-left">
@@ -14,6 +14,7 @@
     </x-header>
 
     @php
+        /** @var \App\Models\Agendamento|object $agendamentoObj */
         $agendamentoObj = $agendamento ?? (object)[
             'id' => 1,
             'cliente_id' => 1,
@@ -51,16 +52,16 @@
         if (isset($agendamentoObj->agendamentosServicos)) {
             $idsAtivos = $servicosAtivos->pluck('id')->all();
             foreach ($agendamentoObj->agendamentosServicos as $itemContratado) {
-                if ($itemContratado->servico && !in_array($itemContratado->servico_id, $idsAtivos, true)) {
-                    $servicosAtivos->push($itemContratado->servico);
-                    $idsAtivos[] = $itemContratado->servico_id;
+                if (data_get($itemContratado, 'servico') && !in_array(data_get($itemContratado, 'servico_id'), $idsAtivos, true)) {
+                    $servicosAtivos->push(data_get($itemContratado, 'servico'));
+                    $idsAtivos[] = data_get($itemContratado, 'servico_id');
                 }
             }
         }
 
-        $possuiOS = isset($agendamentoObj->ordemServico) && $agendamentoObj->ordemServico !== null;
-        $valorOriginalInicio = \Carbon\Carbon::parse($agendamentoObj->data_inicio)->format('Y-m-d\TH:i');
-        $minDataInicio = \Carbon\Carbon::parse($agendamentoObj->data_inicio)->lt(now())
+        $possuiOS = !empty($agendamentoObj?->ordemServico);
+        $valorOriginalInicio = \Carbon\Carbon::parse($agendamentoObj?->data_inicio ?? now())->format('Y-m-d\TH:i');
+        $minDataInicio = \Carbon\Carbon::parse($agendamentoObj?->data_inicio ?? now())->lt(now())
             ? $valorOriginalInicio
             : now()->format('Y-m-d\TH:i');
 
@@ -82,14 +83,14 @@
         })->all();
 
         // Caso o veículo histórico do agendamento tenha sido transferido para outro proprietário
-        if (!empty($agendamentoObj->cliente_id) && isset($agendamentoObj->veiculo) && $agendamentoObj->veiculo) {
+        if (!empty($agendamentoObj?->cliente_id) && isset($agendamentoObj->veiculo) && $agendamentoObj->veiculo) {
             $veiculosDoCliente = collect($clientesVeiculosMap[$agendamentoObj->cliente_id] ?? []);
-            if (!$veiculosDoCliente->contains('id', $agendamentoObj->veiculo->id)) {
+            if (!$veiculosDoCliente->contains('id', $agendamentoObj->veiculo?->id)) {
                 $veiculosDoCliente->push([
-                    'id' => $agendamentoObj->veiculo->id,
-                    'placa' => $agendamentoObj->veiculo->placa,
-                    'marca' => $agendamentoObj->veiculo->marca,
-                    'modelo' => $agendamentoObj->veiculo->modelo . ' (Transferido)',
+                    'id' => $agendamentoObj->veiculo?->id,
+                    'placa' => $agendamentoObj->veiculo?->placa,
+                    'marca' => $agendamentoObj->veiculo?->marca,
+                    'modelo' => ($agendamentoObj->veiculo?->modelo ?? '') . ' (Transferido)',
                 ]);
                 $clientesVeiculosMap[$agendamentoObj->cliente_id] = $veiculosDoCliente->values()->all();
             }
@@ -98,7 +99,7 @@
 
     @if($possuiOS)
         <div class="mb-6">
-            <x-alert type="info" title="Ordem de Serviço Vinculada ({{ $agendamentoObj->ordemServico->numero }}):">
+            <x-alert type="info" title="Ordem de Serviço Vinculada ({{ $agendamentoObj?->ordemServico?->numero }}):">
                 Como este agendamento já possui Ordem de Serviço gerada, o cliente, o veículo e os serviços contratados estão travados para manter a integridade operacional.
             </x-alert>
         </div>
@@ -106,7 +107,7 @@
 
     <form
         method="POST"
-        action="{{ route('agendamentos.update', $agendamentoObj->id) }}"
+        action="{{ route('agendamentos.update', $agendamentoObj?->id ?? 1) }}"
         id="form-agendamento"
         data-clientes-veiculos="{{ json_encode($clientesVeiculosMap) }}"
         data-target-veiculo-pre="{{ (string) old('veiculo_id', (string) ($agendamentoObj->veiculo_id ?? '')) }}"
@@ -323,7 +324,7 @@
                                 Salvar Alterações
                             </x-button>
 
-                            <x-button href="{{ route('agendamentos.show', $agendamentoObj->id) }}" variant="ghost" size="sm" class="w-full mt-2">
+                            <x-button href="{{ route('agendamentos.show', $agendamentoObj?->id ?? 1) }}" variant="ghost" size="sm" class="w-full mt-2">
                                 Cancelar
                             </x-button>
                         </div>

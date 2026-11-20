@@ -1,43 +1,53 @@
 @php
-    /** @var \App\Models\Agendamento|null $agendamentoObj */
+    /** @var \App\Models\Agendamento $agendamento */
     $isCliente = auth()->check() && auth()->user()->isCliente();
-    $agendamentoObj = $agendamento ?? null;
-    $clienteObj = $agendamentoObj?->cliente;
-    $veiculoObj = $agendamentoObj?->veiculo;
-    $osObj = $agendamentoObj?->ordemServico ?? $agendamentoObj?->ordem_servico ?? null;
-    $servicosItens = $agendamentoObj?->agendamentosServicos ?? $agendamentoObj?->servicos_itens ?? [];
-    $totalValor = collect($servicosItens)->sum(fn($i) => $i->valor_servico ?? $i->preco_base ?? 0);
-    $totalMinutosServicos = collect($servicosItens)->sum(fn($i) => $i->tempo_estimado_minutos ?? $i->servico?->tempo_estimado_minutos ?? 0);
+    $agendamentoObj = isset($agendamento) && $agendamento instanceof \App\Models\Agendamento
+        ? $agendamento
+        : new \App\Models\Agendamento();
+
+    /** @var \App\Models\Cliente|null $clienteObj */
+    $clienteObj = $agendamentoObj->cliente ?? null;
+
+    /** @var \App\Models\Veiculo|null $veiculoObj */
+    $veiculoObj = $agendamentoObj->veiculo ?? null;
+
+    /** @var \App\Models\OrdemServico|null $osObj */
+    $osObj = $agendamentoObj->ordemServico ?? null;
+
+    $servicosItens = $agendamentoObj->agendamentosServicos ?? $agendamentoObj->servicos_itens ?? [];
+    $totalValor = collect($servicosItens)->sum(fn($i) => (float) data_get($i, 'valor_servico', data_get($i, 'preco_base', 0)));
+    $totalMinutosServicos = collect($servicosItens)->sum(fn($i) => (int) data_get($i, 'tempo_estimado_minutos', data_get($i, 'servico.tempo_estimado_minutos', 0)));
     $gargaloMinutos = \App\Models\Agendamento::GARGALO_MINUTOS;
     $totalMinutosComGargalo = $totalMinutosServicos > 0 ? $totalMinutosServicos + $gargaloMinutos : 0;
 
     $tempoServicosFormatado = \App\Models\Agendamento::formatarMinutos((int) $totalMinutosServicos);
     $tempoTotalFormatado = \App\Models\Agendamento::formatarMinutos((int) $totalMinutosComGargalo);
 
-    $tarefas = $osObj ? $osObj->tarefas : collect();
+    /** @var \Illuminate\Support\Collection<int, \App\Models\TarefaOrdemServico> $tarefas */
+    $tarefas = $osObj && $osObj->tarefas ? $osObj->tarefas : collect();
     $totalTarefas = $tarefas->count();
     $tarefasConcluidas = $tarefas->where('status', 'concluida')->count();
-    $progressoOs = $totalTarefas > 0 ? round(($tarefasConcluidas / $totalTarefas) * 100) : ($agendamentoObj?->status === 'concluido' ? 100 : 0);
+    $progressoOs = $totalTarefas > 0 ? (int) round(($tarefasConcluidas / $totalTarefas) * 100) : ($agendamentoObj?->status === 'concluido' ? 100 : 0);
 
-    $temTarefaIniciada = $tarefas->contains(fn ($t) => in_array($t->status, ['em_andamento', 'concluida'], true));
+    $temTarefaIniciada = $tarefas->contains(fn ($t) => in_array(data_get($t, 'status'), ['em_andamento', 'concluida'], true));
     $podeCancelar = $agendamentoObj
-        && in_array($agendamentoObj->status, ['agendado', 'confirmado'], true)
+        && in_array($agendamentoObj?->status, ['agendado', 'confirmado'], true)
         && !$temTarefaIniciada
-        && (!$osObj || !in_array($osObj->status, ['em_andamento', 'concluida'], true));
+        && (!$osObj || !in_array($osObj?->status, ['em_andamento', 'concluida'], true));
 
     $dataConclusaoReal = $agendamentoObj?->data_conclusao ?? $osObj?->data_fim ?? null;
 @endphp
 
 <x-layouts.app :title="'Agendamento #' . ($agendamentoObj?->id ?? 1)">
     <x-header
-        :title="'Agendamento #' . str_pad($agendamentoObj?->id ?? 1, 5, '0', STR_PAD_LEFT)"
+        :title="'Agendamento #' . str_pad((string)($agendamentoObj?->id ?? 1), 5, '0', STR_PAD_LEFT)"
         :subtitle="'Registrado em ' . \Carbon\Carbon::parse($agendamentoObj?->created_at ?? now())->format('d/m/Y \à\s H:i')"
     >
         <x-slot:actions>
             @if(!$isCliente)
                 @if($osObj)
-                    <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="sm" icon="clipboard-list">
-                        Acessar Ordem de Serviço ({{ $osObj->numero }})
+                    <x-button href="{{ route('ordens-servico.show', $osObj?->id ?? 0) }}" variant="primary" size="sm" icon="clipboard-list">
+                        Acessar Ordem de Serviço ({{ $osObj?->numero ?? '' }})
                     </x-button>
                 @elseif(!in_array($agendamentoObj?->status, ['cancelado', 'concluido'], true))
                     <form method="POST" action="{{ route('ordens-servico.store') }}" class="inline">
@@ -58,7 +68,7 @@
 
             @if($podeCancelar && $agendamentoObj)
                 <form method="POST"
-                      action="{{ route('agendamentos.cancelar', $agendamentoObj->id) }}"
+                      action="{{ route('agendamentos.cancelar', $agendamentoObj?->id ?? 0) }}"
                       class="inline"
                       onsubmit="return confirm('Tem certeza que deseja cancelar este agendamento?')">
                     @csrf
@@ -105,14 +115,14 @@
                         <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
                             <span class="text-muted-foreground block">Previsão Estimada de Conclusão (+30min)</span>
                             <span class="font-semibold text-foreground text-sm">
-                                {{ $agendamentoObj?->data_fim ? \Carbon\Carbon::parse($agendamentoObj->data_fim)->format('d/m/Y \à\s H:i') : 'Não calculada' }}
+                                {{ $agendamentoObj?->data_fim ? \Carbon\Carbon::parse($agendamentoObj?->data_fim)->format('d/m/Y \à\s H:i') : 'Não calculada' }}
                             </span>
                         </div>
 
                         <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
                             <span class="text-muted-foreground block">Abertura da Ordem de Serviço</span>
                             <span class="font-semibold text-foreground text-sm">
-                                {{ $osObj?->data_inicio ? \Carbon\Carbon::parse($osObj->data_inicio)->format('d/m/Y \à\s H:i') : 'Aguardando abertura' }}
+                                {{ $osObj?->data_inicio ? \Carbon\Carbon::parse($osObj?->data_inicio)->format('d/m/Y \à\s H:i') : 'Aguardando abertura' }}
                             </span>
                         </div>
 
@@ -148,19 +158,19 @@
                     @if($clienteObj)
                         <div class="flex items-center gap-3 mb-3">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                                {{ mb_strtoupper(mb_substr($clienteObj->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
+                                {{ mb_strtoupper(mb_substr($clienteObj?->nome ?? '', 0, 2, 'UTF-8'), 'UTF-8') }}
                             </div>
                             <div>
-                                <a href="{{ route('clientes.show', $clienteObj->id) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">
-                                    {{ $clienteObj->nome }}
+                                <a href="{{ route('clientes.show', $clienteObj?->id ?? 0) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">
+                                    {{ $clienteObj?->nome }}
                                 </a>
-                                <p class="text-xs text-muted-foreground">{{ $clienteObj->telefone }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $clienteObj?->telefone }}</p>
                             </div>
                         </div>
 
                         <div class="pt-3 border-t border-border/60 text-xs space-y-1 text-muted-foreground">
-                            <p><strong class="text-foreground">CPF:</strong> {{ $clienteObj->cpf_cnpj ?? 'Não informado' }}</p>
-                            <p><strong class="text-foreground">E-mail:</strong> {{ $clienteObj->email ?? 'Não informado' }}</p>
+                            <p><strong class="text-foreground">CPF:</strong> {{ $clienteObj?->cpf_cnpj ?? 'Não informado' }}</p>
+                            <p><strong class="text-foreground">E-mail:</strong> {{ $clienteObj?->email ?? 'Não informado' }}</p>
                         </div>
                     @else
                         <p class="text-xs text-muted-foreground">Nenhum cliente vinculado.</p>
@@ -173,15 +183,15 @@
                 @if($veiculoObj)
                     <div class="p-3 rounded-lg bg-secondary/50 border border-border mb-3 flex items-center justify-between">
                         <div>
-                            <p class="font-bold text-sm text-foreground">{{ $veiculoObj->marca }} {{ $veiculoObj->modelo }}</p>
-                            <p class="text-xs text-muted-foreground">{{ $veiculoObj->cor ?? 'Cor N/D' }}</p>
+                            <p class="font-bold text-sm text-foreground">{{ $veiculoObj?->marca }} {{ $veiculoObj?->modelo }}</p>
+                            <p class="text-xs text-muted-foreground">{{ $veiculoObj?->cor ?? 'Cor N/D' }}</p>
                         </div>
                         <span class="font-mono text-sm font-extrabold px-2.5 py-1 rounded bg-secondary text-primary border border-border">
-                            {{ $veiculoObj->placa }}
+                            {{ $veiculoObj?->placa }}
                         </span>
                     </div>
 
-                    <x-button href="{{ route('veiculos.show', $veiculoObj->id) }}" variant="outline" size="sm" class="w-full" icon="car">
+                    <x-button href="{{ route('veiculos.show', $veiculoObj?->id ?? 0) }}" variant="outline" size="sm" class="w-full" icon="car">
                         Ver Histórico do Veículo
                     </x-button>
                 @else
@@ -209,17 +219,20 @@
                 <div class="space-y-3">
                     @forelse($servicosItens as $item)
                         @php
-                            $servicoModel = $item->servico ?? $item;
-                            $tempoEstimado = $item->tempo_estimado_minutos ?? $servicoModel?->tempo_estimado_minutos ?? 60;
-                            $valorServico = $item->valor_servico ?? $servicoModel?->preco_base ?? 0;
+                            $nomeServico = data_get($item, 'servico.nome', data_get($item, 'nome', 'Serviço'));
+                            $descricaoServico = data_get($item, 'servico.descricao', data_get($item, 'descricao', ''));
+                            $tempoEstimado = (int) data_get($item, 'tempo_estimado_minutos', data_get($item, 'servico.tempo_estimado_minutos', 60));
+                            $valorServico = (float) data_get($item, 'valor_servico', data_get($item, 'preco_base', 0));
                             $horasItem = floor($tempoEstimado / 60);
                             $minutosItem = $tempoEstimado % 60;
                             $tempoItemFormatado = $horasItem > 0 ? "{$horasItem}h " . ($minutosItem > 0 ? "{$minutosItem}min" : '') : "{$minutosItem}min";
                         @endphp
                         <div class="flex items-start justify-between p-3.5 rounded-xl border border-border bg-secondary/20">
                             <div>
-                                <h4 class="font-bold text-sm text-foreground">{{ $servicoModel?->nome ?? 'Serviço' }}</h4>
-                                <p class="text-xs text-muted-foreground mt-0.5">{{ $servicoModel?->descricao ?? '' }}</p>
+                                <h4 class="font-bold text-sm text-foreground">{{ $nomeServico }}</h4>
+                                @if(!empty($descricaoServico))
+                                    <p class="text-xs text-muted-foreground mt-0.5">{{ $descricaoServico }}</p>
+                                @endif
                                 <div class="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                                     <x-icon name="clock" class="w-3.5 h-3.5" />
                                     <span>Tempo estimado: {{ $tempoItemFormatado }}</span>
@@ -268,21 +281,21 @@
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <span class="font-mono text-sm font-bold text-foreground">{{ $osObj->numero }}</span>
-                                        <x-badge-status :status="$osObj->status" />
+                                        <span class="font-mono text-sm font-bold text-foreground">{{ $osObj?->numero }}</span>
+                                        <x-badge-status :status="$osObj?->status ?? 'aberta'" />
                                     </div>
                                     <p class="text-xs text-muted-foreground mt-0.5">
                                         {{ $tarefasConcluidas }} de {{ $totalTarefas }} etapa(s) concluída(s) ({{ $progressoOs }}%)
                                     </p>
                                     <div class="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground mt-1">
-                                        <span><strong>Abertura da OS:</strong> {{ $osObj->data_inicio ? \Carbon\Carbon::parse($osObj->data_inicio)->format('d/m/Y H:i') : '-' }}</span>
-                                        <span><strong>Fechamento da OS:</strong> {{ $osObj->data_fim ? \Carbon\Carbon::parse($osObj->data_fim)->format('d/m/Y H:i') : 'Em aberto' }}</span>
+                                        <span><strong>Abertura da OS:</strong> {{ $osObj?->data_inicio ? \Carbon\Carbon::parse($osObj?->data_inicio)->format('d/m/Y H:i') : '-' }}</span>
+                                        <span><strong>Fechamento da OS:</strong> {{ $osObj?->data_fim ? \Carbon\Carbon::parse($osObj?->data_fim)->format('d/m/Y H:i') : 'Em aberto' }}</span>
                                     </div>
                                 </div>
                             </div>
 
                             @if(!$isCliente)
-                                <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="md" icon="eye">
+                                <x-button href="{{ route('ordens-servico.show', $osObj?->id ?? 0) }}" variant="primary" size="md" icon="eye">
                                     Abrir OS
                                 </x-button>
                             @endif
@@ -299,18 +312,18 @@
                                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-border bg-secondary/20 p-3">
                                             <div>
                                                 <div class="flex items-center gap-2">
-                                                    <span class="font-semibold text-sm text-foreground">{{ $tarefa->titulo }}</span>
-                                                    <x-badge-status :status="$tarefa->status" />
+                                                    <span class="font-semibold text-sm text-foreground">{{ data_get($tarefa, 'titulo', 'Tarefa') }}</span>
+                                                    <x-badge-status :status="data_get($tarefa, 'status', 'pendente')" />
                                                 </div>
                                                 <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
-                                                    @if($tarefa->funcionario)
-                                                        <span>Responsável: <strong class="text-foreground">{{ $tarefa->funcionario->nome }}</strong></span>
+                                                    @if(data_get($tarefa, 'funcionario'))
+                                                        <span>Responsável: <strong class="text-foreground">{{ data_get($tarefa, 'funcionario.nome') }}</strong></span>
                                                     @endif
-                                                    <span><strong>Abertura da Tarefa:</strong> {{ $tarefa->data_inicio ? \Carbon\Carbon::parse($tarefa->data_inicio)->format('d/m/Y H:i') : 'Não iniciada' }}</span>
-                                                    <span><strong>Encerramento da Tarefa:</strong> {{ $tarefa->data_conclusao ? \Carbon\Carbon::parse($tarefa->data_conclusao)->format('d/m/Y H:i') : 'Aguardando conclusão' }}</span>
+                                                    <span><strong>Abertura da Tarefa:</strong> {{ data_get($tarefa, 'data_inicio') ? \Carbon\Carbon::parse(data_get($tarefa, 'data_inicio'))->format('d/m/Y H:i') : 'Não iniciada' }}</span>
+                                                    <span><strong>Encerramento da Tarefa:</strong> {{ data_get($tarefa, 'data_conclusao') ? \Carbon\Carbon::parse(data_get($tarefa, 'data_conclusao'))->format('d/m/Y H:i') : 'Aguardando conclusão' }}</span>
                                                 </div>
-                                                @if(!empty($tarefa->observacoes))
-                                                    <p class="text-xs text-muted-foreground italic mt-1">"{{ $tarefa->observacoes }}"</p>
+                                                @if(!empty(data_get($tarefa, 'observacoes')))
+                                                    <p class="text-xs text-muted-foreground italic mt-1">"{{ data_get($tarefa, 'observacoes') }}"</p>
                                                 @endif
                                             </div>
                                         </div>

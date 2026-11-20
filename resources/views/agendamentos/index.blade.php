@@ -104,7 +104,7 @@
                                 @endif
                                 @if($osObj && $totalTarefas > 0)
                                     <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/25">
-                                        OS {{ $osObj->numero }} • {{ $tarefasConcluidas }}/{{ $totalTarefas }} etapas concluídas
+                                        OS {{ $osObj?->numero }} • {{ $tarefasConcluidas }}/{{ $totalTarefas }} etapas concluídas
                                     </span>
                                 @endif
                             </div>
@@ -112,18 +112,18 @@
                             <!-- Cliente e Veículo -->
                             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground">
                                 @if(!$isCliente && $ag->cliente)
-                                    <a href="{{ route('clientes.show', $ag->cliente->id) }}" class="font-semibold hover:text-primary transition-colors flex items-center gap-1.5">
+                                    <a href="{{ route('clientes.show', $ag->cliente?->id ?? 0) }}" class="font-semibold hover:text-primary transition-colors flex items-center gap-1.5">
                                         <x-icon name="user" class="w-3.5 h-3.5 text-muted-foreground" />
-                                        {{ $ag->cliente->nome }}
+                                        {{ $ag->cliente?->nome }}
                                     </a>
                                     <span class="text-muted-foreground">•</span>
                                 @endif
                                 @if($ag->veiculo)
-                                    <a href="{{ route('veiculos.show', $ag->veiculo->id) }}" class="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+                                    <a href="{{ route('veiculos.show', $ag->veiculo?->id ?? 0) }}" class="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
                                         <x-icon name="car" class="w-3.5 h-3.5 text-primary" />
-                                        <span>{{ $ag->veiculo->marca }} {{ $ag->veiculo->modelo }}</span>
+                                        <span>{{ $ag->veiculo?->marca }} {{ $ag->veiculo?->modelo }}</span>
                                         <span class="font-mono text-xs font-bold px-1.5 py-0.2 bg-secondary rounded border border-border text-foreground">
-                                            {{ $ag->veiculo->placa }}
+                                            {{ $ag->veiculo?->placa }}
                                         </span>
                                     </a>
                                 @endif

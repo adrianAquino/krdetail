@@ -44,7 +44,7 @@
                 <x-card :title="$isCliente ? 'Meu Veículo' : 'Cliente & Veículo'" :description="$isCliente ? 'Selecione qual dos seus veículos receberá o atendimento' : 'Selecione o cliente para visualizar apenas os veículos pertencentes a ele'">
                     <div class="space-y-4">
                         @if($isCliente && $clienteUnico)
-                            <input type="hidden" name="cliente_id" id="cliente_select" value="{{ $clienteUnico->id }}" />
+                            <input type="hidden" name="cliente_id" id="cliente_select" value="{{ $clienteUnico?->id }}" />
                         @else
                             <div>
                                 <x-select
