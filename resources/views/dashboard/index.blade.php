@@ -251,7 +251,7 @@
                                 </span>
                             </div>
                             <div class="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
-                                <div class="bg-primary h-full rounded-full transition-all duration-500" style="width: {{ $percent }}%"></div>
+                                <div class="bg-primary h-full rounded-full transition-all duration-500" @style(['width: ' . $percent . '%'])></div>
                             </div>
                         </div>
                     @empty

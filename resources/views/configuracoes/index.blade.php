@@ -34,7 +34,13 @@
         : ($isCliente ? 'perfil' : 'empresa');
 @endphp
 
-<div class="space-y-6">
+<div
+    id="config-tabs-root"
+    class="space-y-6"
+    data-tabs-validas="{{ json_encode($tabsValidas) }}"
+    data-tab-padrao="{{ $tabPadrao }}"
+    data-modal-alvo-erro="{{ (string) old('_modal_target', '') }}"
+>
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -1411,11 +1417,17 @@
 @endif
 
 <script>
+function getConfigDataset() {
+    return document.getElementById('config-tabs-root')?.dataset || {};
+}
+
 function switchConfigTab(tab) {
-    const tabs = @json($tabsValidas);
+    const cfg = getConfigDataset();
+    const tabs = JSON.parse(cfg.tabsValidas || '["empresa","equipe","perfil","oficina","preferencias","sistema"]');
+    const fallbackTab = cfg.tabPadrao || 'perfil';
     const destino = tabs.includes(tab) && document.getElementById(`tab-${tab}`)
         ? tab
-        : @json($tabPadrao);
+        : fallbackTab;
 
     tabs.forEach(t => {
         const content = document.getElementById(`tab-${t}`);
@@ -1436,10 +1448,11 @@ function switchConfigTab(tab) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const defaultTab = @json($tabPadrao);
+    const cfg = getConfigDataset();
+    const defaultTab = cfg.tabPadrao || 'perfil';
     switchConfigTab(defaultTab);
 
-    const modalAlvoErro = @json(old('_modal_target'));
+    const modalAlvoErro = cfg.modalAlvoErro || '';
     if (modalAlvoErro && typeof window.openModal === 'function') {
         window.openModal('modal-' + modalAlvoErro);
     }

@@ -136,7 +136,7 @@
                         <div class="w-full bg-secondary h-2 rounded-full overflow-hidden border border-border/60">
                             <div
                                 class="h-full rounded-full transition-all duration-500 {{ $isCritico ? 'bg-destructive' : ($isBaixo ? 'bg-warning' : 'bg-success') }}"
-                                style="width: {{ min($percentual, 100) }}%"
+                                @style(['width: ' . min($percentual, 100) . '%'])
                             ></div>
                         </div>
 

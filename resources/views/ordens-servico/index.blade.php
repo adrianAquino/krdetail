@@ -105,7 +105,7 @@
                             <div class="w-full bg-secondary h-2 rounded-full overflow-hidden border border-border/40">
                                 <div
                                     class="h-full rounded-full transition-all duration-500 {{ $progressoPorcentagem == 100 ? 'bg-success' : 'bg-primary' }}"
-                                    style="width: {{ $progressoPorcentagem }}%"
+                                    @style(['width: ' . $progressoPorcentagem . '%'])
                                 ></div>
                             </div>
                         </div>

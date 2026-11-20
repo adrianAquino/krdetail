@@ -288,7 +288,7 @@
                         @if($totalTarefas > 0)
                             <div class="space-y-2">
                                 <div class="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                                    <div class="bg-primary h-full rounded-full transition-all duration-500" style="width: {{ $progressoOs }}%"></div>
+                                    <div class="bg-primary h-full rounded-full transition-all duration-500" @style(['width: ' . $progressoOs . '%'])></div>
                                 </div>
 
                                 <div class="space-y-2.5 pt-2">
@@ -324,7 +324,7 @@
                             <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                                 Assim que seu veículo der entrada e a Ordem de Serviço for aberta pela equipe, você poderá acompanhar cada etapa do serviço em tempo real aqui.
                             </p>
-                        @else
+                        @elseif(!in_array($agendamentoObj?->status, ['cancelado', 'concluido'], true))
                             <p class="text-sm font-semibold text-foreground">Ordem de Serviço ainda não gerada</p>
                             <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                                 Ao abrir a Ordem de Serviço, as tarefas dos serviços contratados serão geradas automaticamente para os funcionários da oficina.
@@ -336,6 +336,11 @@
                                     Gerar Ordem de Serviço Agora
                                 </x-button>
                             </form>
+                        @else
+                            <p class="text-sm font-semibold text-foreground">Nenhuma Ordem de Serviço gerada</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                                Este agendamento está {{ $agendamentoObj?->status === 'cancelado' ? 'cancelado' : 'concluído' }} e não permite mais abertura de Ordem de Serviço.
+                            </p>
                         @endif
                     </div>
                 @endif

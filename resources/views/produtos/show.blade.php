@@ -61,7 +61,7 @@
                 <div class="space-y-1.5 mb-5">
                     <div class="w-full bg-secondary h-2.5 rounded-full overflow-hidden border border-border">
                         <div class="h-full rounded-full transition-all duration-500 {{ $isBaixo ? 'bg-destructive' : 'bg-success' }}"
-                            style="width: {{ min($progressoEstoque, 100) }}%"></div>
+                            @style(['width: ' . min($progressoEstoque, 100) . '%'])></div>
                     </div>
                 </div>
 

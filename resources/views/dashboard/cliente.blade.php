@@ -113,7 +113,7 @@
                                         <span class="font-bold text-primary">{{ $progresso }}%</span>
                                     </div>
                                     <div class="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                                        <div class="bg-primary h-full rounded-full transition-all duration-500" style="width: {{ $progresso }}%"></div>
+                                        <div class="bg-primary h-full rounded-full transition-all duration-500" @style(['width: ' . $progresso . '%'])></div>
                                     </div>
 
                                     <div class="grid gap-2 sm:grid-cols-2 pt-1">

@@ -27,7 +27,14 @@
         </x-slot:actions>
     </x-header>
 
-    <form method="POST" action="{{ route('agendamentos.store') }}" id="form-agendamento">
+    <form
+        method="POST"
+        action="{{ route('agendamentos.store') }}"
+        id="form-agendamento"
+        data-clientes-veiculos="{{ json_encode($clientesVeiculosMap) }}"
+        data-target-veiculo-pre="{{ (string) old('veiculo_id', (string) request('veiculo_id', '')) }}"
+        data-rota-veiculos-create="{{ route('veiculos.create') }}"
+    >
         @csrf
 
         <div class="grid gap-6 lg:grid-cols-3">
@@ -261,12 +268,13 @@
     <!-- Script de Dependência Cliente -> Veículos e Totalizador de Serviços -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const clientesVeiculos = @json($clientesVeiculosMap);
+            const formCfg = document.getElementById('form-agendamento')?.dataset || {};
+            const clientesVeiculos = JSON.parse(formCfg.clientesVeiculos || '{}');
             const clienteSelect = document.getElementById('cliente_select');
             const veiculoSelect = document.getElementById('veiculo_select');
             const veiculoAviso = document.getElementById('veiculo_aviso');
-            const targetVeiculoPre = @json((string) old('veiculo_id', (string) request('veiculo_id', '')));
-            const rotaVeiculosCreate = @json(route('veiculos.create'));
+            const targetVeiculoPre = formCfg.targetVeiculoPre || '';
+            const rotaVeiculosCreate = formCfg.rotaVeiculosCreate || '';
 
             function renderAvisoVeiculo(semVeiculos, clienteId) {
                 if (!veiculoAviso) return;

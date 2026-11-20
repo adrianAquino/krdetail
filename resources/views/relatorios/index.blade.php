@@ -158,7 +158,7 @@
                                 <span class="text-muted-foreground shrink-0">R$ {{ number_format($rec['valor'], 2, ',', '.') }} ({{ $rec['percent'] }}%)</span>
                             </div>
                             <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                                <div class="h-full rounded-full bg-emerald-500" style="width: {{ min($rec['percent'], 100) }}%"></div>
+                                <div class="h-full rounded-full bg-emerald-500" @style(['width: ' . min($rec['percent'], 100) . '%'])></div>
                             </div>
                         </div>
                     @empty
@@ -186,7 +186,7 @@
                                 <span class="text-muted-foreground shrink-0">R$ {{ number_format($desp['valor'], 2, ',', '.') }} ({{ $desp['percent'] }}%)</span>
                             </div>
                             <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                                <div class="h-full rounded-full bg-rose-500" style="width: {{ min($desp['percent'], 100) }}%"></div>
+                                <div class="h-full rounded-full bg-rose-500" @style(['width: ' . min($desp['percent'], 100) . '%'])></div>
                             </div>
                         </div>
                     @empty
@@ -411,7 +411,7 @@
                                 </span>
                             </div>
                             <div class="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                                <div class="h-full rounded-full bg-primary" style="width: {{ $larguraBarra }}%"></div>
+                                <div class="h-full rounded-full bg-primary" @style(['width: ' . $larguraBarra . '%'])></div>
                             </div>
                             <div class="flex justify-between text-[11px] text-muted-foreground mt-1">
                                 <span>Tempo estimado total: {{ $srv['tempo_total_formatado'] }}</span>

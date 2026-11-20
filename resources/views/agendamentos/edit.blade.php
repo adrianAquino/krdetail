@@ -104,7 +104,14 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('agendamentos.update', $agendamentoObj->id) }}" id="form-agendamento">
+    <form
+        method="POST"
+        action="{{ route('agendamentos.update', $agendamentoObj->id) }}"
+        id="form-agendamento"
+        data-clientes-veiculos="{{ json_encode($clientesVeiculosMap) }}"
+        data-target-veiculo-pre="{{ (string) old('veiculo_id', (string) ($agendamentoObj->veiculo_id ?? '')) }}"
+        data-valor-original-inicio="{{ $valorOriginalInicio }}"
+    >
         @csrf
         @method('PUT')
 
@@ -328,11 +335,12 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const clientesVeiculos = @json($clientesVeiculosMap);
+            const formCfg = document.getElementById('form-agendamento')?.dataset || {};
+            const clientesVeiculos = JSON.parse(formCfg.clientesVeiculos || '{}');
             const clienteSelect = document.getElementById('cliente_select');
             const veiculoSelect = document.getElementById('veiculo_select');
             const statusSelect = document.getElementById('status_select');
-            const targetVeiculoPre = @json((string) old('veiculo_id', (string) ($agendamentoObj->veiculo_id ?? '')));
+            const targetVeiculoPre = formCfg.targetVeiculoPre || '';
 
             function atualizarVeiculos() {
                 if (!clienteSelect || !veiculoSelect) return;
@@ -358,7 +366,7 @@
             }
 
             const GARGALO_MINUTOS = 30;
-            const valorOriginalInicio = @json($valorOriginalInicio);
+            const valorOriginalInicio = formCfg.valorOriginalInicio || '';
             const checkboxes = document.querySelectorAll('.service-checkbox');
             const listaResumo = document.getElementById('resumo-servicos-lista');
             const resumoValorTotal = document.getElementById('resumo-valor-total');
