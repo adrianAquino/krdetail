@@ -1,6 +1,9 @@
 @php
+    /** @var \App\Models\Agendamento|null $agendamentoObj */
     $isCliente = auth()->check() && auth()->user()->isCliente();
     $agendamentoObj = $agendamento ?? null;
+    $clienteObj = $agendamentoObj?->cliente;
+    $veiculoObj = $agendamentoObj?->veiculo;
     $osObj = $agendamentoObj?->ordemServico ?? $agendamentoObj?->ordem_servico ?? null;
     $servicosItens = $agendamentoObj?->agendamentosServicos ?? $agendamentoObj?->servicos_itens ?? [];
     $totalValor = collect($servicosItens)->sum(fn($i) => $i->valor_servico ?? $i->preco_base ?? 0);
@@ -53,7 +56,7 @@
                 @endif
             @endif
 
-            @if($podeCancelar)
+            @if($podeCancelar && $agendamentoObj)
                 <form method="POST"
                       action="{{ route('agendamentos.cancelar', $agendamentoObj->id) }}"
                       class="inline"
@@ -132,7 +135,7 @@
                         <div class="pt-2">
                             <span class="text-xs text-muted-foreground font-semibold block mb-1">Observações:</span>
                             <p class="text-xs text-muted-foreground italic bg-secondary/30 p-2.5 rounded-lg border border-border">
-                                "{{ $agendamentoObj->observacoes }}"
+                                "{{ $agendamentoObj?->observacoes }}"
                             </p>
                         </div>
                     @endif
@@ -142,22 +145,22 @@
             @if(!$isCliente)
                 <!-- Card Cliente -->
                 <x-card title="Cliente">
-                    @if($agendamentoObj?->cliente)
+                    @if($clienteObj)
                         <div class="flex items-center gap-3 mb-3">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                                {{ mb_strtoupper(mb_substr($agendamentoObj->cliente->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
+                                {{ mb_strtoupper(mb_substr($clienteObj->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
                             </div>
                             <div>
-                                <a href="{{ route('clientes.show', $agendamentoObj->cliente->id) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">
-                                    {{ $agendamentoObj->cliente->nome }}
+                                <a href="{{ route('clientes.show', $clienteObj->id) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">
+                                    {{ $clienteObj->nome }}
                                 </a>
-                                <p class="text-xs text-muted-foreground">{{ $agendamentoObj->cliente->telefone }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $clienteObj->telefone }}</p>
                             </div>
                         </div>
 
                         <div class="pt-3 border-t border-border/60 text-xs space-y-1 text-muted-foreground">
-                            <p><strong class="text-foreground">CPF:</strong> {{ $agendamentoObj->cliente->cpf_cnpj ?? 'Não informado' }}</p>
-                            <p><strong class="text-foreground">E-mail:</strong> {{ $agendamentoObj->cliente->email ?? 'Não informado' }}</p>
+                            <p><strong class="text-foreground">CPF:</strong> {{ $clienteObj->cpf_cnpj ?? 'Não informado' }}</p>
+                            <p><strong class="text-foreground">E-mail:</strong> {{ $clienteObj->email ?? 'Não informado' }}</p>
                         </div>
                     @else
                         <p class="text-xs text-muted-foreground">Nenhum cliente vinculado.</p>
@@ -167,18 +170,18 @@
 
             <!-- Card Veículo -->
             <x-card title="Veículo Selecionado">
-                @if($agendamentoObj?->veiculo)
+                @if($veiculoObj)
                     <div class="p-3 rounded-lg bg-secondary/50 border border-border mb-3 flex items-center justify-between">
                         <div>
-                            <p class="font-bold text-sm text-foreground">{{ $agendamentoObj->veiculo->marca }} {{ $agendamentoObj->veiculo->modelo }}</p>
-                            <p class="text-xs text-muted-foreground">{{ $agendamentoObj->veiculo->cor ?? 'Cor N/D' }}</p>
+                            <p class="font-bold text-sm text-foreground">{{ $veiculoObj->marca }} {{ $veiculoObj->modelo }}</p>
+                            <p class="text-xs text-muted-foreground">{{ $veiculoObj->cor ?? 'Cor N/D' }}</p>
                         </div>
                         <span class="font-mono text-sm font-extrabold px-2.5 py-1 rounded bg-secondary text-primary border border-border">
-                            {{ $agendamentoObj->veiculo->placa }}
+                            {{ $veiculoObj->placa }}
                         </span>
                     </div>
 
-                    <x-button href="{{ route('veiculos.show', $agendamentoObj->veiculo->id) }}" variant="outline" size="sm" class="w-full" icon="car">
+                    <x-button href="{{ route('veiculos.show', $veiculoObj->id) }}" variant="outline" size="sm" class="w-full" icon="car">
                         Ver Histórico do Veículo
                     </x-button>
                 @else
@@ -207,16 +210,16 @@
                     @forelse($servicosItens as $item)
                         @php
                             $servicoModel = $item->servico ?? $item;
-                            $tempoEstimado = $item->tempo_estimado_minutos ?? $servicoModel->tempo_estimado_minutos ?? 60;
-                            $valorServico = $item->valor_servico ?? $servicoModel->preco_base ?? 0;
+                            $tempoEstimado = $item->tempo_estimado_minutos ?? $servicoModel?->tempo_estimado_minutos ?? 60;
+                            $valorServico = $item->valor_servico ?? $servicoModel?->preco_base ?? 0;
                             $horasItem = floor($tempoEstimado / 60);
                             $minutosItem = $tempoEstimado % 60;
                             $tempoItemFormatado = $horasItem > 0 ? "{$horasItem}h " . ($minutosItem > 0 ? "{$minutosItem}min" : '') : "{$minutosItem}min";
                         @endphp
                         <div class="flex items-start justify-between p-3.5 rounded-xl border border-border bg-secondary/20">
                             <div>
-                                <h4 class="font-bold text-sm text-foreground">{{ $servicoModel->nome ?? 'Serviço' }}</h4>
-                                <p class="text-xs text-muted-foreground mt-0.5">{{ $servicoModel->descricao ?? '' }}</p>
+                                <h4 class="font-bold text-sm text-foreground">{{ $servicoModel?->nome ?? 'Serviço' }}</h4>
+                                <p class="text-xs text-muted-foreground mt-0.5">{{ $servicoModel?->descricao ?? '' }}</p>
                                 <div class="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                                     <x-icon name="clock" class="w-3.5 h-3.5" />
                                     <span>Tempo estimado: {{ $tempoItemFormatado }}</span>
