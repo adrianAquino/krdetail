@@ -43,7 +43,7 @@
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <x-select name="unidade_medida" id="unidade_medida" label="Unidade de Medida do Volume" required>
-                                @php $unidadeAtual = $produto->unidade_medida ?? 'ml'; @endphp
+                                @php $unidadeAtual = old('unidade_medida', $produto->unidade_medida ?? 'ml'); @endphp
                                 <option value="ml" {{ $unidadeAtual === 'ml' ? 'selected' : '' }}>Mililitros (ml)</option>
                                 <option value="L" {{ $unidadeAtual === 'L' ? 'selected' : '' }}>Litros (L)</option>
                                 <option value="g" {{ $unidadeAtual === 'g' ? 'selected' : '' }}>Gramas (g)</option>
@@ -61,13 +61,20 @@
                                 name="volume_unitario"
                                 id="volume_unitario"
                                 label="Volume / Conteúdo de 1 Unidade"
-                                :value="(float) ($produto->volume_unitario ?? 1)"
+                                :value="old('volume_unitario', (float) ($produto->volume_unitario ?? 1))"
                                 required
                             />
                         </div>
                     </div>
                 </div>
             </x-card>
+
+            @php
+                $volUnitEdit = (float) ($produto->volume_unitario ?? 1);
+                $minimoUnidadesExato = $volUnitEdit > 0
+                    ? round((float) $produto->estoque_minimo / $volUnitEdit, 3)
+                    : 0;
+            @endphp
 
             <x-card title="Parâmetros de Estoque e Custo">
                 <div class="grid gap-4 sm:grid-cols-3">
@@ -79,7 +86,7 @@
                             max="9999999"
                             name="quantidade_estoque"
                             label="Volume Total Atual ({{ $produto->unidade_medida }})"
-                            :value="(float) $produto->quantidade_estoque"
+                            :value="old('quantidade_estoque', (float) $produto->quantidade_estoque)"
                             hint="Equivale a {{ $produto->unidades_estoque }} un. em estoque"
                             required
                         />
@@ -88,13 +95,13 @@
                     <div>
                         <x-input
                             type="number"
-                            step="1"
+                            step="0.001"
                             min="0"
                             max="99999"
                             name="estoque_minimo_unidades"
                             label="Estoque Mínimo (Unidades)"
-                            :value="$produto->unidades_minimas"
-                            hint="Mínimo atual: {{ (float) $produto->estoque_minimo }} {{ $produto->unidade_medida }}"
+                            :value="old('estoque_minimo_unidades', $minimoUnidadesExato)"
+                            hint="Mínimo atual: {{ rtrim(rtrim(number_format((float) $produto->estoque_minimo, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }}"
                             required
                         />
                     </div>
@@ -102,12 +109,12 @@
                     <div>
                         <x-input
                             type="number"
-                            step="0.01"
+                            step="0.0001"
                             min="0"
                             max="999999.99"
                             name="custo_unitario"
                             label="Custo por Unidade (R$)"
-                            :value="(float) $produto->custo_unitario"
+                            :value="old('custo_unitario', (float) $produto->custo_unitario)"
                             required
                         />
                     </div>

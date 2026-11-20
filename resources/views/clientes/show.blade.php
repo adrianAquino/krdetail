@@ -28,13 +28,15 @@
             <x-card>
                 <div class="flex items-center gap-3.5 mb-5 pb-5 border-b border-border">
                     <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold text-xl">
-                        {{ strtoupper(substr($cliente->nome, 0, 2)) }}
+                        {{ mb_strtoupper(mb_substr($cliente->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
                     </div>
                     <div>
                         <h2 class="text-lg font-bold text-foreground">{{ $cliente->nome }}</h2>
                         <div class="mt-1">
-                            @if($cliente->user_id)
+                            @if($cliente->user_id && ($cliente->user?->ativo ?? true))
                                 <x-badge-status status="acesso_ativo" label="Acesso Ativo" />
+                            @elseif($cliente->user_id)
+                                <x-badge-status status="inativo" label="Acesso Inativo" />
                             @else
                                 <x-badge-status status="sem_acesso" label="Sem Acesso" />
                             @endif
@@ -84,7 +86,7 @@
 
             <!-- Card Conta de Acesso -->
             <x-card title="Acesso ao Sistema" description="Permissões e login do cliente">
-                @if($cliente->user_id)
+                @if($cliente->user_id && ($cliente->user?->ativo ?? true))
                     <div class="space-y-3 text-sm">
                         <div class="flex items-center gap-2 text-success font-medium">
                             <x-icon name="check-circle" class="w-4 h-4" />
@@ -92,6 +94,16 @@
                         </div>
                         <p class="text-xs text-muted-foreground">
                             O cliente pode visualizar o histórico de seus veículos e o status dos agendamentos através do login de cliente.
+                        </p>
+                    </div>
+                @elseif($cliente->user_id)
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center gap-2 text-destructive font-medium">
+                            <x-icon name="ban" class="w-4 h-4" />
+                            <span>Conta de Usuário Inativa (#{{ $cliente->user_id }})</span>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            O acesso deste cliente ao portal está desativado no momento.
                         </p>
                     </div>
                 @else
@@ -178,7 +190,7 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-mono text-xs font-bold text-foreground px-2 py-0.5 rounded bg-secondary border border-border">
-                                        {{ $hist->ordem_servico->numero ?? 'Agendamento' }}
+                                        {{ $hist->ordemServico?->numero ?? 'Agendamento' }}
                                     </span>
                                     <x-badge-status :status="$hist->status" />
                                     <span class="text-xs text-muted-foreground">
@@ -187,14 +199,14 @@
                                 </div>
                                 <p class="text-sm font-semibold text-foreground mt-1.5">{{ $hist->servicos_nomes }}</p>
                                 <p class="text-xs text-muted-foreground mt-0.5">
-                                    Veículo: {{ $hist->veiculo->marca }} {{ $hist->veiculo->modelo }} ({{ $hist->veiculo->placa }})
+                                    Veículo: {{ $hist->veiculo?->marca ?? '' }} {{ $hist->veiculo?->modelo ?? 'Não informado' }} {{ $hist->veiculo?->placa ? '(' . $hist->veiculo->placa . ')' : '' }}
                                 </p>
                             </div>
 
                             <div class="text-right sm:shrink-0">
                                 <p class="text-sm font-bold text-primary">R$ {{ number_format($hist->valor_total, 2, ',', '.') }}</p>
-                                @if(isset($hist->ordem_servico))
-                                    <x-button href="{{ route('ordens-servico.show', $hist->ordem_servico->id) }}" variant="ghost" size="sm" class="mt-1" icon="eye">
+                                @if($hist->ordemServico)
+                                    <x-button href="{{ route('ordens-servico.show', $hist->ordemServico->id) }}" variant="ghost" size="sm" class="mt-1" icon="eye">
                                         Ver OS
                                     </x-button>
                                 @endif

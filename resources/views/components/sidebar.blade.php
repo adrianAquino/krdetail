@@ -31,7 +31,7 @@
 @endphp
 
 <!-- Mobile Header -->
-<header class="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:hidden">
+<header class="print:hidden fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:hidden">
     <div class="flex items-center gap-3">
         <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shadow-xs">
             <x-icon name="sparkles" class="h-5 w-5 text-primary-foreground" />
@@ -55,12 +55,12 @@
 </header>
 
 <!-- Mobile Overlay -->
-<div id="mobile-sidebar-backdrop" class="fixed inset-0 z-45 bg-background/80 backdrop-blur-xs hidden lg:hidden transition-opacity"></div>
+<div id="mobile-sidebar-backdrop" class="print:hidden fixed inset-0 z-45 bg-background/80 backdrop-blur-xs hidden lg:hidden transition-opacity"></div>
 
 <!-- Sidebar Container -->
 <aside
     id="sidebar"
-    class="fixed left-0 top-0 z-50 h-screen w-64 -translate-x-full border-r border-border bg-sidebar transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 flex flex-col"
+    class="print:hidden fixed left-0 top-0 z-50 h-screen w-64 -translate-x-full border-r border-border bg-sidebar transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 flex flex-col"
 >
     <!-- Brand Header -->
     <div class="flex items-center gap-3 border-b border-sidebar-border px-6 py-5">

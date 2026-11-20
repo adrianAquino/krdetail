@@ -71,7 +71,7 @@
                     <td class="py-3.5 px-4">
                         <a href="{{ route('clientes.show', $cliente->id) }}" class="flex items-center gap-3 group">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                {{ strtoupper(substr($cliente->nome, 0, 2)) }}
+                                {{ mb_strtoupper(mb_substr($cliente->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
                             </div>
                             <div>
                                 <p class="font-semibold text-foreground group-hover:text-primary transition-colors">{{ $cliente->nome }}</p>
@@ -138,5 +138,10 @@
                 </tr>
             @endforelse
         </x-table>
+        @if(method_exists($clientes, 'hasPages') && $clientes->hasPages())
+            <div class="p-4 border-t border-border">
+                {{ $clientes->links() }}
+            </div>
+        @endif
     </x-card>
 </x-layouts.app>

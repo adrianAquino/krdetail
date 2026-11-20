@@ -2,12 +2,17 @@
     $isCliente = auth()->check() && auth()->user()->isCliente();
     $clienteUnico = $isCliente ? $clientes->first() : null;
 
-    // Mapeamento cliente -> veículos para o script JS de dependência
-    $clientesVeiculosJson = json_encode(
-        collect($clientes)->mapWithKeys(function ($cli) {
-            return [$cli->id => $cli->veiculos ?? []];
-        })
-    );
+    // Mapeamento cliente -> veículos para o script JS de dependência (apenas campos mínimos)
+    $clientesVeiculosMap = collect($clientes)->mapWithKeys(function ($cli) {
+        $veiculosMin = collect($cli->veiculos ?? [])->map(fn ($v) => [
+            'id' => $v->id,
+            'placa' => $v->placa,
+            'marca' => $v->marca,
+            'modelo' => $v->modelo,
+        ])->values()->all();
+
+        return [$cli->id => $veiculosMin];
+    })->all();
 @endphp
 
 <x-layouts.app title="Novo Agendamento">
@@ -114,19 +119,21 @@
                         @if(!$isCliente)
                             <div>
                                 <x-select name="origem" label="Canal de Origem do Agendamento">
-                                    <option value="WhatsApp" selected>WhatsApp</option>
-                                    <option value="Telefone">Telefone</option>
-                                    <option value="Presencial">Presencial / Balcão</option>
-                                    <option value="Site">Site / Formulário</option>
-                                    <option value="Outro">Outro</option>
+                                    @php $origemAtual = old('origem', 'WhatsApp'); @endphp
+                                    <option value="WhatsApp" {{ $origemAtual === 'WhatsApp' ? 'selected' : '' }}>WhatsApp</option>
+                                    <option value="Telefone" {{ $origemAtual === 'Telefone' ? 'selected' : '' }}>Telefone</option>
+                                    <option value="Balcão" {{ in_array($origemAtual, ['Balcão', 'Presencial'], true) ? 'selected' : '' }}>Presencial / Balcão</option>
+                                    <option value="Site" {{ $origemAtual === 'Site' ? 'selected' : '' }}>Site / Formulário</option>
+                                    <option value="Outro" {{ $origemAtual === 'Outro' ? 'selected' : '' }}>Outro</option>
                                 </x-select>
                             </div>
 
                             <div>
                                 <x-select name="status" label="Status Inicial">
-                                    <option value="agendado" selected>Agendado</option>
-                                    <option value="confirmado">Confirmado</option>
-                                    <option value="em_andamento">Em Andamento</option>
+                                    @php $statusInicial = old('status', 'agendado'); @endphp
+                                    <option value="agendado" {{ $statusInicial === 'agendado' ? 'selected' : '' }}>Agendado</option>
+                                    <option value="confirmado" {{ $statusInicial === 'confirmado' ? 'selected' : '' }}>Confirmado</option>
+                                    <option value="em_andamento" {{ $statusInicial === 'em_andamento' ? 'selected' : '' }}>Em Andamento</option>
                                 </x-select>
                             </div>
                         @endif
@@ -254,24 +261,45 @@
     <!-- Script de Dependência Cliente -> Veículos e Totalizador de Serviços -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const clientesVeiculos = {!! $clientesVeiculosJson !!};
+            const clientesVeiculos = @json($clientesVeiculosMap);
             const clienteSelect = document.getElementById('cliente_select');
             const veiculoSelect = document.getElementById('veiculo_select');
             const veiculoAviso = document.getElementById('veiculo_aviso');
-            const targetVeiculoPre = "{{ old('veiculo_id', request('veiculo_id')) }}";
+            const targetVeiculoPre = @json((string) old('veiculo_id', (string) request('veiculo_id', '')));
+            const rotaVeiculosCreate = @json(route('veiculos.create'));
+
+            function renderAvisoVeiculo(semVeiculos, clienteId) {
+                if (!veiculoAviso) return;
+                veiculoAviso.replaceChildren();
+                const link = document.createElement('a');
+                link.className = 'text-primary underline';
+                if (semVeiculos) {
+                    veiculoAviso.appendChild(document.createTextNode('Nenhum veículo cadastrado. '));
+                    link.href = rotaVeiculosCreate + (clienteId ? ('?cliente_id=' + encodeURIComponent(clienteId)) : '');
+                    link.textContent = 'Cadastrar veículo agora';
+                    veiculoAviso.appendChild(link);
+                } else {
+                    veiculoAviso.appendChild(document.createTextNode('Não encontrou seu veículo? '));
+                    link.href = rotaVeiculosCreate;
+                    link.textContent = 'Cadastrar novo veículo';
+                    veiculoAviso.appendChild(link);
+                    veiculoAviso.appendChild(document.createTextNode('.'));
+                }
+            }
 
             function atualizarVeiculos() {
+                if (!clienteSelect || !veiculoSelect) return;
                 const clienteId = clienteSelect.value;
                 const veiculos = clientesVeiculos[clienteId] || [];
 
-                veiculoSelect.innerHTML = '';
+                veiculoSelect.replaceChildren();
 
                 if (veiculos.length === 0) {
                     const opt = document.createElement('option');
                     opt.value = '';
                     opt.textContent = 'Nenhum veículo cadastrado';
                     veiculoSelect.appendChild(opt);
-                    veiculoAviso.innerHTML = '⚠ Nenhum veículo cadastrado. <a href="{{ route('veiculos.create') }}?cliente_id=' + clienteId + '" class="text-primary underline">Cadastrar veículo agora</a>';
+                    renderAvisoVeiculo(true, clienteId);
                 } else {
                     const optDefault = document.createElement('option');
                     optDefault.value = '';
@@ -280,19 +308,19 @@
 
                     veiculos.forEach(v => {
                         const opt = document.createElement('option');
-                        opt.value = v.id;
-                        opt.textContent = v.placa + ' — ' + v.marca + ' ' + v.modelo;
-                        if (targetVeiculoPre && targetVeiculoPre == v.id) {
+                        opt.value = String(v.id);
+                        opt.textContent = `${v.placa} — ${v.marca} ${v.modelo}`;
+                        if (targetVeiculoPre && String(targetVeiculoPre) === String(v.id)) {
                             opt.selected = true;
                         }
                         veiculoSelect.appendChild(opt);
                     });
 
                     if (veiculos.length === 1 && !targetVeiculoPre) {
-                        veiculoSelect.value = veiculos[0].id;
+                        veiculoSelect.value = String(veiculos[0].id);
                     }
 
-                    veiculoAviso.innerHTML = 'Não encontrou seu veículo? <a href="{{ route('veiculos.create') }}" class="text-primary underline">Cadastrar novo veículo</a>.';
+                    renderAvisoVeiculo(false, clienteId);
                 }
             }
 
@@ -374,23 +402,36 @@
                     }
                 });
 
+                listaResumo.replaceChildren();
                 if (selecionados.length === 0) {
-                    listaResumo.innerHTML = '<p class="text-muted-foreground italic text-center py-4">Nenhum serviço selecionado ainda.</p>';
+                    const emptyP = document.createElement('p');
+                    emptyP.className = 'text-muted-foreground italic text-center py-4';
+                    emptyP.textContent = 'Nenhum serviço selecionado ainda.';
+                    listaResumo.appendChild(emptyP);
                     totalMinutosComGargaloAtual = 0;
                 } else {
-                    let html = '';
                     selecionados.forEach(s => {
-                        html += `
-                            <div class="flex items-center justify-between py-1.5 border-b border-border/50">
-                                <div>
-                                    <span class="font-medium text-foreground">${s.nome}</span>
-                                    <span class="text-[10px] text-muted-foreground block">${s.tempoStr}</span>
-                                </div>
-                                <span class="font-bold text-foreground">R$ ${s.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        `;
+                        const row = document.createElement('div');
+                        row.className = 'flex items-center justify-between py-1.5 border-b border-border/50';
+
+                        const info = document.createElement('div');
+                        const nomeSpan = document.createElement('span');
+                        nomeSpan.className = 'font-medium text-foreground';
+                        nomeSpan.textContent = s.nome;
+                        const tempoSpan = document.createElement('span');
+                        tempoSpan.className = 'text-[10px] text-muted-foreground block';
+                        tempoSpan.textContent = s.tempoStr;
+                        info.appendChild(nomeSpan);
+                        info.appendChild(tempoSpan);
+
+                        const valorSpan = document.createElement('span');
+                        valorSpan.className = 'font-bold text-foreground';
+                        valorSpan.textContent = `R$ ${s.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+                        row.appendChild(info);
+                        row.appendChild(valorSpan);
+                        listaResumo.appendChild(row);
                     });
-                    listaResumo.innerHTML = html;
                     totalMinutosComGargaloAtual = totalMinutosServicos + GARGALO_MINUTOS;
                 }
 

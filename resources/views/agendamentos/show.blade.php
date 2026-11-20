@@ -4,7 +4,7 @@
     $osObj = $agendamentoObj?->ordemServico ?? $agendamentoObj?->ordem_servico ?? null;
     $servicosItens = $agendamentoObj?->agendamentosServicos ?? $agendamentoObj?->servicos_itens ?? [];
     $totalValor = collect($servicosItens)->sum(fn($i) => $i->valor_servico ?? $i->preco_base ?? 0);
-    $totalMinutosServicos = collect($servicosItens)->sum(fn($i) => $i->tempo_estimado_minutos ?? 0);
+    $totalMinutosServicos = collect($servicosItens)->sum(fn($i) => $i->tempo_estimado_minutos ?? $i->servico?->tempo_estimado_minutos ?? 0);
     $gargaloMinutos = \App\Models\Agendamento::GARGALO_MINUTOS;
     $totalMinutosComGargalo = $totalMinutosServicos > 0 ? $totalMinutosServicos + $gargaloMinutos : 0;
 
@@ -36,7 +36,7 @@
                     <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="primary" size="sm" icon="clipboard-list">
                         Acessar Ordem de Serviço ({{ $osObj->numero }})
                     </x-button>
-                @elseif($agendamentoObj?->status !== 'cancelado')
+                @elseif(!in_array($agendamentoObj?->status, ['cancelado', 'concluido'], true))
                     <form method="POST" action="{{ route('ordens-servico.store') }}" class="inline">
                         @csrf
                         <input type="hidden" name="agendamento_id" value="{{ $agendamentoObj?->id ?? 1 }}" />
@@ -145,7 +145,7 @@
                     @if($agendamentoObj?->cliente)
                         <div class="flex items-center gap-3 mb-3">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                                {{ strtoupper(substr($agendamentoObj->cliente->nome, 0, 2)) }}
+                                {{ mb_strtoupper(mb_substr($agendamentoObj->cliente->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
                             </div>
                             <div>
                                 <a href="{{ route('clientes.show', $agendamentoObj->cliente->id) }}" class="font-semibold text-foreground hover:text-primary transition-colors text-sm">

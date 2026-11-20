@@ -17,6 +17,9 @@
     <!-- Filters Bar -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('agendamentos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(request('status'))
+                <input type="hidden" name="status" value="{{ request('status') }}" />
+            @endif
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
@@ -45,7 +48,7 @@
             @endphp
             @foreach($statusList as $key => $label)
                 <a
-                    href="{{ route('agendamentos.index', array_merge(request()->query(), ['status' => $key])) }}"
+                    href="{{ route('agendamentos.index', array_merge(request()->except('page'), ['status' => $key])) }}"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap transition-colors {{ $currentStatus === $key ? 'bg-primary/15 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
                 >
                     {{ $label }}
@@ -207,4 +210,10 @@
             </x-card>
         @endforelse
     </div>
+
+    @if(method_exists($agendamentos, 'hasPages') && $agendamentos->hasPages())
+        <div class="mt-6">
+            {{ $agendamentos->links() }}
+        </div>
+    @endif
 </x-layouts.app>

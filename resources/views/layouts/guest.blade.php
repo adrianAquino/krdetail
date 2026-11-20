@@ -84,5 +84,32 @@
 
     <!-- Recursos de Acessibilidade: VLibras + Leitor de Voz (pt-BR) -->
     <x-vlibras />
+
+    <script>
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+            if (!form || form.hasAttribute('data-allow-resubmit') || (form.method || '').toLowerCase() === 'get') {
+                return;
+            }
+            if (form.dataset.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = 'true';
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-70', 'cursor-wait');
+            });
+            setTimeout(function () {
+                if (document.body.contains(form)) {
+                    delete form.dataset.submitting;
+                    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-70', 'cursor-wait');
+                    });
+                }
+            }, 8000);
+        });
+    </script>
 </body>
 </html>

@@ -16,6 +16,9 @@
     <!-- Search & Filters -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('produtos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(request('alerta'))
+                <input type="hidden" name="alerta" value="{{ request('alerta') }}" />
+            @endif
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
@@ -23,7 +26,7 @@
                 placeholder="Buscar produto por nome..."
                 icon="search"
             />
-            @if(request('busca'))
+            @if(request('busca') || request('alerta'))
                 <x-button href="{{ route('produtos.index') }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
@@ -32,13 +35,13 @@
 
         <div class="flex items-center gap-2">
             <a
-                href="{{ route('produtos.index') }}"
+                href="{{ route('produtos.index', array_filter(['busca' => request('busca')])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ !request('alerta') ? 'bg-primary/15 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Todos
             </a>
             <a
-                href="{{ route('produtos.index', ['alerta' => 'baixo']) }}"
+                href="{{ route('produtos.index', array_filter(['busca' => request('busca'), 'alerta' => 'baixo'])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('alerta') === 'baixo' ? 'bg-warning/15 border-warning text-warning font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Estoque Baixo
@@ -131,5 +134,10 @@
                 </tr>
             @endforelse
         </x-table>
+        @if(method_exists($produtos, 'hasPages') && $produtos->hasPages())
+            <div class="p-4 border-t border-border">
+                {{ $produtos->links() }}
+            </div>
+        @endif
     </x-card>
 </x-layouts.app>

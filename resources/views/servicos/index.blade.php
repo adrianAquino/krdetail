@@ -13,6 +13,9 @@
     <!-- Search & Status Filter -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('servicos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(request('status'))
+                <input type="hidden" name="status" value="{{ request('status') }}" />
+            @endif
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
@@ -20,7 +23,7 @@
                 placeholder="Buscar por nome ou descrição..."
                 icon="search"
             />
-            @if(request('busca'))
+            @if(request('busca') || request('status'))
                 <x-button href="{{ route('servicos.index') }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
@@ -29,19 +32,19 @@
 
         <div class="flex items-center gap-2">
             <a
-                href="{{ route('servicos.index') }}"
+                href="{{ route('servicos.index', array_filter(['busca' => request('busca')])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ !request('status') ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Todos
             </a>
             <a
-                href="{{ route('servicos.index', ['status' => 'ativo']) }}"
+                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'status' => 'ativo'])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('status') === 'ativo' ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Ativos
             </a>
             <a
-                href="{{ route('servicos.index', ['status' => 'inativo']) }}"
+                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'status' => 'inativo'])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('status') === 'inativo' ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Inativos
@@ -163,4 +166,10 @@
             </div>
         @endforelse
     </div>
+
+    @if(isset($servicos) && method_exists($servicos, 'hasPages') && $servicos->hasPages())
+        <div class="mt-6">
+            {{ $servicos->links() }}
+        </div>
+    @endif
 </x-layouts.app>

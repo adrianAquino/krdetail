@@ -2,10 +2,12 @@
     <x-header :title="$produto->nome ?? 'Produto'"
         subtitle="Ficha técnica do produto, volume disponível, unidades em estoque e histórico de movimentações.">
         <x-slot:actions>
-            <x-button type="button" onclick="window.openModal('modal-movimentacao')" variant="primary" size="sm"
-                icon="arrow-up-circle">
-                Registrar Movimentação
-            </x-button>
+            @if($produto->ativo)
+                <x-button type="button" onclick="window.openModal('modal-movimentacao')" variant="primary" size="sm"
+                    icon="arrow-up-circle">
+                    Registrar Movimentação
+                </x-button>
+            @endif
             <x-button href="{{ route('produtos.edit', $produto->id) }}" variant="secondary" size="sm"
                 icon="pencil">
                 Editar
@@ -133,8 +135,14 @@
                                     <td class="py-2.5 px-3 text-center">
                                         <x-badge-status :status="$mov->tipo_movimentacao" />
                                     </td>
-                                    <td class="py-2.5 px-3 text-center font-bold text-foreground">
-                                        {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                                    <td class="py-2.5 px-3 text-center font-bold {{ $mov->tipo_movimentacao === 'ajuste' ? 'text-primary' : ($mov->tipo_movimentacao === 'saida' ? 'text-destructive' : 'text-success') }}">
+                                        @if($mov->tipo_movimentacao === 'ajuste')
+                                            Δ {{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                                        @elseif($mov->tipo_movimentacao === 'saida')
+                                            -{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                                        @else
+                                            +{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                                        @endif
                                         {{ $produto->unidade_medida }}
                                     </td>
                                     <td class="py-2.5 px-3 text-center text-muted-foreground">
@@ -162,52 +170,67 @@
         </div>
     </div>
 
-    <!-- Modal Registrar Movimentação -->
-    <x-modal id="modal-movimentacao" :title="'Nova Movimentação: ' . $produto->nome">
-        <form method="POST" action="{{ route('estoque.movimentar') }}" class="space-y-4">
-            @csrf
-            <input type="hidden" name="produto_id" value="{{ $produto->id }}" />
+    @if($produto->ativo)
+        <!-- Modal Registrar Movimentação -->
+        <x-modal id="modal-movimentacao" :title="'Nova Movimentação: ' . $produto->nome">
+            <form method="POST" action="{{ route('estoque.movimentar') }}" class="space-y-4">
+                @csrf
+                <input type="hidden" name="produto_id" value="{{ $produto->id }}" />
 
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <x-select name="tipo_movimentacao" label="Tipo de Movimentação" required>
-                        <option value="entrada">Entrada (Compra / Reposição)</option>
-                        <option value="saida" selected>Saída (Consumo por Volume)</option>
-                        <option value="ajuste">Ajuste (Inventário Físico)</option>
-                    </x-select>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <x-select name="tipo_movimentacao" id="show_tipo_movimentacao" label="Tipo de Movimentação" onchange="atualizarMinQuantidadeShow()" required>
+                            <option value="entrada">Entrada (Compra / Reposição)</option>
+                            <option value="saida" selected>Saída (Consumo por Volume)</option>
+                            <option value="ajuste">Ajuste (Inventário Físico)</option>
+                        </x-select>
+                    </div>
+
+                    <div>
+                        <x-select name="modo_quantidade" label="Informar Quantidade em:" required>
+                            <option value="volume" selected>Volume ({{ $produto->unidade_medida }})</option>
+                            <option value="unidades">Unidades / Embalagens ({{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} cada)</option>
+                        </x-select>
+                    </div>
                 </div>
 
                 <div>
-                    <x-select name="modo_quantidade" label="Informar Quantidade em:" required>
-                        <option value="volume" selected>Volume ({{ $produto->unidade_medida }})</option>
-                        <option value="unidades">Unidades / Embalagens ({{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} cada)</option>
-                    </x-select>
+                    <x-input type="number" step="0.001" min="0.001" name="quantidade" id="show_quantidade_mov"
+                        label="Quantidade a Movimentar" placeholder="Ex: 150 (para 150 {{ $produto->unidade_medida }}) ou 2 (para 2 un.)" required />
                 </div>
-            </div>
 
-            <div>
-                <x-input type="number" step="0.001" min="0.001" name="quantidade"
-                    label="Quantidade a Movimentar" placeholder="Ex: 150 (para 150 {{ $produto->unidade_medida }}) ou 2 (para 2 un.)" required />
-            </div>
+                <div>
+                    <x-input name="motivo" label="Motivo da Movimentação"
+                        placeholder="Ex: Compra NF-e 1234, consumo avulso, inventário mensal..." required />
+                </div>
 
-            <div>
-                <x-input name="motivo" label="Motivo da Movimentação"
-                    placeholder="Ex: Compra NF-e 1234, consumo avulso, inventário mensal..." required />
-            </div>
+                <div>
+                    <x-textarea name="observacoes" label="Observações Adicionais (Opcional)"
+                        placeholder="Detalhes complementares..." rows="2" />
+                </div>
 
-            <div>
-                <x-textarea name="observacoes" label="Observações Adicionais (Opcional)"
-                    placeholder="Detalhes complementares..." rows="2" />
-            </div>
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                    <x-button type="button" onclick="window.closeModal('modal-movimentacao')" variant="outline" size="sm">
+                        Cancelar
+                    </x-button>
+                    <x-button type="submit" variant="primary" size="sm" icon="check">
+                        Confirmar Movimentação
+                    </x-button>
+                </div>
+            </form>
+        </x-modal>
 
-            <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                <x-button type="button" onclick="window.closeModal('modal-movimentacao')" variant="outline" size="sm">
-                    Cancelar
-                </x-button>
-                <x-button type="submit" variant="primary" size="sm" icon="check">
-                    Confirmar Movimentação
-                </x-button>
-            </div>
-        </form>
-    </x-modal>
+        @push('scripts')
+        <script>
+            function atualizarMinQuantidadeShow() {
+                const tipo = document.getElementById('show_tipo_movimentacao')?.value;
+                const qtdInput = document.getElementById('show_quantidade_mov');
+                if (qtdInput) {
+                    qtdInput.min = (tipo === 'ajuste') ? '0' : '0.001';
+                }
+            }
+            document.addEventListener('DOMContentLoaded', atualizarMinQuantidadeShow);
+        </script>
+        @endpush
+    @endif
 </x-layouts.app>

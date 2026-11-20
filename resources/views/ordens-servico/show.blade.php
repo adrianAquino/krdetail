@@ -5,11 +5,13 @@
     >
         <x-slot:actions>
             @php
-                $todasConcluidas = collect($ordemServico->tarefas ?? [])->every(fn($t) => $t->status === 'concluida');
+                $tarefasCol = collect($ordemServico->tarefas ?? []);
+                $todasConcluidas = $tarefasCol->isNotEmpty() && $tarefasCol->every(fn($t) => $t->status === 'concluida');
                 $osStatus = $ordemServico->status ?? 'em_andamento';
+                $osBloqueada = in_array($osStatus, ['concluida', 'cancelada'], true);
             @endphp
 
-            @if($osStatus !== 'concluida' && $osStatus !== 'cancelada')
+            @if(!$osBloqueada)
                 <form method="POST" action="{{ route('ordens-servico.concluir', $ordemServico->id ?? 15) }}" class="inline">
                     @csrf
                     @method('PATCH')
@@ -50,10 +52,14 @@
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <span class="text-xs text-muted-foreground uppercase font-semibold">Cliente</span>
-                    <a href="{{ route('clientes.show', $osObj->agendamento->cliente->id) }}" class="font-bold text-base text-foreground hover:text-primary transition-colors block mt-0.5">
-                        {{ $osObj->agendamento->cliente->nome }}
-                    </a>
-                    <p class="text-xs text-muted-foreground">{{ $osObj->agendamento->cliente->telefone }}</p>
+                    @if($osObj->agendamento?->cliente)
+                        <a href="{{ route('clientes.show', $osObj->agendamento->cliente->id) }}" class="font-bold text-base text-foreground hover:text-primary transition-colors block mt-0.5">
+                            {{ $osObj->agendamento->cliente->nome }}
+                        </a>
+                        <p class="text-xs text-muted-foreground">{{ $osObj->agendamento->cliente->telefone }}</p>
+                    @else
+                        <p class="font-bold text-base text-foreground mt-0.5">Cliente não informado</p>
+                    @endif
                 </div>
                 <div class="p-2 rounded-lg bg-primary/10 text-primary">
                     <x-icon name="user" class="w-5 h-5" />
@@ -63,10 +69,10 @@
             <div class="pt-3 border-t border-border/60 flex items-center justify-between">
                 <div>
                     <span class="text-xs text-muted-foreground block">Veículo</span>
-                    <span class="text-sm font-semibold text-foreground">{{ $osObj->agendamento->veiculo->marca }} {{ $osObj->agendamento->veiculo->modelo }}</span>
+                    <span class="text-sm font-semibold text-foreground">{{ $osObj->agendamento?->veiculo?->marca ?? '' }} {{ $osObj->agendamento?->veiculo?->modelo ?? 'Não informado' }}</span>
                 </div>
                 <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-secondary text-primary border border-border">
-                    {{ $osObj->agendamento->veiculo->placa }}
+                    {{ $osObj->agendamento?->veiculo?->placa ?? '-' }}
                 </span>
             </div>
         </x-card>
@@ -100,7 +106,7 @@
                 <div>
                     <span class="text-xs text-muted-foreground uppercase font-semibold">Valor Total Contratado</span>
                     <p class="text-2xl font-extrabold text-primary mt-0.5">
-                        R$ {{ number_format($osObj->agendamento->valor_total, 2, ',', '.') }}
+                        R$ {{ number_format((float) ($osObj->agendamento?->valor_total ?? 0), 2, ',', '.') }}
                     </p>
                     <p class="text-xs text-muted-foreground mt-1">
                         Cada tarefa concluída gera automaticamente seu lançamento financeiro de receita correspondente.
@@ -184,7 +190,7 @@
 
                         <!-- Ações de Iniciar / Concluir Tarefa (Item 18 e 19) -->
                         <div class="flex flex-wrap items-center gap-2 md:justify-end">
-                            @if($tarefa->status === 'pendente')
+                            @if(!$osBloqueada && $tarefa->status === 'pendente')
                                 <form method="POST" action="{{ route('tarefas.iniciar', $tarefa->id) }}" class="inline">
                                     @csrf
                                     @method('PATCH')
@@ -192,7 +198,7 @@
                                         Iniciar Tarefa
                                     </x-button>
                                 </form>
-                            @elseif($tarefa->status === 'em_andamento')
+                            @elseif(!$osBloqueada && $tarefa->status === 'em_andamento')
                                 <form method="POST" action="{{ route('tarefas.concluir', $tarefa->id) }}" class="inline">
                                     @csrf
                                     @method('PATCH')
@@ -213,14 +219,14 @@
                     <div class="py-3.5 grid gap-4 sm:grid-cols-3 text-xs border-b border-border/40">
                         <div>
                             <span class="text-muted-foreground uppercase font-semibold block mb-1">Funcionário Responsável</span>
-                            @if($osObj->status !== 'concluida' && $tarefa->status !== 'concluida')
+                            @if(!$osBloqueada && $tarefa->status !== 'concluida')
                                 <form method="POST" action="{{ route('tarefas.atribuir', $tarefa->id) }}" class="flex items-center gap-2">
                                     @csrf
                                     @method('PATCH')
                                     <select
                                         name="funcionario_id"
                                         class="text-xs rounded-lg bg-input/40 border border-border px-2.5 py-1 text-foreground focus:ring-1 focus:ring-ring"
-                                        onchange="this.form.submit()"
+                                        onchange="if (this.value) this.form.submit()"
                                     >
                                         <option value="">Selecione o responsável</option>
                                         @foreach($funcionariosLista as $func)
@@ -271,7 +277,7 @@
                                 Produtos Utilizados nesta Tarefa
                             </h4>
 
-                            @if($tarefa->status !== 'concluida' && $osObj->status !== 'concluida')
+                            @if(!$osBloqueada && $tarefa->status !== 'concluida')
                                 <x-button
                                     type="button"
                                     onclick="window.openModal('modal-produto-tarefa-{{ $tarefa->id }}')"
@@ -287,8 +293,9 @@
                         @php
                             $prodsUtilizados = $tarefa->tarefasProdutos ?? $tarefa->produtos_utilizados ?? [];
                             $custoTotalTarefa = collect($prodsUtilizados)->sum(function($pu) {
-                                return (float) ($pu->custo_total ?? ($pu->quantidade_utilizada * ($pu->custo_unitario ?? $pu->produto?->custo_unitario ?? 0)));
+                                return (float) $pu->custo_total;
                             });
+                            $podeEditarProdutos = !$osBloqueada && $tarefa->status !== 'concluida';
                         @endphp
 
                         @if(count($prodsUtilizados) > 0)
@@ -300,7 +307,7 @@
                                             <th class="py-2 px-3 text-center">Quantidade Utilizada</th>
                                             <th class="py-2 px-3 text-right">Custo Unitário</th>
                                             <th class="py-2 px-3 text-right">Custo Total</th>
-                                            @if($tarefa->status !== 'concluida')
+                                            @if($podeEditarProdutos)
                                                 <th class="py-2 px-3 text-right">Remover</th>
                                             @endif
                                         </tr>
@@ -311,8 +318,8 @@
                                                 $prodNome = $pu->produto?->nome ?? 'Produto #' . $pu->produto_id;
                                                 $prodUnidade = $pu->produto?->unidade_medida ?? 'un';
                                                 $qtdUtilizada = (float) $pu->quantidade_utilizada;
-                                                $custoUnitario = (float) ($pu->custo_unitario ?? $pu->produto?->custo_unitario ?? 0);
-                                                $custoTotalItem = (float) ($pu->custo_total ?? ($qtdUtilizada * $custoUnitario));
+                                                $custoUnitario = (float) ($pu->custo_unitario ?? $pu->produto?->custo_por_volume ?? 0);
+                                                $custoTotalItem = (float) $pu->custo_total;
                                             @endphp
                                             <tr class="hover:bg-secondary/20">
                                                 <td class="py-2 px-3 font-medium text-foreground">
@@ -322,12 +329,12 @@
                                                     {{ number_format($qtdUtilizada, 3, ',', '.') }} {{ $prodUnidade }}
                                                 </td>
                                                 <td class="py-2 px-3 text-right text-muted-foreground">
-                                                    R$ {{ number_format($custoUnitario, 2, ',', '.') }}
+                                                    R$ {{ number_format($custoUnitario, 4, ',', '.') }}
                                                 </td>
                                                 <td class="py-2 px-3 text-right font-bold text-foreground">
                                                     R$ {{ number_format($custoTotalItem, 2, ',', '.') }}
                                                 </td>
-                                                @if($tarefa->status !== 'concluida')
+                                                @if($podeEditarProdutos)
                                                     <td class="py-2 px-3 text-right">
                                                         <form method="POST" action="{{ route('tarefas.remover-produto', [$tarefa->id, $pu->id]) }}" class="inline">
                                                             @csrf
@@ -345,7 +352,7 @@
                                         <tr>
                                             <td colspan="3" class="py-2 px-3 text-right text-muted-foreground">Custo de Produtos Nesta Tarefa:</td>
                                             <td class="py-2 px-3 text-right text-primary font-bold">R$ {{ number_format($custoTotalTarefa, 2, ',', '.') }}</td>
-                                            @if($tarefa->status !== 'concluida')
+                                            @if($podeEditarProdutos)
                                                 <td></td>
                                             @endif
                                         </tr>
@@ -359,54 +366,58 @@
                         @endif
                     </div>
 
-                    <!-- Modal para Adicionar Produto Utilizado nesta Tarefa -->
-                    <x-modal id="modal-produto-tarefa-{{ $tarefa->id }}" :title="'Registrar Produto - ' . $tarefa->servico_nome">
-                        <form method="POST" action="{{ route('tarefas.adicionar-produto', $tarefa->id) }}" class="space-y-4">
-                            @csrf
-                            <div>
-                                <x-select name="produto_id" label="Produto do Estoque" required>
-                                    @foreach($produtosEstoque as $prod)
-                                        <option value="{{ $prod->id }}">
-                                            {{ $prod->nome }} (Disponível: {{ $prod->quantidade_estoque }} {{ $prod->unidade_medida }} • Custo: R$ {{ number_format($prod->custo_unitario, 2, ',', '.') }})
-                                        </option>
-                                    @endforeach
-                                </x-select>
-                            </div>
+                    @if($podeEditarProdutos)
+                        <!-- Modal para Adicionar Produto Utilizado nesta Tarefa -->
+                        <x-modal id="modal-produto-tarefa-{{ $tarefa->id }}" :title="'Registrar Produto - ' . $tarefa->servico_nome">
+                            <form method="POST" action="{{ route('tarefas.adicionar-produto', $tarefa->id) }}" class="space-y-4">
+                                @csrf
+                                <div>
+                                    <x-select name="produto_id" :id="'produto_id_tarefa_' . $tarefa->id" label="Produto do Estoque" required>
+                                        @foreach($produtosEstoque as $prod)
+                                            <option value="{{ $prod->id }}">
+                                                {{ $prod->nome }} (Disponível: {{ number_format((float) $prod->quantidade_estoque, 3, ',', '.') }} {{ $prod->unidade_medida }} • Custo: R$ {{ number_format((float) ($prod->custo_por_volume ?? 0), 4, ',', '.') }}/{{ $prod->unidade_medida }})
+                                            </option>
+                                        @endforeach
+                                    </x-select>
+                                </div>
 
-                            <div>
-                                <x-input
-                                    type="number"
-                                    step="0.001"
-                                    min="0.001"
-                                    max="999999"
-                                    name="quantidade_utilizada"
-                                    label="Quantidade Utilizada"
-                                    placeholder="Ex: 0.250"
-                                    required
-                                />
-                                <p class="text-[11px] text-muted-foreground mt-1">Essa quantidade será deduzida automaticamente do estoque através de uma Movimentação de Saída.</p>
-                            </div>
+                                <div>
+                                    <x-input
+                                        type="number"
+                                        step="0.001"
+                                        min="0.001"
+                                        max="999999"
+                                        name="quantidade_utilizada"
+                                        :id="'quantidade_utilizada_tarefa_' . $tarefa->id"
+                                        label="Quantidade Utilizada"
+                                        placeholder="Ex: 0.250"
+                                        required
+                                    />
+                                    <p class="text-[11px] text-muted-foreground mt-1">Essa quantidade será deduzida automaticamente do estoque através de uma Movimentação de Saída.</p>
+                                </div>
 
-                            <div>
-                                <x-textarea
-                                    name="observacoes"
-                                    label="Observações do Consumo (Opcional)"
-                                    placeholder="Aplicação em duas demãos, etc..."
-                                    maxlength="300"
-                                    rows="2"
-                                />
-                            </div>
+                                <div>
+                                    <x-textarea
+                                        name="observacoes"
+                                        :id="'observacoes_tarefa_' . $tarefa->id"
+                                        label="Observações do Consumo (Opcional)"
+                                        placeholder="Aplicação em duas demãos, etc..."
+                                        maxlength="300"
+                                        rows="2"
+                                    />
+                                </div>
 
-                            <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                                <x-button type="button" onclick="window.closeModal('modal-produto-tarefa-{{ $tarefa->id }}')" variant="outline" size="sm">
-                                    Cancelar
-                                </x-button>
-                                <x-button type="submit" variant="primary" size="sm" icon="plus">
-                                    Adicionar à Tarefa
-                                </x-button>
-                            </div>
-                        </form>
-                    </x-modal>
+                                <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                                    <x-button type="button" onclick="window.closeModal('modal-produto-tarefa-{{ $tarefa->id }}')" variant="outline" size="sm">
+                                        Cancelar
+                                    </x-button>
+                                    <x-button type="submit" variant="primary" size="sm" icon="plus">
+                                        Adicionar à Tarefa
+                                    </x-button>
+                                </div>
+                            </form>
+                        </x-modal>
+                    @endif
                 </x-card>
             @endforeach
         </div>

@@ -46,6 +46,7 @@
                                 name="preco_base"
                                 label="Preço Base Sugerido (R$)"
                                 placeholder="0,00"
+                                :value="old('preco_base')"
                                 required
                             />
                             <p class="text-[11px] text-muted-foreground mt-1">O valor pode ser ajustado individualmente em cada agendamento.</p>
@@ -56,10 +57,11 @@
                                 type="number"
                                 min="10"
                                 max="1440"
-                                step="5"
+                                step="1"
                                 name="tempo_estimado_minutos"
                                 label="Tempo Estimado (em minutos)"
                                 placeholder="Ex: 180 (3 horas)"
+                                :value="old('tempo_estimado_minutos')"
                                 required
                             />
                             <p class="text-[11px] text-muted-foreground mt-1">Ex: 60 = 1 hora, 120 = 2 horas, 240 = 4 horas.</p>
@@ -77,7 +79,7 @@
                                 name="ativo"
                                 id="ativo"
                                 value="1"
-                                checked
+                                {{ old('ativo', true) ? 'checked' : '' }}
                                 class="h-5 w-5 rounded border-border bg-input text-primary focus:ring-primary cursor-pointer"
                             />
                         </div>

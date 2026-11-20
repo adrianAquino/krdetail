@@ -25,7 +25,13 @@
     $cidadeAtual = $clientePerfil?->cidade ?? $pessoaLogada?->cidade ?? '';
     $estadoAtual = $clientePerfil?->estado ?? $pessoaLogada?->estado ?? '';
 
-    $tabPadrao = $isCliente ? 'perfil' : request('tab', 'empresa');
+    $tabsValidas = $isCliente
+        ? ($empresaAtual ? ['perfil', 'oficina'] : ['perfil'])
+        : ['empresa', 'equipe', 'perfil', 'preferencias', 'sistema'];
+    $tabRequisitada = request()->string('tab')->toString();
+    $tabPadrao = in_array($tabRequisitada, $tabsValidas, true)
+        ? $tabRequisitada
+        : ($isCliente ? 'perfil' : 'empresa');
 @endphp
 
 <div class="space-y-6">
@@ -551,7 +557,7 @@
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         <div class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center font-bold text-xs text-foreground border border-border">
-                                            {{ strtoupper(substr($user['nome'], 0, 2)) }}
+                                            {{ mb_strtoupper(mb_substr($user['nome'], 0, 2, 'UTF-8'), 'UTF-8') }}
                                         </div>
                                         <div>
                                             <p class="font-medium text-foreground">
@@ -645,51 +651,6 @@
                                                 </button>
                                             </form>
                                         @endif
-
-                                        <!-- Modal Editar Usuário -->
-                                        <x-modal id="modal-editar-usuario-{{ $user['id'] }}" :title="'Editar Usuário: ' . $user['nome']">
-                                            <form action="{{ route('configuracoes.usuarios.update', $user['id']) }}" method="POST" class="space-y-4 text-left">
-                                                @csrf
-                                                @method('PUT')
-                                                <x-input name="name" label="Nome Completo" :value="$user['nome']" minlength="3" maxlength="100" required />
-                                                <x-input type="email" name="email" label="E-mail" :value="$user['email']" maxlength="100" required />
-                                                <x-input name="telefone" label="Telefone / WhatsApp" :value="$user['telefone'] !== '-' ? $user['telefone'] : ''" maxlength="15" />
-
-                                                <x-select name="tipo_usuario" label="Perfil de Acesso" required>
-                                                    <option value="dono" {{ $user['tipo'] === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
-                                                    <option value="funcionario" {{ $user['tipo'] === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
-                                                    @if($isAdmin)
-                                                        <option value="administrador" {{ $user['tipo'] === 'administrador' ? 'selected' : '' }}>Administrador Geral do Sistema</option>
-                                                    @endif
-                                                    <option value="cliente" {{ $user['tipo'] === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
-                                                </x-select>
-
-                                                @if($isAdmin)
-                                                    <x-select name="empresa_id" label="Empresa Vinculada">
-                                                        <option value="">Sem vínculo fixo (Global)</option>
-                                                        @foreach($empresas as $empOpcao)
-                                                            <option value="{{ $empOpcao->id }}" {{ (int) $user['empresa_id'] === (int) $empOpcao->id ? 'selected' : '' }}>
-                                                                {{ $empOpcao->nome_fantasia }}
-                                                            </option>
-                                                        @endforeach
-                                                    </x-select>
-                                                @endif
-
-                                                <x-input name="cargo" label="Cargo / Especialidade (Para Dono ou Funcionário)" :value="$user['cargo'] ?? ''" maxlength="80" placeholder="Ex: Proprietário / Especialista" />
-
-                                                <x-input type="password" name="password" label="Nova Senha (deixe em branco para manter a atual)" minlength="6" maxlength="64" placeholder="••••••••" />
-
-                                                <div class="flex justify-end gap-3 pt-4 border-t border-border">
-                                                    <x-button type="button" variant="outline" onclick="closeModal('modal-editar-usuario-{{ $user['id'] }}')">
-                                                        Cancelar
-                                                    </x-button>
-                                                    <x-button type="submit" variant="primary" class="gap-1.5">
-                                                        <x-icon name="save" class="w-4 h-4" />
-                                                        Salvar Alterações
-                                                    </x-button>
-                                                </div>
-                                            </form>
-                                        </x-modal>
                                     @elseif((int) $user['id'] === (int) $usuarioLogado->id)
                                         <button type="button"
                                                 onclick="switchConfigTab('perfil')"
@@ -722,7 +683,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div class="flex items-start gap-4">
                     <div class="w-12 h-12 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-primary font-bold text-base shrink-0">
-                        {{ strtoupper(substr($usuarioLogado->name, 0, 2)) }}
+                        {{ mb_strtoupper(mb_substr($usuarioLogado->name, 0, 2, 'UTF-8'), 'UTF-8') }}
                     </div>
                     <div>
                         <div class="flex flex-wrap items-center gap-2">
@@ -867,82 +828,81 @@
     @endif
 
     @if(!$isCliente)
-        <!-- ABA 3: PREFERÊNCIAS & ALERTAS -->
+        <!-- ABA 3: PREFERÊNCIAS & ALERTAS (SOMENTE LEITURA) -->
         <div id="tab-preferencias" class="config-content space-y-6 hidden">
-            <form action="#" method="POST" class="space-y-6">
-                @csrf
-                <x-card>
-                    <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
+            <x-card>
+                <div class="flex items-center justify-between gap-2 pb-4 mb-4 border-b border-border">
+                    <div class="flex items-center gap-2">
                         <x-icon name="bell" class="w-5 h-5 text-primary" />
                         <div>
                             <h2 class="text-sm font-semibold text-foreground">Alertas e Notificações Operacionais</h2>
-                            <p class="text-xs text-muted-foreground">Configure os disparos automáticos e avisos do sistema.</p>
+                            <p class="text-xs text-muted-foreground">Disparos e avisos automáticos ativos por padrão no sistema.</p>
                         </div>
                     </div>
+                    <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary text-muted-foreground border border-border">
+                        Padrão do Sistema
+                    </span>
+                </div>
 
-                    <div class="space-y-4">
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border">
-                            <div class="space-y-0.5">
-                                <label class="text-sm font-medium text-foreground">Alerta de Estoque Crítico</label>
-                                <p class="text-xs text-muted-foreground">Exibir aviso no topo do dashboard quando um insumo estiver abaixo do estoque mínimo configurado.</p>
-                            </div>
-                            <input type="checkbox" name="alerta_estoque" checked {{ !$podeGerenciarEmpresa ? 'disabled' : '' }} class="w-5 h-5 rounded border-border text-primary focus:ring-primary bg-secondary cursor-pointer">
+                <div class="space-y-3 text-xs">
+                    <div class="flex items-center justify-between p-3.5 rounded-lg bg-secondary/20 border border-border">
+                        <div class="space-y-0.5 pr-4">
+                            <p class="text-sm font-medium text-foreground">Alerta de Estoque Crítico</p>
+                            <p class="text-muted-foreground">Exibe aviso no dashboard quando um insumo ativo está abaixo ou igual ao estoque mínimo configurado.</p>
                         </div>
-
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border">
-                            <div class="space-y-0.5">
-                                <label class="text-sm font-medium text-foreground">Aviso ao Cliente via WhatsApp (Agendamento Confirmado)</label>
-                                <p class="text-xs text-muted-foreground">Gerar link ou disparo automático com os detalhes do agendamento e horário previsto de chegada.</p>
-                            </div>
-                            <input type="checkbox" name="notif_agendamento" checked {{ !$podeGerenciarEmpresa ? 'disabled' : '' }} class="w-5 h-5 rounded border-border text-primary focus:ring-primary bg-secondary cursor-pointer">
-                        </div>
-
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border">
-                            <div class="space-y-0.5">
-                                <label class="text-sm font-medium text-foreground">Aviso de Veículo Pronto (Ordem de Serviço Concluída)</label>
-                                <p class="text-xs text-muted-foreground">Notificar o cliente assim que todas as tarefas forem finalizadas e a OS for encerrada pela oficina.</p>
-                            </div>
-                            <input type="checkbox" name="notif_os_concluida" checked {{ !$podeGerenciarEmpresa ? 'disabled' : '' }} class="w-5 h-5 rounded border-border text-primary focus:ring-primary bg-secondary cursor-pointer">
-                        </div>
-                    </div>
-                </x-card>
-
-                <x-card>
-                    <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
-                        <x-icon name="clock" class="w-5 h-5 text-primary" />
-                        <div>
-                            <h2 class="text-sm font-semibold text-foreground">Parâmetros de Atendimento & Agenda</h2>
-                            <p class="text-xs text-muted-foreground">Regras de agendamento de veículos.</p>
-                        </div>
+                        <span class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Ativo
+                        </span>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <x-select name="intervalo_agenda" label="Grade de Horários" :disabled="!$podeGerenciarEmpresa">
-                            <option value="15">A cada 15 minutos</option>
-                            <option value="30" selected>A cada 30 minutos (Recomendado)</option>
-                            <option value="60">A cada 1 hora</option>
-                        </x-select>
-
-                        <x-input type="number" name="capacidade_boxes" label="Boxes de Detalhamento Simultâneos" value="4" min="1" max="10" :disabled="!$podeGerenciarEmpresa" />
-
-                        <x-select name="antecedencia_cancelamento" label="Antecedência Mínima para Cancelar" :disabled="!$podeGerenciarEmpresa">
-                            <option value="1" selected>1 hora antes</option>
-                            <option value="2">2 horas antes</option>
-                            <option value="12">12 horas antes</option>
-                            <option value="24">24 horas antes</option>
-                        </x-select>
+                    <div class="flex items-center justify-between p-3.5 rounded-lg bg-secondary/20 border border-border">
+                        <div class="space-y-0.5 pr-4">
+                            <p class="text-sm font-medium text-foreground">Registro de Notificações Operacionais</p>
+                            <p class="text-muted-foreground">Registra automaticamente notificações para o cliente no histórico do sistema quando o serviço é concluído.</p>
+                        </div>
+                        <span class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Ativo
+                        </span>
                     </div>
-                </x-card>
 
-                @if($podeGerenciarEmpresa)
-                    <div class="flex justify-end">
-                        <x-button type="submit" variant="primary" class="gap-2">
-                            <x-icon name="check" class="w-4 h-4" />
-                            Salvar Preferências
-                        </x-button>
+                    <div class="flex items-center justify-between p-3.5 rounded-lg bg-secondary/20 border border-border">
+                        <div class="space-y-0.5 pr-4">
+                            <p class="text-sm font-medium text-foreground">Estorno Automático de Insumos em Cancelamentos</p>
+                            <p class="text-muted-foreground">Devolve ao estoque os produtos já lançados caso o agendamento seja cancelado antes da conclusão das tarefas.</p>
+                        </div>
+                        <span class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Ativo
+                        </span>
                     </div>
-                @endif
-            </form>
+                </div>
+            </x-card>
+
+            <x-card>
+                <div class="flex items-center gap-2 pb-4 mb-4 border-b border-border">
+                    <x-icon name="clock" class="w-5 h-5 text-primary" />
+                    <div>
+                        <h2 class="text-sm font-semibold text-foreground">Parâmetros de Atendimento & Agenda</h2>
+                        <p class="text-xs text-muted-foreground">Regras operacionais fixas aplicadas no controle de agendamentos e capacidade da oficina.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="p-3.5 rounded-lg bg-secondary/20 border border-border">
+                        <p class="text-muted-foreground">Horário Comercial</p>
+                        <p class="font-bold text-foreground text-sm mt-1">Seg a Sáb, 08:00 às 18:00</p>
+                    </div>
+
+                    <div class="p-3.5 rounded-lg bg-secondary/20 border border-border">
+                        <p class="text-muted-foreground">Boxes Simultâneos (Capacidade)</p>
+                        <p class="font-bold text-foreground text-sm mt-1">4 boxes simultâneos</p>
+                    </div>
+
+                    <div class="p-3.5 rounded-lg bg-secondary/20 border border-border">
+                        <p class="text-muted-foreground">Gargalo Operacional Padrão</p>
+                        <p class="font-bold text-foreground text-sm mt-1">+30 minutos por atendimento</p>
+                    </div>
+                </div>
+            </x-card>
         </div>
 
         <!-- ABA 4: INFORMAÇÕES DO SISTEMA -->
@@ -1286,9 +1246,11 @@
 
 <!-- Modal Editar Meu Perfil (Cliente, Funcionário, Dono e Administrador) -->
 <x-modal id="modal-editar-meu-perfil" title="Editar Meu Perfil" maxWidth="3xl">
+    @php $isModalPerfil = old('_modal_target') === 'editar-meu-perfil'; @endphp
     <form action="{{ route('configuracoes.perfil.update') }}" method="POST" class="space-y-5">
         @csrf
         @method('PUT')
+        <input type="hidden" name="_modal_target" value="editar-meu-perfil" />
 
         <div class="space-y-3">
             <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
@@ -1296,10 +1258,10 @@
                 Meus Dados Pessoais
             </h4>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <x-input id="meu_perfil_name" name="name" label="Nome Completo" :value="$usuarioLogado->name" minlength="3" maxlength="100" required />
-                <x-input id="meu_perfil_cpf_cnpj" name="cpf_cnpj" label="CPF / CNPJ" :value="$cpfCnpjAtual" maxlength="18" placeholder="000.000.000-00" />
-                <x-input id="meu_perfil_email" type="email" name="email" label="E-mail de Acesso" :value="$usuarioLogado->email" maxlength="100" required />
-                <x-input id="meu_perfil_telefone" name="telefone" label="Telefone / WhatsApp" :value="$usuarioLogado->telefone" maxlength="15" placeholder="(11) 99999-9999" />
+                <x-input id="meu_perfil_name" name="name" label="Nome Completo" :value="$isModalPerfil ? old('name', $usuarioLogado->name) : $usuarioLogado->name" minlength="3" maxlength="100" required />
+                <x-input id="meu_perfil_cpf_cnpj" name="cpf_cnpj" label="CPF / CNPJ" :value="$isModalPerfil ? old('cpf_cnpj', $cpfCnpjAtual) : $cpfCnpjAtual" maxlength="18" placeholder="000.000.000-00" />
+                <x-input id="meu_perfil_email" type="email" name="email" label="E-mail de Acesso" :value="$isModalPerfil ? old('email', $usuarioLogado->email) : $usuarioLogado->email" maxlength="100" required />
+                <x-input id="meu_perfil_telefone" name="telefone" label="Telefone / WhatsApp" :value="$isModalPerfil ? old('telefone', $usuarioLogado->telefone) : $usuarioLogado->telefone" maxlength="15" placeholder="(11) 99999-9999" />
             </div>
         </div>
 
@@ -1309,15 +1271,15 @@
                 Meu Endereço
             </h4>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <x-input id="meu_perfil_cep" name="cep" label="CEP" :value="$cepAtual" maxlength="9" placeholder="00000-000" />
+                <x-input id="meu_perfil_cep" name="cep" label="CEP" :value="$isModalPerfil ? old('cep', $cepAtual) : $cepAtual" maxlength="9" placeholder="00000-000" />
                 <div class="sm:col-span-2">
-                    <x-input id="meu_perfil_logradouro" name="logradouro" label="Logradouro" :value="$logradouroAtual" maxlength="100" />
+                    <x-input id="meu_perfil_logradouro" name="logradouro" label="Logradouro" :value="$isModalPerfil ? old('logradouro', $logradouroAtual) : $logradouroAtual" maxlength="100" />
                 </div>
-                <x-input id="meu_perfil_numero" name="numero" label="Número" :value="$numeroAtual" maxlength="10" />
-                <x-input id="meu_perfil_complemento" name="complemento" label="Complemento" :value="$complementoAtual" maxlength="100" />
-                <x-input id="meu_perfil_bairro" name="bairro" label="Bairro" :value="$bairroAtual" maxlength="100" />
-                <x-input id="meu_perfil_cidade" name="cidade" label="Cidade" :value="$cidadeAtual" maxlength="100" />
-                <x-input id="meu_perfil_estado" name="estado" label="UF" :value="$estadoAtual" maxlength="2" placeholder="SP" />
+                <x-input id="meu_perfil_numero" name="numero" label="Número" :value="$isModalPerfil ? old('numero', $numeroAtual) : $numeroAtual" maxlength="10" />
+                <x-input id="meu_perfil_complemento" name="complemento" label="Complemento" :value="$isModalPerfil ? old('complemento', $complementoAtual) : $complementoAtual" maxlength="100" />
+                <x-input id="meu_perfil_bairro" name="bairro" label="Bairro" :value="$isModalPerfil ? old('bairro', $bairroAtual) : $bairroAtual" maxlength="100" />
+                <x-input id="meu_perfil_cidade" name="cidade" label="Cidade" :value="$isModalPerfil ? old('cidade', $cidadeAtual) : $cidadeAtual" maxlength="100" />
+                <x-input id="meu_perfil_estado" name="estado" label="UF" :value="$isModalPerfil ? old('estado', $estadoAtual) : $estadoAtual" maxlength="2" placeholder="SP" />
             </div>
         </div>
 
@@ -1327,9 +1289,10 @@
                 Segurança & Senha
             </h4>
             <p class="text-xs text-muted-foreground">Preencha os campos abaixo apenas se desejar alterar sua senha atual.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <x-input id="meu_perfil_password" type="password" name="password" label="Nova Senha" minlength="6" maxlength="64" placeholder="••••••••" />
-                <x-input id="meu_perfil_password_confirmation" type="password" name="password_confirmation" label="Confirmar Nova Senha" minlength="6" maxlength="64" placeholder="••••••••" />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <x-input id="meu_perfil_current_password" type="password" name="current_password" label="Senha Atual" maxlength="64" placeholder="••••••••" />
+                <x-input id="meu_perfil_password" type="password" name="password" label="Nova Senha" minlength="8" maxlength="64" placeholder="Mín. 8 caracteres" />
+                <x-input id="meu_perfil_password_confirmation" type="password" name="password_confirmation" label="Confirmar Nova Senha" minlength="8" maxlength="64" placeholder="Repita a senha" />
             </div>
         </div>
 
@@ -1346,36 +1309,93 @@
 </x-modal>
 
 @if($podeGerenciarUsuarios)
+    <!-- Modais de Edição de Usuário (renderizados fora da tabela HTML para estrutura válida) -->
+    @foreach(($usuarios ?? collect()) as $user)
+        @if($isAdmin || $user['tipo'] !== 'administrador')
+            @php $isModalEditUser = old('_modal_target') === 'editar-usuario-' . $user['id']; @endphp
+            <x-modal id="modal-editar-usuario-{{ $user['id'] }}" :title="'Editar Usuário: ' . $user['nome']">
+                <form action="{{ route('configuracoes.usuarios.update', $user['id']) }}" method="POST" class="space-y-4 text-left">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="_modal_target" value="editar-usuario-{{ $user['id'] }}" />
+                    <x-input :id="'edit_user_name_' . $user['id']" name="name" label="Nome Completo" :value="$isModalEditUser ? old('name', $user['nome']) : $user['nome']" minlength="3" maxlength="100" required />
+                    <x-input :id="'edit_user_email_' . $user['id']" type="email" name="email" label="E-mail" :value="$isModalEditUser ? old('email', $user['email']) : $user['email']" maxlength="100" required />
+                    <x-input :id="'edit_user_telefone_' . $user['id']" name="telefone" label="Telefone / WhatsApp" :value="$isModalEditUser ? old('telefone', '') : ($user['telefone'] !== '-' ? $user['telefone'] : '')" maxlength="15" />
+
+                    @php $tipoUserModal = $isModalEditUser ? old('tipo_usuario', $user['tipo']) : $user['tipo']; @endphp
+                    <x-select :id="'edit_user_tipo_' . $user['id']" name="tipo_usuario" label="Perfil de Acesso" required>
+                        <option value="dono" {{ $tipoUserModal === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
+                        <option value="funcionario" {{ $tipoUserModal === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
+                        @if($isAdmin)
+                            <option value="administrador" {{ $tipoUserModal === 'administrador' ? 'selected' : '' }}>Administrador Geral do Sistema</option>
+                        @endif
+                        <option value="cliente" {{ $tipoUserModal === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
+                    </x-select>
+
+                    @if($isAdmin)
+                        @php $empUserModal = $isModalEditUser ? old('empresa_id', $user['empresa_id']) : $user['empresa_id']; @endphp
+                        <x-select :id="'edit_user_empresa_' . $user['id']" name="empresa_id" label="Empresa Vinculada">
+                            <option value="">Sem vínculo fixo (Global)</option>
+                            @foreach($empresas as $empOpcao)
+                                <option value="{{ $empOpcao->id }}" {{ (int) $empUserModal === (int) $empOpcao->id ? 'selected' : '' }}>
+                                    {{ $empOpcao->nome_fantasia }}
+                                </option>
+                            @endforeach
+                        </x-select>
+                    @endif
+
+                    <x-input :id="'edit_user_cargo_' . $user['id']" name="cargo" label="Cargo / Especialidade (Para Dono ou Funcionário)" :value="$isModalEditUser ? old('cargo', $user['cargo'] ?? '') : ($user['cargo'] ?? '')" maxlength="80" placeholder="Ex: Proprietário / Especialista" />
+
+                    <x-input :id="'edit_user_password_' . $user['id']" type="password" name="password" label="Nova Senha (deixe em branco para manter a atual)" minlength="8" maxlength="64" placeholder="••••••••" />
+
+                    <div class="flex justify-end gap-3 pt-4 border-t border-border">
+                        <x-button type="button" variant="outline" onclick="closeModal('modal-editar-usuario-{{ $user['id'] }}')">
+                            Cancelar
+                        </x-button>
+                        <x-button type="submit" variant="primary" class="gap-1.5">
+                            <x-icon name="save" class="w-4 h-4" />
+                            Salvar Alterações
+                        </x-button>
+                    </div>
+                </form>
+            </x-modal>
+        @endif
+    @endforeach
+
     <!-- Modal Novo Usuário -->
+    @php $isModalNovoUser = old('_modal_target') === 'novo-usuario'; @endphp
     <x-modal id="modal-novo-usuario" title="Cadastrar Novo Usuário">
         <form action="{{ route('configuracoes.usuarios.store') }}" method="POST" class="space-y-4">
             @csrf
-            <x-input name="name" label="Nome Completo" placeholder="Ex: Rodrigo Fonseca" minlength="3" maxlength="100" required />
-            <x-input type="email" name="email" label="E-mail" placeholder="usuario@krausdetail.com.br" maxlength="100" required />
-            <x-input name="telefone" label="Telefone / WhatsApp" placeholder="(11) 99999-9999" maxlength="15" />
+            <input type="hidden" name="_modal_target" value="novo-usuario" />
+            <x-input id="novo_user_name" name="name" label="Nome Completo" placeholder="Ex: Rodrigo Fonseca" :value="$isModalNovoUser ? old('name') : ''" minlength="3" maxlength="100" required />
+            <x-input id="novo_user_email" type="email" name="email" label="E-mail" placeholder="usuario@krausdetail.com.br" :value="$isModalNovoUser ? old('email') : ''" maxlength="100" required />
+            <x-input id="novo_user_telefone" name="telefone" label="Telefone / WhatsApp" placeholder="(11) 99999-9999" :value="$isModalNovoUser ? old('telefone') : ''" maxlength="15" />
 
-            <x-select name="tipo_usuario" label="Perfil de Acesso" required>
-                <option value="funcionario" selected>Funcionário / Operador de Detalhamento</option>
-                <option value="dono">Dono da Empresa (Gestão + Execução de Serviços)</option>
+            @php $tipoNovoUser = $isModalNovoUser ? old('tipo_usuario', 'funcionario') : 'funcionario'; @endphp
+            <x-select id="novo_user_tipo_usuario" name="tipo_usuario" label="Perfil de Acesso" required>
+                <option value="funcionario" {{ $tipoNovoUser === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
+                <option value="dono" {{ $tipoNovoUser === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
                 @if($isAdmin)
-                    <option value="administrador">Administrador Geral do Sistema</option>
+                    <option value="administrador" {{ $tipoNovoUser === 'administrador' ? 'selected' : '' }}>Administrador Geral do Sistema</option>
                 @endif
-                <option value="cliente">Cliente (Acesso ao Portal)</option>
+                <option value="cliente" {{ $tipoNovoUser === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
             </x-select>
 
             @if($isAdmin)
-                <x-select name="empresa_id" label="Empresa Vinculada">
+                @php $empNovoUser = $isModalNovoUser ? old('empresa_id', $empresaAtual?->id) : $empresaAtual?->id; @endphp
+                <x-select id="novo_user_empresa_id" name="empresa_id" label="Empresa Vinculada">
                     @foreach($empresas as $empOpcao)
-                        <option value="{{ $empOpcao->id }}" {{ $empresaAtual && (int) $empresaAtual->id === (int) $empOpcao->id ? 'selected' : '' }}>
+                        <option value="{{ $empOpcao->id }}" {{ (int) $empNovoUser === (int) $empOpcao->id ? 'selected' : '' }}>
                             {{ $empOpcao->nome_fantasia }}
                         </option>
                     @endforeach
                 </x-select>
             @endif
 
-            <x-input name="cargo" label="Cargo / Especialidade (Para Dono ou Funcionário)" placeholder="Ex: Operador de Detalhamento" maxlength="80" />
+            <x-input id="novo_user_cargo" name="cargo" label="Cargo / Especialidade (Para Dono ou Funcionário)" placeholder="Ex: Operador de Detalhamento" :value="$isModalNovoUser ? old('cargo') : ''" maxlength="80" />
 
-            <x-input type="password" name="password" label="Senha Temporária (mín. 6 caracteres)" placeholder="••••••••" minlength="6" maxlength="64" required />
+            <x-input id="novo_user_password" type="password" name="password" label="Senha Temporária (mín. 8 caracteres)" placeholder="••••••••" minlength="8" maxlength="64" required />
 
             <div class="flex justify-end gap-3 pt-4 border-t border-border">
                 <x-button type="button" variant="outline" onclick="closeModal('modal-novo-usuario')">
@@ -1392,7 +1412,10 @@
 
 <script>
 function switchConfigTab(tab) {
-    const tabs = ['empresa', 'equipe', 'perfil', 'oficina', 'preferencias', 'sistema'];
+    const tabs = @json($tabsValidas);
+    const destino = tabs.includes(tab) && document.getElementById(`tab-${tab}`)
+        ? tab
+        : @json($tabPadrao);
 
     tabs.forEach(t => {
         const content = document.getElementById(`tab-${t}`);
@@ -1400,7 +1423,7 @@ function switchConfigTab(tab) {
 
         if (!content || !btn) return;
 
-        if (t === tab) {
+        if (t === destino) {
             content.classList.remove('hidden');
             btn.classList.add('border-primary', 'text-primary');
             btn.classList.remove('border-transparent', 'text-muted-foreground');
@@ -1415,6 +1438,11 @@ function switchConfigTab(tab) {
 document.addEventListener('DOMContentLoaded', function () {
     const defaultTab = @json($tabPadrao);
     switchConfigTab(defaultTab);
+
+    const modalAlvoErro = @json(old('_modal_target'));
+    if (modalAlvoErro && typeof window.openModal === 'function') {
+        window.openModal('modal-' + modalAlvoErro);
+    }
 });
 </script>
 @endsection

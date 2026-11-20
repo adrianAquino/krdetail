@@ -12,8 +12,10 @@
     $funcionariosLista = $funcionarios ?? collect();
     $produtosEstoque = $produtos ?? collect();
 
+    $osBloqueada = in_array($osObj?->status, ['concluida', 'cancelada'], true);
+    $podeEditarTarefa = !$osBloqueada && $tarefa->status !== 'concluida';
     $custoTotalTarefa = collect($produtosUtilizados)->sum(function ($pu) {
-        return (float) $pu->quantidade_utilizada * (float) ($pu->custo_unitario ?? $pu->produto?->custo_unitario ?? 0);
+        return (float) $pu->custo_total;
     });
 @endphp
 
@@ -48,7 +50,7 @@
                     </div>
 
                     <div>
-                        @if($tarefa->status === 'pendente')
+                        @if(!$osBloqueada && $tarefa->status === 'pendente')
                             <form method="POST" action="{{ route('tarefas.iniciar', $tarefa->id) }}">
                                 @csrf
                                 @method('PATCH')
@@ -56,7 +58,7 @@
                                     Iniciar Tarefa
                                 </x-button>
                             </form>
-                        @elseif($tarefa->status === 'em_andamento')
+                        @elseif(!$osBloqueada && $tarefa->status === 'em_andamento')
                             <form method="POST" action="{{ route('tarefas.concluir', $tarefa->id) }}">
                                 @csrf
                                 @method('PATCH')
@@ -64,10 +66,15 @@
                                     Concluir Tarefa
                                 </x-button>
                             </form>
-                        @else
+                        @elseif($tarefa->status === 'concluida')
                             <div class="flex items-center gap-1.5 text-xs text-success font-semibold bg-success/10 px-3 py-1.5 rounded-lg border border-success/30">
                                 <x-icon name="check-circle" class="w-4 h-4" />
                                 <span>Tarefa Concluída • Lançamento Financeiro Criado</span>
+                            </div>
+                        @else
+                            <div class="flex items-center gap-1.5 text-xs text-destructive font-semibold bg-destructive/10 px-3 py-1.5 rounded-lg border border-destructive/30">
+                                <x-icon name="ban" class="w-4 h-4" />
+                                <span>OS Cancelada • Edição Bloqueada</span>
                             </div>
                         @endif
                     </div>
@@ -76,14 +83,14 @@
                 <div class="pt-4 grid gap-4 sm:grid-cols-3 text-xs">
                     <div>
                         <span class="text-muted-foreground uppercase font-semibold block mb-1">Funcionário Responsável</span>
-                        @if($tarefa->status !== 'concluida' && $osObj?->status !== 'concluida')
+                        @if($podeEditarTarefa)
                             <form method="POST" action="{{ route('tarefas.atribuir', $tarefa->id) }}" class="flex items-center gap-2">
                                 @csrf
                                 @method('PATCH')
                                 <select
                                     name="funcionario_id"
                                     class="w-full text-xs rounded-lg bg-input/40 border border-border px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-ring"
-                                    onchange="this.form.submit()"
+                                    onchange="if (this.value) this.form.submit()"
                                 >
                                     <option value="">Selecione o responsável</option>
                                     @foreach($funcionariosLista as $func)
@@ -128,7 +135,7 @@
 
             <!-- Produtos Consumidos -->
             <x-card title="Produtos Utilizados na Tarefa">
-                @if($tarefa->status !== 'concluida' && $osObj?->status !== 'concluida')
+                @if($podeEditarTarefa)
                     <x-slot:action>
                         <x-button
                             type="button"
@@ -150,7 +157,7 @@
                                 <th class="py-2.5 px-3 text-center">Qtd Utilizada</th>
                                 <th class="py-2.5 px-3 text-right">Custo Unitário</th>
                                 <th class="py-2.5 px-3 text-right">Total</th>
-                                @if($tarefa->status !== 'concluida')
+                                @if($podeEditarTarefa)
                                     <th class="py-2.5 px-3 text-right">Remover</th>
                                 @endif
                             </tr>
@@ -161,15 +168,15 @@
                                     $nomeProd = $pu->produto?->nome ?? ('Produto #' . $pu->produto_id);
                                     $qtdUtil = (float) $pu->quantidade_utilizada;
                                     $unidade = $pu->produto?->unidade_medida ?? 'un';
-                                    $custo = (float) ($pu->custo_unitario ?? $pu->produto?->custo_unitario ?? 0);
-                                    $custoTotalItem = $qtdUtil * $custo;
+                                    $custo = (float) ($pu->custo_unitario ?? $pu->produto?->custo_por_volume ?? 0);
+                                    $custoTotalItem = (float) $pu->custo_total;
                                 @endphp
                                 <tr class="hover:bg-secondary/20">
                                     <td class="py-2.5 px-3 font-semibold text-foreground">{{ $nomeProd }}</td>
                                     <td class="py-2.5 px-3 text-center font-bold text-foreground">{{ number_format($qtdUtil, 3, ',', '.') }} {{ $unidade }}</td>
-                                    <td class="py-2.5 px-3 text-right text-muted-foreground">R$ {{ number_format($custo, 2, ',', '.') }}</td>
+                                    <td class="py-2.5 px-3 text-right text-muted-foreground">R$ {{ number_format($custo, 4, ',', '.') }}</td>
                                     <td class="py-2.5 px-3 text-right font-bold text-foreground">R$ {{ number_format($custoTotalItem, 2, ',', '.') }}</td>
-                                    @if($tarefa->status !== 'concluida')
+                                    @if($podeEditarTarefa)
                                         <td class="py-2.5 px-3 text-right">
                                             <form method="POST" action="{{ route('tarefas.remover-produto', [$tarefa->id, $pu->id]) }}" class="inline">
                                                 @csrf
@@ -188,7 +195,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $tarefa->status !== 'concluida' ? 5 : 4 }}" class="py-4 text-center text-muted-foreground">
+                                    <td colspan="{{ $podeEditarTarefa ? 5 : 4 }}" class="py-4 text-center text-muted-foreground">
                                         Nenhum insumo registrado para esta tarefa ainda.
                                     </td>
                                 </tr>
@@ -199,7 +206,7 @@
                                 <tr>
                                     <td colspan="3" class="py-2.5 px-3 text-right text-muted-foreground">Custo Total de Produtos:</td>
                                     <td class="py-2.5 px-3 text-right text-primary font-bold">R$ {{ number_format($custoTotalTarefa, 2, ',', '.') }}</td>
-                                    @if($tarefa->status !== 'concluida')
+                                    @if($podeEditarTarefa)
                                         <td></td>
                                     @endif
                                 </tr>
@@ -228,7 +235,7 @@
     </div>
 
     <!-- Modal para Adicionar Produto Utilizado nesta Tarefa -->
-    @if($tarefa->status !== 'concluida' && $osObj?->status !== 'concluida')
+    @if($podeEditarTarefa)
         <x-modal id="modal-produto-tarefa-{{ $tarefa->id }}" :title="'Registrar Produto - ' . $servicoNome">
             <form method="POST" action="{{ route('tarefas.adicionar-produto', $tarefa->id) }}" class="space-y-4">
                 @csrf

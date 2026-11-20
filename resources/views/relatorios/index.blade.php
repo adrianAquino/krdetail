@@ -17,18 +17,19 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+            @php $tabAtualRel = request('tab', 'financeiro'); @endphp
             <!-- Seletor de Período Rápido -->
             <div class="inline-flex rounded-lg bg-secondary/50 p-1 border border-border">
-                <a href="?periodo=hoje" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ request('periodo') === 'hoje' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=hoje&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="hoje" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'hoje' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Hoje
                 </a>
-                <a href="?periodo=semana" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ request('periodo') === 'semana' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=semana&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="semana" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'semana' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Esta Semana
                 </a>
-                <a href="?periodo=mes" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ request('periodo', 'mes') === 'mes' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=mes&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="mes" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo', 'mes')) === 'mes' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Este Mês
                 </a>
-                <a href="?periodo=ano" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ request('periodo') === 'ano' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=ano&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="ano" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'ano' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Este Ano
                 </a>
             </div>
@@ -480,26 +481,43 @@ function switchTab(tab) {
     const opTab = document.getElementById('tab-operacional');
     const finBtn = document.getElementById('tab-financeiro-btn');
     const opBtn = document.getElementById('tab-operacional-btn');
+    const destino = tab === 'operacional' ? 'operacional' : 'financeiro';
 
-    if (tab === 'financeiro') {
-        finTab.classList.remove('hidden');
-        opTab.classList.add('hidden');
-        
-        finBtn.classList.add('border-primary', 'text-primary');
-        finBtn.classList.remove('border-transparent', 'text-muted-foreground');
-        
-        opBtn.classList.remove('border-primary', 'text-primary');
-        opBtn.classList.add('border-transparent', 'text-muted-foreground');
+    if (destino === 'financeiro') {
+        finTab?.classList.remove('hidden');
+        opTab?.classList.add('hidden');
+
+        finBtn?.classList.add('border-primary', 'text-primary');
+        finBtn?.classList.remove('border-transparent', 'text-muted-foreground');
+
+        opBtn?.classList.remove('border-primary', 'text-primary');
+        opBtn?.classList.add('border-transparent', 'text-muted-foreground');
     } else {
-        opTab.classList.remove('hidden');
-        finTab.classList.add('hidden');
-        
-        opBtn.classList.add('border-primary', 'text-primary');
-        opBtn.classList.remove('border-transparent', 'text-muted-foreground');
-        
-        finBtn.classList.remove('border-primary', 'text-primary');
-        finBtn.classList.add('border-transparent', 'text-muted-foreground');
+        opTab?.classList.remove('hidden');
+        finTab?.classList.add('hidden');
+
+        opBtn?.classList.add('border-primary', 'text-primary');
+        opBtn?.classList.remove('border-transparent', 'text-muted-foreground');
+
+        finBtn?.classList.remove('border-primary', 'text-primary');
+        finBtn?.classList.add('border-transparent', 'text-muted-foreground');
+    }
+
+    document.querySelectorAll('[data-relatorio-periodo]').forEach(function (link) {
+        const p = link.getAttribute('data-relatorio-periodo') || 'mes';
+        link.setAttribute('href', '?periodo=' + encodeURIComponent(p) + '&tab=' + encodeURIComponent(destino));
+    });
+
+    if (window.history && typeof window.history.replaceState === 'function') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', destino);
+        window.history.replaceState({}, '', url.toString());
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    switchTab(urlTab === 'operacional' ? 'operacional' : 'financeiro');
+});
 </script>
 @endsection

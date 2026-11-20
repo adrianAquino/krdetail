@@ -122,5 +122,10 @@
                 </tr>
             @endforelse
         </x-table>
+        @if(method_exists($veiculos, 'hasPages') && $veiculos->hasPages())
+            <div class="p-4 border-t border-border">
+                {{ $veiculos->links() }}
+            </div>
+        @endif
     </x-card>
 </x-layouts.app>

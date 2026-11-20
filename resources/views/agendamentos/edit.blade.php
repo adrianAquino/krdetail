@@ -46,12 +46,17 @@
             ],
         ];
 
-        $servicosAtivos = $servicos ?? [
-            (object)['id' => 1, 'nome' => 'Polimento Técnico Comercial', 'preco_base' => 650.00, 'tempo_estimado_minutos' => 240, 'descricao' => 'Correção de verniz com remoção de swirls'],
-            (object)['id' => 2, 'nome' => 'Vitrificação Cerâmica 9H (Pintura)', 'preco_base' => 1200.00, 'tempo_estimado_minutos' => 360, 'descricao' => 'Proteção 3 anos de durabilidade'],
-            (object)['id' => 3, 'nome' => 'Higienização Interna Completa + Ozônio', 'preco_base' => 380.00, 'tempo_estimado_minutos' => 210, 'descricao' => 'Limpeza detalhada de estofados e teto'],
-            (object)['id' => 4, 'nome' => 'Lavagem Detalhada Premium', 'preco_base' => 180.00, 'tempo_estimado_minutos' => 90, 'descricao' => 'Lavagem dois baldes com descontaminação'],
-        ];
+        $servicosAtivos = collect($servicos ?? []);
+        // Preserva serviços inativos já contratados no agendamento para não sumirem na edição
+        if (isset($agendamentoObj->agendamentosServicos)) {
+            $idsAtivos = $servicosAtivos->pluck('id')->all();
+            foreach ($agendamentoObj->agendamentosServicos as $itemContratado) {
+                if ($itemContratado->servico && !in_array($itemContratado->servico_id, $idsAtivos, true)) {
+                    $servicosAtivos->push($itemContratado->servico);
+                    $idsAtivos[] = $itemContratado->servico_id;
+                }
+            }
+        }
 
         $possuiOS = isset($agendamentoObj->ordemServico) && $agendamentoObj->ordemServico !== null;
         $valorOriginalInicio = \Carbon\Carbon::parse($agendamentoObj->data_inicio)->format('Y-m-d\TH:i');
@@ -66,11 +71,29 @@
                 : ($agendamentoObj->servicos_ids ?? []);
         }
 
-        $clientesVeiculosJson = json_encode(
-            collect($clientesDemo)->mapWithKeys(function ($cli) {
-                return [$cli->id => $cli->veiculos ?? []];
-            })
-        );
+        $clientesVeiculosMap = collect($clientesDemo)->mapWithKeys(function ($cli) {
+            $lista = collect($cli->veiculos ?? [])->map(fn ($v) => [
+                'id' => $v->id,
+                'placa' => $v->placa,
+                'marca' => $v->marca,
+                'modelo' => $v->modelo,
+            ])->values()->all();
+            return [$cli->id => $lista];
+        })->all();
+
+        // Caso o veículo histórico do agendamento tenha sido transferido para outro proprietário
+        if (!empty($agendamentoObj->cliente_id) && isset($agendamentoObj->veiculo) && $agendamentoObj->veiculo) {
+            $veiculosDoCliente = collect($clientesVeiculosMap[$agendamentoObj->cliente_id] ?? []);
+            if (!$veiculosDoCliente->contains('id', $agendamentoObj->veiculo->id)) {
+                $veiculosDoCliente->push([
+                    'id' => $agendamentoObj->veiculo->id,
+                    'placa' => $agendamentoObj->veiculo->placa,
+                    'marca' => $agendamentoObj->veiculo->marca,
+                    'modelo' => $agendamentoObj->veiculo->modelo . ' (Transferido)',
+                ]);
+                $clientesVeiculosMap[$agendamentoObj->cliente_id] = $veiculosDoCliente->values()->all();
+            }
+        }
     @endphp
 
     @if($possuiOS)
@@ -159,22 +182,31 @@
                         </div>
 
                         <div>
-                            <x-select name="status" label="Status Atual">
-                                <option value="agendado" {{ $agendamentoObj->status === 'agendado' ? 'selected' : '' }}>Agendado</option>
-                                <option value="confirmado" {{ $agendamentoObj->status === 'confirmado' ? 'selected' : '' }}>Confirmado</option>
-                                <option value="em_andamento" {{ $agendamentoObj->status === 'em_andamento' ? 'selected' : '' }}>Em Andamento</option>
-                                <option value="concluido" {{ $agendamentoObj->status === 'concluido' ? 'selected' : '' }}>Concluído</option>
-                                <option value="cancelado" {{ $agendamentoObj->status === 'cancelado' ? 'selected' : '' }}>Cancelado</option>
+                            <x-select name="status" id="status_select" label="Status Atual">
+                                @php $statusSelecionado = old('status', $agendamentoObj->status); @endphp
+                                <option value="agendado" {{ $statusSelecionado === 'agendado' ? 'selected' : '' }}>Agendado</option>
+                                <option value="confirmado" {{ $statusSelecionado === 'confirmado' ? 'selected' : '' }}>Confirmado</option>
+                                <option value="em_andamento" {{ $statusSelecionado === 'em_andamento' ? 'selected' : '' }}>Em Andamento</option>
+                                <option value="concluido" {{ $statusSelecionado === 'concluido' ? 'selected' : '' }}>Concluído</option>
+                                <option value="cancelado" {{ $statusSelecionado === 'cancelado' ? 'selected' : '' }}>Cancelado</option>
                             </x-select>
                         </div>
 
                         <div>
                             <x-select name="origem" label="Canal de Origem">
-                                <option value="WhatsApp" {{ $agendamentoObj->origem === 'WhatsApp' ? 'selected' : '' }}>WhatsApp</option>
-                                <option value="Telefone" {{ $agendamentoObj->origem === 'Telefone' ? 'selected' : '' }}>Telefone</option>
-                                <option value="Presencial" {{ $agendamentoObj->origem === 'Presencial' ? 'selected' : '' }}>Presencial</option>
-                                <option value="Site" {{ $agendamentoObj->origem === 'Site' ? 'selected' : '' }}>Site</option>
-                                <option value="Outro" {{ $agendamentoObj->origem === 'Outro' ? 'selected' : '' }}>Outro</option>
+                                @php
+                                    $origemSelecionada = old('origem', $agendamentoObj->origem);
+                                    $origensPadrao = ['WhatsApp', 'Telefone', 'Presencial', 'Balcão', 'Site', 'Outro'];
+                                @endphp
+                                <option value="WhatsApp" {{ $origemSelecionada === 'WhatsApp' ? 'selected' : '' }}>WhatsApp</option>
+                                <option value="Telefone" {{ $origemSelecionada === 'Telefone' ? 'selected' : '' }}>Telefone</option>
+                                <option value="Presencial" {{ $origemSelecionada === 'Presencial' ? 'selected' : '' }}>Presencial</option>
+                                <option value="Balcão" {{ $origemSelecionada === 'Balcão' ? 'selected' : '' }}>Balcão</option>
+                                <option value="Site" {{ $origemSelecionada === 'Site' ? 'selected' : '' }}>Site</option>
+                                <option value="Outro" {{ $origemSelecionada === 'Outro' ? 'selected' : '' }}>Outro</option>
+                                @if(!empty($origemSelecionada) && !in_array($origemSelecionada, $origensPadrao, true))
+                                    <option value="{{ $origemSelecionada }}" selected>{{ $origemSelecionada }}</option>
+                                @endif
                             </x-select>
                         </div>
 
@@ -182,7 +214,7 @@
                             <x-textarea
                                 name="observacoes"
                                 label="Observações"
-                                :value="$agendamentoObj->observacoes ?? ''"
+                                :value="old('observacoes', $agendamentoObj->observacoes ?? '')"
                                 maxlength="500"
                                 rows="2"
                             />
@@ -296,22 +328,24 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const clientesVeiculos = {!! $clientesVeiculosJson !!};
+            const clientesVeiculos = @json($clientesVeiculosMap);
             const clienteSelect = document.getElementById('cliente_select');
             const veiculoSelect = document.getElementById('veiculo_select');
-            const targetVeiculoPre = "{{ old('veiculo_id', $agendamentoObj->veiculo_id) }}";
+            const statusSelect = document.getElementById('status_select');
+            const targetVeiculoPre = @json((string) old('veiculo_id', (string) ($agendamentoObj->veiculo_id ?? '')));
 
             function atualizarVeiculos() {
+                if (!clienteSelect || !veiculoSelect) return;
                 const clienteId = clienteSelect.value;
                 const veiculos = clientesVeiculos[clienteId] || [];
 
-                veiculoSelect.innerHTML = '';
+                veiculoSelect.replaceChildren();
 
                 veiculos.forEach(v => {
                     const opt = document.createElement('option');
-                    opt.value = v.id;
-                    opt.textContent = v.placa + ' — ' + v.marca + ' ' + v.modelo;
-                    if (targetVeiculoPre && targetVeiculoPre == v.id) {
+                    opt.value = String(v.id);
+                    opt.textContent = `${v.placa} — ${v.marca} ${v.modelo}`;
+                    if (targetVeiculoPre && String(targetVeiculoPre) === String(v.id)) {
                         opt.selected = true;
                     }
                     veiculoSelect.appendChild(opt);
@@ -324,7 +358,7 @@
             }
 
             const GARGALO_MINUTOS = 30;
-            const valorOriginalInicio = "{{ $valorOriginalInicio }}";
+            const valorOriginalInicio = @json($valorOriginalInicio);
             const checkboxes = document.querySelectorAll('.service-checkbox');
             const listaResumo = document.getElementById('resumo-servicos-lista');
             const resumoValorTotal = document.getElementById('resumo-valor-total');
@@ -396,23 +430,36 @@
                     }
                 });
 
+                listaResumo.replaceChildren();
                 if (selecionados.length === 0) {
-                    listaResumo.innerHTML = '<p class="text-muted-foreground italic text-center py-4">Nenhum serviço selecionado.</p>';
+                    const emptyP = document.createElement('p');
+                    emptyP.className = 'text-muted-foreground italic text-center py-4';
+                    emptyP.textContent = 'Nenhum serviço selecionado.';
+                    listaResumo.appendChild(emptyP);
                     totalMinutosComGargaloAtual = 0;
                 } else {
-                    let html = '';
                     selecionados.forEach(s => {
-                        html += `
-                            <div class="flex items-center justify-between py-1.5 border-b border-border/50">
-                                <div>
-                                    <span class="font-medium text-foreground">${s.nome}</span>
-                                    <span class="text-[10px] text-muted-foreground block">${s.tempoStr}</span>
-                                </div>
-                                <span class="font-bold text-foreground">R$ ${s.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        `;
+                        const row = document.createElement('div');
+                        row.className = 'flex items-center justify-between py-1.5 border-b border-border/50';
+
+                        const info = document.createElement('div');
+                        const nomeSpan = document.createElement('span');
+                        nomeSpan.className = 'font-medium text-foreground';
+                        nomeSpan.textContent = s.nome;
+                        const tempoSpan = document.createElement('span');
+                        tempoSpan.className = 'text-[10px] text-muted-foreground block';
+                        tempoSpan.textContent = s.tempoStr;
+                        info.appendChild(nomeSpan);
+                        info.appendChild(tempoSpan);
+
+                        const valorSpan = document.createElement('span');
+                        valorSpan.className = 'font-bold text-foreground';
+                        valorSpan.textContent = `R$ ${s.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+                        row.appendChild(info);
+                        row.appendChild(valorSpan);
+                        listaResumo.appendChild(row);
                     });
-                    listaResumo.innerHTML = html;
                     totalMinutosComGargaloAtual = totalMinutosServicos + GARGALO_MINUTOS;
                 }
 
@@ -428,6 +475,14 @@
             atualizarResumoServicos();
 
             function validarDatas() {
+                if (statusSelect && statusSelect.value === 'cancelado') {
+                    erroDataInicio?.classList.add('hidden');
+                    inputDataInicio?.classList.remove('border-destructive');
+                    inputDataInicio?.setCustomValidity('');
+                    atualizarPrevisaoConclusao();
+                    return true;
+                }
+
                 let valido = true;
                 const agora = new Date();
                 agora.setSeconds(0, 0);
@@ -479,6 +534,9 @@
             if (inputDataInicio) {
                 inputDataInicio.addEventListener('change', validarDatas);
                 inputDataInicio.addEventListener('input', validarDatas);
+            }
+            if (statusSelect) {
+                statusSelect.addEventListener('change', validarDatas);
             }
             if (formAgendamento) {
                 formAgendamento.addEventListener('submit', function (e) {

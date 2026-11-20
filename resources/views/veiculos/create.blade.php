@@ -307,7 +307,7 @@
                             name="criar_usuario"
                             value="1"
                             class="mt-1 h-4 w-4 rounded border-border bg-input text-primary focus:ring-primary"
-                            onchange="document.getElementById('modal_senha_container').classList.toggle('hidden', !this.checked)"
+                            onchange="toggleSenhaModalCliente(this.checked)"
                         />
                         <label for="modal_criar_usuario" class="text-xs text-foreground cursor-pointer">
                             <span class="font-semibold block text-sm">Criar conta de acesso para este cliente</span>
@@ -350,48 +350,73 @@
 
         @push('scripts')
         <script>
-            function limpaFormularioCepModal() {
-                document.getElementById('modal_rua').value = "";
-                document.getElementById('modal_bairro').value = "";
-                document.getElementById('modal_cidade').value = "";
-                document.getElementById('modal_uf').value = "";
+            function toggleSenhaModalCliente(ativo) {
+                const container = document.getElementById('modal_senha_container');
+                if (!container) return;
+                container.classList.toggle('hidden', !ativo);
+                container.querySelectorAll('input').forEach(function (inp) {
+                    inp.disabled = !ativo;
+                });
             }
 
-            function callbackCepModal(conteudo) {
-                if (!("erro" in conteudo)) {
-                    document.getElementById('modal_rua').value = conteudo.logradouro || "";
-                    document.getElementById('modal_bairro').value = conteudo.bairro || "";
-                    document.getElementById('modal_cidade').value = conteudo.localidade || "";
-                    document.getElementById('modal_uf').value = conteudo.uf || "";
-                } else {
-                    limpaFormularioCepModal();
-                    alert("CEP não encontrado.");
+            function renderModalClienteErros(mensagens) {
+                const errosContainer = document.getElementById('modal-cliente-erros');
+                const errosLista = document.getElementById('modal-cliente-erros-lista');
+                if (!errosContainer || !errosLista) return;
+                errosLista.replaceChildren();
+                mensagens.forEach(function (msg) {
+                    const li = document.createElement('li');
+                    li.textContent = String(msg);
+                    errosLista.appendChild(li);
+                });
+                errosContainer.classList.remove('hidden');
+            }
+
+            async function pesquisacepModal(valor) {
+                const cep = (valor || '').replace(/\D/g, '');
+                if (cep === '') {
+                    return;
                 }
-            }
+                if (!/^[0-9]{8}$/.test(cep)) {
+                    alert('Formato de CEP inválido.');
+                    return;
+                }
 
-            function pesquisacepModal(valor) {
-                var cep = (valor || '').replace(/\D/g, '');
-                if (cep !== "") {
-                    var validacep = /^[0-9]{8}$/;
-                    if (validacep.test(cep)) {
-                        document.getElementById('modal_rua').value = "...";
-                        document.getElementById('modal_bairro').value = "...";
-                        document.getElementById('modal_cidade').value = "...";
-                        document.getElementById('modal_uf').value = "...";
+                const ruaEl = document.getElementById('modal_rua');
+                const bairroEl = document.getElementById('modal_bairro');
+                const cidadeEl = document.getElementById('modal_cidade');
+                const ufEl = document.getElementById('modal_uf');
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 5000);
 
-                        var script = document.createElement('script');
-                        script.src = 'https://viacep.com.br/ws/' + cep + '/json/?callback=callbackCepModal';
-                        document.body.appendChild(script);
+                try {
+                    const response = await fetch('https://viacep.com.br/ws/' + cep + '/json/', {
+                        signal: controller.signal,
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    if (!response.ok) return;
+                    const conteudo = await response.json();
+                    if (conteudo && !conteudo.erro) {
+                        if (ruaEl && conteudo.logradouro !== undefined) ruaEl.value = conteudo.logradouro || '';
+                        if (bairroEl && conteudo.bairro !== undefined) bairroEl.value = conteudo.bairro || '';
+                        if (cidadeEl && conteudo.localidade !== undefined) cidadeEl.value = conteudo.localidade || '';
+                        if (ufEl && conteudo.uf !== undefined) ufEl.value = (conteudo.uf || '').toUpperCase().slice(0, 2);
                     } else {
-                        limpaFormularioCepModal();
-                        alert("Formato de CEP inválido.");
+                        alert('CEP não encontrado.');
                     }
-                } else {
-                    limpaFormularioCepModal();
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.warn('Falha ao consultar ViaCEP:', e);
+                    }
+                } finally {
+                    clearTimeout(timer);
                 }
             }
 
             document.addEventListener('DOMContentLoaded', function () {
+                const chkModal = document.getElementById('modal_criar_usuario');
+                if (chkModal) toggleSenhaModalCliente(chkModal.checked);
+
                 const formModalCliente = document.getElementById('form-modal-cliente');
                 const errosContainer = document.getElementById('modal-cliente-erros');
                 const errosLista = document.getElementById('modal-cliente-erros-lista');
@@ -401,11 +426,12 @@
                 const btnSalvar = document.getElementById('btn-salvar-cliente-modal');
 
                 if (formModalCliente) {
+                    formModalCliente.setAttribute('data-allow-resubmit', '1');
                     formModalCliente.addEventListener('submit', async function (e) {
                         e.preventDefault();
 
                         errosContainer.classList.add('hidden');
-                        errosLista.innerHTML = '';
+                        errosLista.replaceChildren();
                         if (btnSalvar) btnSalvar.disabled = true;
 
                         try {
@@ -431,8 +457,7 @@
                                     mensagens.push(data.message);
                                 }
 
-                                errosLista.innerHTML = mensagens.map(m => `<li>${m}</li>`).join('');
-                                errosContainer.classList.remove('hidden');
+                                renderModalClienteErros(mensagens.length ? mensagens : ['Verifique os dados informados.']);
                                 return;
                             }
 
@@ -444,7 +469,7 @@
                             }
 
                             formModalCliente.reset();
-                            document.getElementById('modal_senha_container')?.classList.add('hidden');
+                            toggleSenhaModalCliente(false);
                             window.closeModal('modal-novo-cliente');
 
                             if (alertaCriado && alertaCriadoTexto && data.cliente) {
@@ -452,8 +477,7 @@
                                 alertaCriado.classList.remove('hidden');
                             }
                         } catch (err) {
-                            errosLista.innerHTML = '<li>Ocorreu um erro ao salvar o cliente. Tente novamente.</li>';
-                            errosContainer.classList.remove('hidden');
+                            renderModalClienteErros(['Ocorreu um erro ao salvar o cliente. Tente novamente.']);
                         } finally {
                             if (btnSalvar) btnSalvar.disabled = false;
                         }

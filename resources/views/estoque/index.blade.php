@@ -69,21 +69,21 @@
     <div class="border-b border-border mb-6">
         <nav class="flex flex-wrap gap-6 text-sm font-medium">
             <a
-                href="{{ route('estoque.index', ['tab' => 'produtos']) }}"
+                href="{{ route('estoque.index', array_filter(['tab' => 'produtos', 'busca' => request('busca')])) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'produtos' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="package" class="w-4 h-4" />
                 Produtos Disponíveis em Estoque ({{ $kpis['itens_ativos'] }})
             </a>
             <a
-                href="{{ route('estoque.index', ['tab' => 'inativos']) }}"
+                href="{{ route('estoque.index', array_filter(['tab' => 'inativos', 'busca' => request('busca')])) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'inativos' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="ban" class="w-4 h-4" />
                 Produtos Inativos ({{ $kpis['itens_inativos'] }})
             </a>
             <a
-                href="{{ route('estoque.index', ['tab' => 'movimentacoes']) }}"
+                href="{{ route('estoque.index', array_filter(['tab' => 'movimentacoes', 'busca' => request('busca')])) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'movimentacoes' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="arrow-up-circle" class="w-4 h-4" />
@@ -102,7 +102,7 @@
                     $volUnit = (float) ($prod->volume_unitario ?? 1);
                     $volEstoque = (float) $prod->quantidade_estoque;
                     $volMinimo = (float) $prod->estoque_minimo;
-                    $percentual = ($volEstoque / max($volMinimo, 1)) * 100;
+                    $percentual = $volMinimo > 0 ? ($volEstoque / $volMinimo) * 100 : 100;
                 @endphp
                 <x-card class="{{ $isBaixo ? 'border-destructive/30' : '' }}">
                     <div class="flex items-start justify-between gap-3 mb-2">
@@ -268,8 +268,15 @@
                             <x-badge-status :status="$mov->tipo_movimentacao" />
                         </td>
 
-                        <td class="py-3.5 px-4 text-center font-extrabold text-sm {{ $mov->tipo_movimentacao === 'saida' ? 'text-destructive' : 'text-success' }}">
-                            {{ $mov->tipo_movimentacao === 'saida' ? '-' : '+' }}{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }} {{ $mov->produto->unidade_medida }}
+                        <td class="py-3.5 px-4 text-center font-extrabold text-sm {{ $mov->tipo_movimentacao === 'ajuste' ? 'text-primary' : ($mov->tipo_movimentacao === 'saida' ? 'text-destructive' : 'text-success') }}">
+                            @if($mov->tipo_movimentacao === 'ajuste')
+                                Δ {{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                            @elseif($mov->tipo_movimentacao === 'saida')
+                                -{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                            @else
+                                +{{ rtrim(rtrim(number_format((float) $mov->quantidade, 3, ',', '.'), '0'), ',') }}
+                            @endif
+                            {{ $mov->produto?->unidade_medida ?? '' }}
                         </td>
 
                         <td class="py-3.5 px-4 text-center text-xs">
@@ -296,6 +303,11 @@
                     </tr>
                 @endforelse
             </x-table>
+            @if(method_exists($movimentacoes, 'hasPages') && $movimentacoes->hasPages())
+                <div class="p-4 border-t border-border">
+                    {{ $movimentacoes->links() }}
+                </div>
+            @endif
         </x-card>
     @endif
 
@@ -305,7 +317,7 @@
             @csrf
 
             <div>
-                <x-select name="produto_id" label="Produto" required>
+                <x-select name="produto_id" id="estoque_produto_id" label="Produto" required>
                     @foreach($produtosAtivos as $p)
                         @php
                             $vEst = rtrim(rtrim(number_format((float) $p->quantidade_estoque, 3, ',', '.'), '0'), ',');
@@ -320,7 +332,7 @@
 
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
-                    <x-select name="tipo_movimentacao" label="Tipo de Movimentação" required>
+                    <x-select name="tipo_movimentacao" id="estoque_tipo_movimentacao" label="Tipo de Movimentação" onchange="atualizarMinQuantidadeEstoque()" required>
                         <option value="entrada" selected>Entrada (Compra / Reposição)</option>
                         <option value="saida">Saída (Consumo / Baixa)</option>
                         <option value="ajuste">Ajuste de Inventário</option>
@@ -328,7 +340,7 @@
                 </div>
 
                 <div>
-                    <x-select name="modo_quantidade" label="Informar Quantidade em:" required>
+                    <x-select name="modo_quantidade" id="estoque_modo_quantidade" label="Informar Quantidade em:" required>
                         <option value="volume" selected>Volume (ml, L, g, kg)</option>
                         <option value="unidades">Unidades / Embalagens</option>
                     </x-select>
@@ -340,8 +352,9 @@
                     type="number"
                     step="0.001"
                     min="0.001"
-                    max="999999"
+                    max="999999999.999"
                     name="quantidade"
+                    id="estoque_quantidade_mov"
                     label="Quantidade"
                     placeholder="Ex: 150 (em volume) ou 2 (em unidades)"
                     required
@@ -351,6 +364,7 @@
             <div>
                 <x-input
                     name="motivo"
+                    id="estoque_motivo_mov"
                     label="Motivo da Movimentação"
                     placeholder="Ex: Compra de lote fornecedor, quebra de frasco, inventário..."
                     maxlength="150"
@@ -361,6 +375,7 @@
             <div>
                 <x-textarea
                     name="observacoes"
+                    id="estoque_observacoes_mov"
                     label="Observações Adicionais (Opcional)"
                     placeholder="Informações adicionais para auditoria..."
                     maxlength="500"
@@ -378,4 +393,17 @@
             </div>
         </form>
     </x-modal>
+
+    @push('scripts')
+    <script>
+        function atualizarMinQuantidadeEstoque() {
+            const tipo = document.getElementById('estoque_tipo_movimentacao')?.value;
+            const qtdInput = document.getElementById('estoque_quantidade_mov');
+            if (qtdInput) {
+                qtdInput.min = (tipo === 'ajuste') ? '0' : '0.001';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', atualizarMinQuantidadeEstoque);
+    </script>
+    @endpush
 </x-layouts.app>

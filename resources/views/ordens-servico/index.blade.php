@@ -7,6 +7,9 @@
     <!-- Filters Bar -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('ordens-servico.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(request('status'))
+                <input type="hidden" name="status" value="{{ request('status') }}" />
+            @endif
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
@@ -34,7 +37,7 @@
             @endphp
             @foreach($statusList as $key => $label)
                 <a
-                    href="{{ route('ordens-servico.index', array_merge(request()->query(), ['status' => $key])) }}"
+                    href="{{ route('ordens-servico.index', array_merge(request()->except('page'), ['status' => $key])) }}"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap transition-colors {{ $currentStatus === $key ? 'bg-primary/15 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
                 >
                     {{ $label }}
@@ -79,12 +82,12 @@
                     </td>
 
                     <td class="py-3.5 px-4">
-                        <p class="font-semibold text-foreground text-sm">{{ $os->agendamento->cliente->nome }}</p>
+                        <p class="font-semibold text-foreground text-sm">{{ $os->agendamento?->cliente?->nome ?? 'Cliente não informado' }}</p>
                         <p class="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                             <span class="font-mono text-[11px] bg-secondary px-1.5 py-0.2 rounded border border-border text-foreground">
-                                {{ $os->agendamento->veiculo->placa }}
+                                {{ $os->agendamento?->veiculo?->placa ?? '-' }}
                             </span>
-                            <span>{{ $os->agendamento->veiculo->marca }} {{ $os->agendamento->veiculo->modelo }}</span>
+                            <span>{{ $os->agendamento?->veiculo?->marca ?? '' }} {{ $os->agendamento?->veiculo?->modelo ?? '' }}</span>
                         </p>
                     </td>
 
@@ -126,5 +129,10 @@
                 </tr>
             @endforelse
         </x-table>
+        @if(method_exists($ordensServico, 'hasPages') && $ordensServico->hasPages())
+            <div class="p-4 border-t border-border">
+                {{ $ordensServico->links() }}
+            </div>
+        @endif
     </x-card>
 </x-layouts.app>

@@ -159,7 +159,9 @@
             <div class="space-y-3">
                 @forelse($produtosEstoqueBaixo as $prod)
                     @php
-                        $porcentagem = ((float) $prod->quantidade_estoque / max((float) $prod->estoque_minimo, 1)) * 100;
+                        $porcentagem = (float) $prod->estoque_minimo > 0
+                            ? ((float) $prod->quantidade_estoque / (float) $prod->estoque_minimo) * 100
+                            : 100;
                         $critico = $porcentagem <= 40;
                         $volAtual = rtrim(rtrim(number_format((float) $prod->quantidade_estoque, 3, ',', '.'), '0'), ',');
                         $volMin = rtrim(rtrim(number_format((float) $prod->estoque_minimo, 3, ',', '.'), '0'), ',');

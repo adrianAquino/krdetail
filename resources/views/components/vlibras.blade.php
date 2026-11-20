@@ -1,5 +1,5 @@
 <!-- Widget VLibras Oficial -->
-<div vw class="enabled">
+<div vw class="enabled print:hidden">
     <div vw-access-button class="active"></div>
     <div vw-plugin-wrapper>
         <div class="vw-plugin-top-wrapper"></div>
@@ -317,8 +317,10 @@
         const fontLabel = document.getElementById('a11y-font-label');
 
         let voiceEnabled = localStorage.getItem('krdetail-voice-reader') === 'true';
-        let fontScale = parseInt(localStorage.getItem('krdetail-font-scale') || '100', 10);
+        let fontScale = parseInt(localStorage.getItem('krdetail-font-scale') || '100', 10) || 100;
         let highlightedEl = null;
+        let lastSpokenTarget = null;
+        let lastSpokenAt = 0;
 
         function applyFontScale() {
             document.documentElement.style.fontSize = fontScale + '%';
@@ -396,7 +398,11 @@
                 speakText('Leitor de voz ativado. Clique ou navegue com a tecla Tab sobre os elementos para ouvir.');
             } else {
                 speakText('Leitor de voz desativado.');
-                setTimeout(() => window.speechSynthesis && window.speechSynthesis.cancel(), 1400);
+                setTimeout(() => {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                    }
+                }, 1400);
             }
         }
 
@@ -407,7 +413,7 @@
             if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
                 let labelText = ariaLabel || '';
                 if (!labelText && el.id) {
-                    const labelEl = document.querySelector(`label[for="${el.id}"]`);
+                    const labelEl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
                     if (labelEl) labelText = labelEl.innerText;
                 }
                 if (!labelText) {
@@ -415,6 +421,17 @@
                     if (parentLabel) labelText = parentLabel.innerText;
                 }
                 const placeholder = el.getAttribute('placeholder') || '';
+                const inputType = (el.getAttribute('type') || '').toLowerCase();
+
+                if (inputType === 'password') {
+                    const statusSenha = (el.value && el.value.length > 0) ? 'Preenchido' : 'Vazio';
+                    return `Campo ${labelText || placeholder || 'de senha'}. ${statusSenha}.`;
+                }
+
+                if (inputType === 'checkbox' || inputType === 'radio') {
+                    return `Opção ${labelText || placeholder}. ${el.checked ? 'Marcado' : 'Desmarcado'}.`;
+                }
+
                 const val = el.tagName === 'SELECT'
                     ? (el.options[el.selectedIndex]?.text || '')
                     : (el.value || '');
@@ -508,6 +525,8 @@
 
             const text = extractReadableText(target);
             if (text) {
+                lastSpokenTarget = target;
+                lastSpokenAt = Date.now();
                 speakText(text, target);
             }
         });
@@ -525,8 +544,13 @@
 
             const readableTarget = e.target.closest('button, a, h1, h2, h3, h4, p, td, th, label, [role="alert"], input, select, textarea');
             if (readableTarget) {
+                if (readableTarget === lastSpokenTarget && (Date.now() - lastSpokenAt) < 400) {
+                    return;
+                }
                 const text = extractReadableText(readableTarget);
                 if (text) {
+                    lastSpokenTarget = readableTarget;
+                    lastSpokenAt = Date.now();
                     speakText(text, readableTarget);
                 }
             }

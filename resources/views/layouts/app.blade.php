@@ -6,8 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ isset($title) ? $title . ' - KR Detail' : 'KR Detail - Sistema de Gestão de Estética Automotiva' }}
-    </title>
+    <title>@hasSection('title')@yield('title') - KR Detail @else{{ isset($title) ? $title . ' - KR Detail' : 'KR Detail - Sistema de Gestão de Estética Automotiva' }}@endif</title>
     <meta name="description" content="Sistema de gestão e agendamento para estética automotiva profissional">
 
     <script>
@@ -42,7 +41,7 @@
     <x-sidebar />
 
     <!-- Main Content Area -->
-    <main id="conteudo-principal" tabindex="-1" class="min-h-screen bg-background pt-16 lg:pl-64 lg:pt-0 flex flex-col focus:outline-none">
+    <main id="conteudo-principal" tabindex="-1" class="min-h-screen bg-background pt-16 lg:pl-64 lg:pt-0 print:pl-0 print:pt-0 flex flex-col focus:outline-none">
         <div class="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
             <!-- Flash Session Feedback -->
             @if(session('success'))
@@ -132,6 +131,32 @@
             if (event.target.hasAttribute('data-modal')) {
                 window.closeModal(event.target.id);
             }
+        });
+
+        // Proteção global contra duplo envio de formulários POST/PUT/PATCH/DELETE
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+            if (!form || form.hasAttribute('data-allow-resubmit') || (form.method || '').toLowerCase() === 'get') {
+                return;
+            }
+            if (form.dataset.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = 'true';
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-70', 'cursor-wait');
+            });
+            setTimeout(function () {
+                if (document.body.contains(form)) {
+                    delete form.dataset.submitting;
+                    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-70', 'cursor-wait');
+                    });
+                }
+            }, 8000);
         });
     </script>
 

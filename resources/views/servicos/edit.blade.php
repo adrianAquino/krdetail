@@ -46,7 +46,7 @@
                                 max="99999.99"
                                 name="preco_base"
                                 label="Preço Base (R$)"
-                                :value="$servico->preco_base ?? ''"
+                                :value="old('preco_base', $servico->preco_base ?? '')"
                                 required
                             />
                         </div>
@@ -56,10 +56,10 @@
                                 type="number"
                                 min="10"
                                 max="1440"
-                                step="5"
+                                step="1"
                                 name="tempo_estimado_minutos"
                                 label="Tempo Estimado (minutos)"
-                                :value="$servico->tempo_estimado_minutos ?? ''"
+                                :value="old('tempo_estimado_minutos', $servico->tempo_estimado_minutos ?? '')"
                                 required
                             />
                         </div>

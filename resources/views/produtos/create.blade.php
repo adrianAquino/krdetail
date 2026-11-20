@@ -39,11 +39,12 @@
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <x-select name="unidade_medida" id="unidade_medida" label="Unidade de Medida do Volume" onchange="atualizarResumoVolume()" required>
-                                <option value="ml" selected>Mililitros (ml)</option>
-                                <option value="L">Litros (L)</option>
-                                <option value="g">Gramas (g)</option>
-                                <option value="kg">Quilos (kg)</option>
-                                <option value="un">Unidade (un)</option>
+                                @php $unidadeOld = old('unidade_medida', 'ml'); @endphp
+                                <option value="ml" {{ $unidadeOld === 'ml' ? 'selected' : '' }}>Mililitros (ml)</option>
+                                <option value="L" {{ $unidadeOld === 'L' ? 'selected' : '' }}>Litros (L)</option>
+                                <option value="g" {{ $unidadeOld === 'g' ? 'selected' : '' }}>Gramas (g)</option>
+                                <option value="kg" {{ $unidadeOld === 'kg' ? 'selected' : '' }}>Quilos (kg)</option>
+                                <option value="un" {{ $unidadeOld === 'un' ? 'selected' : '' }}>Unidade (un)</option>
                             </x-select>
                         </div>
 
@@ -57,7 +58,7 @@
                                 id="volume_unitario"
                                 label="Volume / Conteúdo de 1 Unidade"
                                 placeholder="Ex: 500 (para frasco de 500ml)"
-                                value="500"
+                                :value="old('volume_unitario', 500)"
                                 oninput="atualizarResumoVolume()"
                                 required
                             />
@@ -78,7 +79,7 @@
                             id="quantidade_unidades"
                             label="Qtd. de Unidades (Frascos)"
                             placeholder="Ex: 3"
-                            value="1"
+                            :value="old('quantidade_unidades', 1)"
                             oninput="atualizarResumoVolume()"
                             required
                         />
@@ -94,7 +95,7 @@
                             id="estoque_minimo_unidades"
                             label="Estoque Mínimo (Unidades)"
                             placeholder="Ex: 1"
-                            value="1"
+                            :value="old('estoque_minimo_unidades', 1)"
                             oninput="atualizarResumoVolume()"
                             required
                         />
@@ -103,13 +104,14 @@
                     <div>
                         <x-input
                             type="number"
-                            step="0.01"
+                            step="0.0001"
                             min="0"
                             max="999999.99"
                             name="custo_unitario"
                             id="custo_unitario"
                             label="Custo por Unidade (R$)"
                             placeholder="0,00"
+                            :value="old('custo_unitario')"
                             required
                         />
                     </div>
@@ -138,7 +140,7 @@
                             name="ativo"
                             id="ativo"
                             value="1"
-                            checked
+                            {{ old('ativo', true) ? 'checked' : '' }}
                             class="h-5 w-5 rounded border-border bg-input text-primary focus:ring-primary cursor-pointer"
                         />
                     </div>

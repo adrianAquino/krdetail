@@ -68,7 +68,7 @@
                     @if(isset($veiculo->cliente))
                         <div class="flex items-center gap-3 mb-4">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                                {{ strtoupper(substr($veiculo->cliente->nome, 0, 2)) }}
+                                {{ mb_strtoupper(mb_substr($veiculo->cliente->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
                             </div>
                             <div>
                                 <a href="{{ route('clientes.show', $veiculo->cliente->id) }}" class="font-semibold text-sm text-foreground hover:text-primary transition-colors">

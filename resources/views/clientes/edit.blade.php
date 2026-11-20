@@ -142,7 +142,7 @@
 
             <!-- Acesso ao Sistema -->
             <x-card title="Conta de Acesso ao Sistema" description="Situação do usuário no sistema">
-                @if(!empty($cliente->user_id))
+                @if(!empty($cliente->user_id) && ($cliente->user?->ativo ?? true))
                     <div class="p-3.5 rounded-lg border border-success/30 bg-success/5 flex items-center justify-between">
                         <div class="flex items-center gap-2.5">
                             <x-icon name="check-circle" class="w-5 h-5 text-success" />
@@ -151,7 +151,18 @@
                                 <p class="text-xs text-muted-foreground">Usuário ID: #{{ $cliente->user_id }} vinculado a este registro.</p>
                             </div>
                         </div>
-                        <x-badge-status status="acesso_ativo" />
+                        <x-badge-status status="acesso_ativo" label="Acesso Ativo" />
+                    </div>
+                @elseif(!empty($cliente->user_id))
+                    <div class="p-3.5 rounded-lg border border-destructive/30 bg-destructive/5 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <x-icon name="ban" class="w-5 h-5 text-destructive" />
+                            <div>
+                                <p class="text-sm font-semibold text-foreground">Conta vinculada está inativa</p>
+                                <p class="text-xs text-muted-foreground">Usuário ID: #{{ $cliente->user_id }} está desativado para login.</p>
+                            </div>
+                        </div>
+                        <x-badge-status status="inativo" label="Acesso Inativo" />
                     </div>
                 @else
                     <div class="space-y-4">
@@ -160,7 +171,7 @@
                                 <p class="text-sm font-semibold text-foreground">Cliente sem conta de usuário</p>
                                 <p class="text-xs text-muted-foreground">O cliente não possui login cadastrado no sistema.</p>
                             </div>
-                            <x-badge-status status="sem_acesso" />
+                            <x-badge-status status="sem_acesso" label="Sem Acesso" />
                         </div>
 
                         <div class="flex items-start gap-3 p-3 rounded-lg border border-border">
@@ -169,8 +180,9 @@
                                 id="criar_usuario"
                                 name="criar_usuario"
                                 value="1"
+                                {{ old('criar_usuario') ? 'checked' : '' }}
                                 class="mt-1 h-4 w-4 rounded border-border bg-input text-primary focus:ring-primary"
-                                onchange="document.getElementById('senha_container').classList.toggle('hidden', !this.checked)"
+                                onchange="toggleSenhaClienteEdit(this.checked)"
                             />
                             <label for="criar_usuario" class="text-xs text-foreground cursor-pointer">
                                 <span class="font-semibold block text-sm">Criar conta de acesso agora</span>
@@ -178,7 +190,7 @@
                             </label>
                         </div>
 
-                        <div id="senha_container" class="hidden grid gap-4 sm:grid-cols-2 pt-2">
+                        <div id="senha_container" class="{{ old('criar_usuario') ? '' : 'hidden' }} grid gap-4 sm:grid-cols-2 pt-2">
                             <x-input
                                 type="password"
                                 name="password"
@@ -214,44 +226,60 @@
 
     @push('scripts')
     <script>
-        function limpa_formulário_cep() {
-            document.getElementById('rua').value = "";
-            document.getElementById('bairro').value = "";
-            document.getElementById('cidade').value = "";
-            document.getElementById('uf').value = "";
+        function toggleSenhaClienteEdit(ativo) {
+            const container = document.getElementById('senha_container');
+            if (!container) return;
+            container.classList.toggle('hidden', !ativo);
+            container.querySelectorAll('input').forEach(function (inp) {
+                inp.disabled = !ativo;
+            });
         }
 
-        function meu_callback(conteudo) {
-            if (!("erro" in conteudo)) {
-                document.getElementById('rua').value = conteudo.logradouro;
-                document.getElementById('bairro').value = conteudo.bairro;
-                document.getElementById('cidade').value = conteudo.localidade;
-                document.getElementById('uf').value = conteudo.uf;
-            } else {
-                limpa_formulário_cep();
-                alert("CEP não encontrado.");
+        document.addEventListener('DOMContentLoaded', function () {
+            const chk = document.getElementById('criar_usuario');
+            if (chk) toggleSenhaClienteEdit(chk.checked);
+        });
+
+        async function pesquisacep(valor) {
+            const cep = (valor || '').replace(/\D/g, '');
+            if (cep === '') {
+                return;
             }
-        }
+            if (!/^[0-9]{8}$/.test(cep)) {
+                alert('Formato de CEP inválido.');
+                return;
+            }
 
-        function pesquisacep(valor) {
-            var cep = valor.replace(/\D/g, '');
-            if (cep != "") {
-                var validacep = /^[0-9]{8}$/;
-                if (validacep.test(cep)) {
-                    document.getElementById('rua').value = "...";
-                    document.getElementById('bairro').value = "...";
-                    document.getElementById('cidade').value = "...";
-                    document.getElementById('uf').value = "...";
+            const ruaEl = document.getElementById('rua');
+            const bairroEl = document.getElementById('bairro');
+            const cidadeEl = document.getElementById('cidade');
+            const ufEl = document.getElementById('uf');
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
 
-                    var script = document.createElement('script');
-                    script.src = 'https://viacep.com.br/ws/' + cep + '/json/?callback=meu_callback';
-                    document.body.appendChild(script);
-                } else {
-                    limpa_formulário_cep();
-                    alert("Formato de CEP inválido.");
+            try {
+                const response = await fetch('https://viacep.com.br/ws/' + cep + '/json/', {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!response.ok) {
+                    return;
                 }
-            } else {
-                limpa_formulário_cep();
+                const conteudo = await response.json();
+                if (conteudo && !conteudo.erro) {
+                    if (ruaEl && conteudo.logradouro !== undefined) ruaEl.value = conteudo.logradouro || '';
+                    if (bairroEl && conteudo.bairro !== undefined) bairroEl.value = conteudo.bairro || '';
+                    if (cidadeEl && conteudo.localidade !== undefined) cidadeEl.value = conteudo.localidade || '';
+                    if (ufEl && conteudo.uf !== undefined) ufEl.value = (conteudo.uf || '').toUpperCase().slice(0, 2);
+                } else {
+                    alert('CEP não encontrado.');
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    console.warn('Falha ao consultar ViaCEP:', e);
+                }
+            } finally {
+                clearTimeout(timer);
             }
         }
     </script>
