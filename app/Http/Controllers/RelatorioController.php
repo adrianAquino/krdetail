@@ -11,52 +11,54 @@ use App\Models\Tarefa;
 use App\Models\TarefaProduto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class RelatorioController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View
     {
-        $periodo = $request->input('periodo', 'mes');
+        $periodoRaw = $request->string('periodo')->toString();
+        $periodo = in_array($periodoRaw, ['hoje', 'semana', 'mes', 'ano'], true) ? $periodoRaw : 'mes';
+        $agora = Carbon::now();
 
         [$inicioPeriodo, $fimPeriodo, $inicioAnterior, $fimAnterior] = match ($periodo) {
             'hoje' => [
-                Carbon::today()->startOfDay(),
-                Carbon::today()->endOfDay(),
-                Carbon::yesterday()->startOfDay(),
-                Carbon::yesterday()->endOfDay(),
+                $agora->copy()->startOfDay(),
+                $agora->copy()->endOfDay(),
+                $agora->copy()->subDay()->startOfDay(),
+                $agora->copy()->subDay()->endOfDay(),
             ],
             'semana' => [
-                Carbon::now()->startOfWeek(),
-                Carbon::now()->endOfWeek(),
-                Carbon::now()->subWeek()->startOfWeek(),
-                Carbon::now()->subWeek()->endOfWeek(),
+                $agora->copy()->startOfWeek(),
+                $agora->copy()->endOfWeek(),
+                $agora->copy()->subWeek()->startOfWeek(),
+                $agora->copy()->subWeek()->endOfWeek(),
             ],
             'ano' => [
-                Carbon::now()->startOfYear(),
-                Carbon::now()->endOfYear(),
-                Carbon::now()->subYear()->startOfYear(),
-                Carbon::now()->subYear()->endOfYear(),
+                $agora->copy()->startOfYear(),
+                $agora->copy()->endOfYear(),
+                $agora->copy()->subYear()->startOfYear(),
+                $agora->copy()->subYear()->endOfYear(),
             ],
             default => [
-                Carbon::now()->startOfMonth(),
-                Carbon::now()->endOfMonth(),
-                Carbon::now()->subMonthNoOverflow()->startOfMonth(),
-                Carbon::now()->subMonthNoOverflow()->endOfMonth(),
+                $agora->copy()->startOfMonth(),
+                $agora->copy()->endOfMonth(),
+                $agora->copy()->subMonthNoOverflow()->startOfMonth(),
+                $agora->copy()->subMonthNoOverflow()->endOfMonth(),
             ],
         };
 
         // 1. Lançamentos Financeiros no Período Atual e Anterior
-        $queryLancamentos = LancamentoFinanceiro::with('tarefa.agendamentoServico.servico')
-            ->whereBetween('data_lancamento', [$inicioPeriodo->toDateString(), $fimPeriodo->toDateString()]);
-
-        $lancamentosPeriodo = (clone $queryLancamentos)
+        $lancamentosPeriodo = LancamentoFinanceiro::with(['tarefa.agendamentoServico.servico', 'tarefa.ordemServico'])
+            ->whereBetween('data_lancamento', [$inicioPeriodo->toDateString(), $fimPeriodo->toDateString()])
             ->orderByDesc('data_lancamento')
             ->orderByDesc('id')
             ->get();
 
-        // 1.1 Custos de Produtos/Insumos Consumidos nas Tarefas no Período (tabela tarefa_produto)
+        // 1.1 Custos de Produtos/Insumos Consumidos nas Tarefas (exclui OS canceladas)
         $consumosTarefasPeriodo = TarefaProduto::with(['produto', 'tarefa.ordemServico', 'tarefa.agendamentoServico.servico'])
             ->whereBetween('created_at', [$inicioPeriodo, $fimPeriodo])
+            ->whereHas('tarefa.ordemServico', fn ($q) => $q->where('status', '!=', 'cancelada'))
             ->orderByDesc('created_at')
             ->get();
 
@@ -77,13 +79,34 @@ class RelatorioController extends Controller
             $variacaoReceitaPercent = $receitaTotal > 0 ? 100.0 : 0.0;
         }
 
-        $margemPercent = $receitaTotal > 0
-            ? round(($saldoLiquido / $receitaTotal) * 100, 1)
-            : 0.0;
+        if ($receitaTotal > 0) {
+            $margemPercent = round(($saldoLiquido / $receitaTotal) * 100, 1);
+        } elseif ($despesaTotal > 0) {
+            $margemPercent = -100.0;
+        } else {
+            $margemPercent = 0.0;
+        }
 
-        // 2. Ordens de Serviço e Ticket Médio no Período
-        $totalOS = OrdemServico::whereBetween('created_at', [$inicioPeriodo, $fimPeriodo])->count();
-        $ticketMedio = $totalOS > 0 ? ($receitaTotal / $totalOS) : 0.0;
+        // 2. Ordens de Serviço (exclui canceladas) e Ticket Médio no Período
+        $totalOS = OrdemServico::where('status', '!=', 'cancelada')
+            ->where(function ($q) use ($inicioPeriodo, $fimPeriodo) {
+                $q->whereBetween('data_fim', [$inicioPeriodo, $fimPeriodo])
+                    ->orWhere(function ($sub) use ($inicioPeriodo, $fimPeriodo) {
+                        $sub->whereNull('data_fim')
+                            ->whereBetween('created_at', [$inicioPeriodo, $fimPeriodo]);
+                    });
+            })
+            ->count();
+
+        $qtdOsComReceita = $lancamentosPeriodo
+            ->where('tipo', 'receita')
+            ->map(fn ($l) => $l->tarefa?->ordem_servico_id)
+            ->filter()
+            ->unique()
+            ->count();
+
+        $divisorTicket = $qtdOsComReceita > 0 ? $qtdOsComReceita : $totalOS;
+        $ticketMedio = $divisorTicket > 0 ? ($receitaTotal / $divisorTicket) : 0.0;
 
         // 3. Receitas por Serviço (Top 4)
         $receitasPorServico = $lancamentosPeriodo
@@ -109,8 +132,6 @@ class RelatorioController extends Controller
 
         // 4. Despesas por Categoria (Unificando Despesas Lançadas + Insumos Consumidos nas Tarefas)
         $despesasCollection = $lancamentosPeriodo->where('tipo', 'despesa');
-
-        // Agrupa insumos consumidos por produto para detalhamento nas categorias de despesa
         $itensDespesaUnificados = collect();
 
         foreach ($despesasCollection as $item) {
@@ -152,7 +173,7 @@ class RelatorioController extends Controller
         $despesaInsumos = $custoInsumosTarefas + $despesaInsumosLancadas;
         $despesaAdministrativa = max(0.0, $despesaTotal - $despesaInsumos);
 
-        // 5. Extrato de Lançamentos Financeiros (Receitas + Despesas Manuais + Consumo de Insumos em Tarefas)
+        // 5. Extrato de Lançamentos Financeiros
         $extratoLancamentos = $lancamentosPeriodo->map(function ($item) {
             return [
                 'timestamp' => Carbon::parse($item->data_lancamento)->endOfDay()->timestamp,
@@ -164,7 +185,7 @@ class RelatorioController extends Controller
             ];
         });
 
-        $extratoConsumos = $consumosTarefasPeriodo->map(function ($tp) {
+        $extratoConsumos = $consumosTarefasPeriodo->map(function ($tp) use ($agora) {
             $produtoNome = $tp->produto?->nome ?? 'Produto';
             $unidade = $tp->produto?->unidade_medida ?? 'un';
             $qtdFormatada = rtrim(rtrim(number_format((float) $tp->quantidade_utilizada, 3, ',', '.'), '0'), ',');
@@ -173,8 +194,8 @@ class RelatorioController extends Controller
             $complemento = $servicoNome ? "{$servicoNome} ({$numeroOS})" : $numeroOS;
 
             return [
-                'timestamp' => $tp->created_at ? $tp->created_at->timestamp : now()->timestamp,
-                'data' => $tp->created_at ? $tp->created_at->format('d/m/Y') : now()->format('d/m/Y'),
+                'timestamp' => $tp->created_at ? $tp->created_at->timestamp : $agora->timestamp,
+                'data' => $tp->created_at ? $tp->created_at->format('d/m/Y') : $agora->format('d/m/Y'),
                 'descricao' => "Consumo de Insumo: {$produtoNome} ({$qtdFormatada} {$unidade}) — {$complemento}",
                 'categoria' => 'Insumos (Tarefas)',
                 'tipo' => 'despesa',
@@ -201,18 +222,19 @@ class RelatorioController extends Controller
         $tarefasConcluidasPeriodo = Tarefa::with('agendamentoServico.servico')
             ->where('status', 'concluida')
             ->whereBetween('data_conclusao', [$inicioPeriodo, $fimPeriodo])
+            ->whereHas('ordemServico', fn ($q) => $q->where('status', '!=', 'cancelada'))
             ->get();
 
         $tarefasExecutadas = $tarefasConcluidasPeriodo->count();
         $mediaTarefasPorOs = $totalOS > 0 ? round($tarefasExecutadas / $totalOS, 1) : 0.0;
 
-        // Tempo médio real de atendimento das tarefas concluídas
+        // Tempo médio real de atendimento das tarefas concluídas (< 60s arredonda para min 1m)
         if ($tarefasExecutadas > 0) {
             $somaMinutos = $tarefasConcluidasPeriodo->sum(function ($tarefa) {
                 if ($tarefa->data_inicio && $tarefa->data_conclusao) {
-                    $diff = (int) $tarefa->data_inicio->diffInMinutes($tarefa->data_conclusao);
-                    if ($diff > 0) {
-                        return $diff;
+                    $diffSeconds = $tarefa->data_inicio->diffInSeconds($tarefa->data_conclusao, false);
+                    if ($diffSeconds >= 0) {
+                        return max(1, (int) round($diffSeconds / 60));
                     }
                 }
 
@@ -229,11 +251,17 @@ class RelatorioController extends Controller
             $tempoMedioFormatado = '0m';
         }
 
-        // 7. Ranking de Serviços Mais Realizados no Período
+        // 7. Ranking de Serviços Mais Realizados (apenas agendamentos concluídos no período)
         $itensServicosPeriodo = AgendamentoServico::with(['servico', 'agendamento'])
             ->whereHas('agendamento', function ($q) use ($inicioPeriodo, $fimPeriodo) {
-                $q->whereBetween('data_inicio', [$inicioPeriodo, $fimPeriodo])
-                    ->where('status', '!=', 'cancelado');
+                $q->where('status', 'concluido')
+                    ->where(function ($dq) use ($inicioPeriodo, $fimPeriodo) {
+                        $dq->whereBetween('data_conclusao', [$inicioPeriodo, $fimPeriodo])
+                            ->orWhere(function ($sub) use ($inicioPeriodo, $fimPeriodo) {
+                                $sub->whereNull('data_conclusao')
+                                    ->whereBetween('data_inicio', [$inicioPeriodo, $fimPeriodo]);
+                            });
+                    });
             })
             ->get();
 
@@ -262,28 +290,53 @@ class RelatorioController extends Controller
 
         $maxExecucoesServico = max((int) $servicosRanking->max('execucoes'), 1);
 
-        // 8. Produtividade da Equipe no Período
+        // 8. Produtividade da Equipe no Período (1 query, sem N+1, inclui inativos com atividade no período)
+        $tarefasEquipe = Tarefa::whereNotNull('funcionario_id')
+            ->whereHas('ordemServico', fn ($q) => $q->where('status', '!=', 'cancelada'))
+            ->where(function ($q) use ($inicioPeriodo, $fimPeriodo) {
+                $q->whereBetween('created_at', [$inicioPeriodo, $fimPeriodo])
+                    ->orWhereBetween('data_conclusao', [$inicioPeriodo, $fimPeriodo]);
+            })
+            ->get();
+
+        $idsComAtividade = $tarefasEquipe->pluck('funcionario_id')->unique()->filter()->all();
+        $tarefasPorFuncionario = $tarefasEquipe->groupBy('funcionario_id');
+
         $funcionarios = Funcionario::with('user')
-            ->where('ativo', true)
+            ->where(function ($q) use ($idsComAtividade) {
+                $q->where('ativo', true);
+                if (!empty($idsComAtividade)) {
+                    $q->orWhereIn('id', $idsComAtividade);
+                }
+            })
             ->get()
-            ->map(function ($func) use ($inicioPeriodo, $fimPeriodo) {
-                $tarefasAtribuidas = Tarefa::where('funcionario_id', $func->id)
-                    ->where(function ($q) use ($inicioPeriodo, $fimPeriodo) {
-                        $q->whereBetween('created_at', [$inicioPeriodo, $fimPeriodo])
-                            ->orWhereBetween('data_conclusao', [$inicioPeriodo, $fimPeriodo]);
-                    })
-                    ->get();
+            ->map(function (Funcionario $func) use ($tarefasPorFuncionario, $inicioPeriodo, $fimPeriodo) {
+                $tarefasFunc = $tarefasPorFuncionario->get($func->id, collect());
 
-                $totalAtribuidas = $tarefasAtribuidas->count();
-                $concluidas = $tarefasAtribuidas->where('status', 'concluida')->count();
-                $taxa = $totalAtribuidas > 0 ? (int) round(($concluidas / $totalAtribuidas) * 100) : 0;
+                $concluidasNoPeriodo = $tarefasFunc->filter(function (Tarefa $t) use ($inicioPeriodo, $fimPeriodo) {
+                    return $t->status === 'concluida'
+                        && $t->data_conclusao !== null
+                        && $t->data_conclusao->between($inicioPeriodo, $fimPeriodo);
+                });
 
-                $nome = $func->user?->name ?? 'Colaborador';
-                $partes = preg_split('/\s+/', trim($nome)) ?: [];
-                $iniciais = strtoupper(
-                    substr($partes[0] ?? 'C', 0, 1) .
-                    substr($partes[1] ?? ($partes[0] ?? 'B'), isset($partes[1]) ? 0 : 1, 1)
-                );
+                $criadasNoPeriodo = $tarefasFunc->filter(function (Tarefa $t) use ($inicioPeriodo, $fimPeriodo) {
+                    return $t->created_at !== null && $t->created_at->between($inicioPeriodo, $fimPeriodo);
+                });
+
+                $totalAtribuidas = $criadasNoPeriodo
+                    ->merge($concluidasNoPeriodo)
+                    ->unique('id')
+                    ->count();
+
+                $concluidas = $concluidasNoPeriodo->count();
+                $taxa = $totalAtribuidas > 0 ? min(100, (int) round(($concluidas / $totalAtribuidas) * 100)) : 0;
+
+                $nome = trim((string) ($func->user?->name ?? 'Colaborador'));
+                $partes = preg_split('/\s+/u', $nome, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $p1 = $partes[0] ?? 'C';
+                $iniciais = isset($partes[1])
+                    ? mb_strtoupper(mb_substr($p1, 0, 1, 'UTF-8') . mb_substr($partes[1], 0, 1, 'UTF-8'), 'UTF-8')
+                    : mb_strtoupper(mb_substr($p1, 0, 2, 'UTF-8'), 'UTF-8');
 
                 return [
                     'nome' => $nome,
@@ -328,7 +381,8 @@ class RelatorioController extends Controller
             'despesasPorCategoria',
             'servicosRanking',
             'maxExecucoesServico',
-            'funcionarios'
+            'funcionarios',
+            'periodo'
         ));
     }
 }

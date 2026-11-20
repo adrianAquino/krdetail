@@ -9,142 +9,150 @@ use App\Models\OrdemServico;
 use App\Models\Produto;
 use App\Models\Servico;
 use App\Models\Tarefa;
-use App\Models\User;
 use App\Models\Veiculo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(): View
     {
-        /** @var User|null $user */
         $user = Auth::user();
+        $agora = Carbon::now();
 
-        if ($user instanceof User && $user->isCliente()) {
+        if ($user && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
 
-            $meusVeiculos = Veiculo::withCount('agendamentos')
+            $meusVeiculos = Veiculo::withCount([
+                'agendamentos' => fn ($q) => $q->where('cliente_id', $cliente->id)->where('status', '!=', 'cancelado'),
+            ])
                 ->where('cliente_id', $cliente->id)
-                ->orderByDesc('created_at')
+                ->orderBy('marca')
+                ->orderBy('modelo')
                 ->get();
 
             $agendamentosAtivos = Agendamento::with([
                 'veiculo',
                 'servicos',
-                'agendamentosServicos.servico',
                 'ordemServico.tarefas.agendamentoServico.servico',
             ])
                 ->where('cliente_id', $cliente->id)
-                ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
-                ->orderBy('data_inicio', 'asc')
-                ->get();
-
-            $historicoServicos = Agendamento::with([
-                'veiculo',
-                'servicos',
-                'agendamentosServicos.servico',
-                'ordemServico.tarefas.agendamentoServico.servico',
-            ])
-                ->where('cliente_id', $cliente->id)
-                ->whereIn('status', ['concluido', 'cancelado'])
-                ->orderByDesc('data_inicio')
-                ->take(10)
+                ->whereNotIn('status', ['concluido', 'cancelado'])
+                ->orderBy('data_inicio')
                 ->get();
 
             $totalConcluidos = Agendamento::where('cliente_id', $cliente->id)
                 ->where('status', 'concluido')
                 ->count();
 
+            $historicoServicos = Agendamento::with(['veiculo', 'servicos'])
+                ->where('cliente_id', $cliente->id)
+                ->where('status', 'concluido')
+                ->orderByDesc('data_conclusao')
+                ->orderByDesc('data_inicio')
+                ->limit(5)
+                ->get();
+
             return view('dashboard.cliente', compact(
                 'cliente',
                 'meusVeiculos',
                 'agendamentosAtivos',
-                'historicoServicos',
-                'totalConcluidos'
+                'totalConcluidos',
+                'historicoServicos'
             ));
         }
 
-        $hoje = Carbon::today();
-        $inicioMes = Carbon::now()->startOfMonth();
-        $fimMes = Carbon::now()->endOfMonth();
-        $inicioMesAnterior = Carbon::now()->subMonthNoOverflow()->startOfMonth();
-        $fimMesAnterior = Carbon::now()->subMonthNoOverflow()->endOfMonth();
+        $inicioHoje = $agora->copy()->startOfDay();
+        $fimHoje = $agora->copy()->endOfDay();
+        $inicioMesAtual = $agora->copy()->startOfMonth();
+        $fimMesAtual = $agora->copy()->endOfMonth();
+        $inicioMesAnterior = $agora->copy()->subMonthNoOverflow()->startOfMonth();
+        $fimMesAnterior = $agora->copy()->subMonthNoOverflow()->endOfMonth();
 
-        // 1. Clientes e Variação Mensal
+        // Clientes
         $totalClientes = Cliente::count();
-        $clientesMesAtual = Cliente::whereBetween('created_at', [$inicioMes, $fimMes])->count();
+        $clientesMesAtual = Cliente::whereBetween('created_at', [$inicioMesAtual, $fimMesAtual])->count();
         $clientesMesAnterior = Cliente::whereBetween('created_at', [$inicioMesAnterior, $fimMesAnterior])->count();
+        $variacaoClientesPercent = $clientesMesAnterior > 0
+            ? round((($clientesMesAtual - $clientesMesAnterior) / $clientesMesAnterior) * 100, 1)
+            : ($clientesMesAtual > 0 ? 100.0 : 0.0);
 
-        if ($clientesMesAnterior > 0) {
-            $variacaoClientesPercent = round((($clientesMesAtual - $clientesMesAnterior) / $clientesMesAnterior) * 100, 1);
-        } else {
-            $variacaoClientesPercent = $clientesMesAtual > 0 ? 100.0 : 0.0;
-        }
-
-        // 2. Veículos e Percentual com Histórico de Agendamentos
+        // Veículos
         $totalVeiculos = Veiculo::count();
-        $veiculosComHistorico = Veiculo::has('agendamentos')->count();
+        $veiculosComHistorico = Veiculo::whereHas('agendamentos', function ($q) {
+            $q->where('status', '!=', 'cancelado');
+        })->count();
         $percentVeiculosAtivos = $totalVeiculos > 0
-            ? round(($veiculosComHistorico / $totalVeiculos) * 100)
-            : 0;
+            ? round(($veiculosComHistorico / $totalVeiculos) * 100, 1)
+            : 0.0;
 
-        // 3. Agendamentos de Hoje
-        $agendamentosHojeCount = Agendamento::whereDate('data_inicio', $hoje)->count();
-        $agendamentosPendentesHoje = Agendamento::whereDate('data_inicio', $hoje)
+        // Agendamentos de hoje (exclui cancelados)
+        $agendamentosHojeCount = Agendamento::whereBetween('data_inicio', [$inicioHoje, $fimHoje])
+            ->where('status', '!=', 'cancelado')
+            ->count();
+
+        $agendamentosPendentesHoje = Agendamento::whereBetween('data_inicio', [$inicioHoje, $fimHoje])
             ->whereIn('status', ['agendado', 'confirmado'])
             ->count();
 
-        // 4. Receitas do Mês e Variação em relação ao Mês Anterior
+        // Receita do mês atual vs mês anterior
         $receitaMes = (float) LancamentoFinanceiro::where('tipo', 'receita')
-            ->whereBetween('data_lancamento', [$inicioMes->toDateString(), $fimMes->toDateString()])
+            ->whereBetween('data_lancamento', [$inicioMesAtual->toDateString(), $fimMesAtual->toDateString()])
             ->sum('valor');
 
         $receitaMesAnterior = (float) LancamentoFinanceiro::where('tipo', 'receita')
             ->whereBetween('data_lancamento', [$inicioMesAnterior->toDateString(), $fimMesAnterior->toDateString()])
             ->sum('valor');
 
-        if ($receitaMesAnterior > 0) {
-            $variacaoReceitaPercent = round((($receitaMes - $receitaMesAnterior) / $receitaMesAnterior) * 100, 1);
-        } else {
-            $variacaoReceitaPercent = $receitaMes > 0 ? 100.0 : 0.0;
-        }
+        $variacaoReceitaPercent = $receitaMesAnterior > 0
+            ? round((($receitaMes - $receitaMesAnterior) / $receitaMesAnterior) * 100, 1)
+            : ($receitaMes > 0 ? 100.0 : 0.0);
 
-        // 5. Próximos Agendamentos
-        $proximosAgendamentos = Agendamento::with(['cliente', 'veiculo', 'servicos'])
-            ->where('data_inicio', '>=', $hoje)
-            ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
-            ->orderBy('data_inicio', 'asc')
-            ->take(5)
+        // Próximos agendamentos (inclui em_andamento mesmo iniciados em dias anteriores)
+        $proximosAgendamentos = Agendamento::with(['cliente.pessoa', 'veiculo', 'servicos'])
+            ->whereNotIn('status', ['concluido', 'cancelado'])
+            ->where(function ($q) use ($inicioHoje) {
+                $q->where('data_inicio', '>=', $inicioHoje)
+                    ->orWhere('status', 'em_andamento');
+            })
+            ->orderBy('data_inicio')
+            ->limit(6)
             ->get();
 
-        // 6. Alertas de Estoque Baixo
+        // Alertas de estoque baixo
         $produtosEstoqueBaixo = Produto::where('ativo', true)
+            ->where('estoque_minimo', '>', 0)
             ->whereColumn('quantidade_estoque', '<=', 'estoque_minimo')
-            ->orderBy('quantidade_estoque', 'asc')
-            ->take(5)
+            ->orderByRaw('(quantidade_estoque / CASE WHEN estoque_minimo > 0 THEN estoque_minimo ELSE 1 END) ASC')
+            ->limit(6)
             ->get();
 
-        // 7. Serviços Mais Realizados (baseado na contagem real de agendamentos_servicos)
-        $servicosPopulares = Servico::withCount('agendamentosServicos')
-            ->where('ativo', true)
+        // Serviços mais realizados (exclui agendamentos cancelados)
+        $servicosPopulares = Servico::where('ativo', true)
+            ->withCount([
+                'agendamentosServicos' => fn ($q) => $q->whereHas('agendamento', fn ($aq) => $aq->where('status', '!=', 'cancelado')),
+            ])
             ->orderByDesc('agendamentos_servicos_count')
-            ->take(5)
+            ->limit(5)
             ->get();
 
-        // 8. Resumo Operacional de Ordens de Serviço e Tarefas
-        $osEmAndamento = OrdemServico::where('status', 'em_andamento')->count();
+        // Resumo operacional de Ordens de Serviço e Tarefas
+        $osEmAndamento = OrdemServico::whereIn('status', ['aberta', 'em_andamento'])->count();
+
         $tarefasConcluidasHoje = Tarefa::where('status', 'concluida')
-            ->whereDate('data_conclusao', $hoje)
+            ->whereBetween('data_conclusao', [$inicioHoje, $fimHoje])
+            ->whereHas('ordemServico', fn ($q) => $q->where('status', '!=', 'cancelada'))
             ->count();
-        $tarefasPendentes = Tarefa::whereIn('status', ['pendente', 'em_andamento'])->count();
+
+        $tarefasPendentes = Tarefa::whereIn('status', ['pendente', 'em_andamento'])
+            ->whereHas('ordemServico', fn ($q) => $q->whereNotIn('status', ['cancelada', 'concluida']))
+            ->count();
 
         return view('dashboard.index', compact(
             'totalClientes',
-            'clientesMesAtual',
             'variacaoClientesPercent',
             'totalVeiculos',
-            'veiculosComHistorico',
             'percentVeiculosAtivos',
             'agendamentosHojeCount',
             'agendamentosPendentesHoje',
