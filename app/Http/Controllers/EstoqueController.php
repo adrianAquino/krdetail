@@ -19,12 +19,12 @@ class EstoqueController extends Controller
      */
     public function index(Request $request): View
     {
-        $tabRaw = $request->string('tab')->toString();
+        $tabRaw = $this->inputString($request, 'tab');
         $tabAtiva = in_array($tabRaw, ['produtos', 'inativos', 'movimentacoes'], true)
             ? $tabRaw
             : 'produtos';
 
-        $busca = trim($request->string('busca')->toString());
+        $busca = trim($this->inputString($request, 'busca'));
 
         $produtosAtivosBase = Produto::where('ativo', true);
         $produtosInativosBase = Produto::where('ativo', false);
@@ -85,7 +85,7 @@ class EstoqueController extends Controller
      */
     public function movimentar(Request $request, MovimentarEstoqueService $service): RedirectResponse
     {
-        $tipoMovimentacao = $request->string('tipo_movimentacao')->toString();
+        $tipoMovimentacao = $this->inputString($request, 'tipo_movimentacao');
         $minQuantidade = $tipoMovimentacao === 'ajuste' ? '0' : '0.001';
 
         $user = Auth::user();

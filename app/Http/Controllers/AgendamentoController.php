@@ -38,12 +38,12 @@ class AgendamentoController extends Controller
             $query->where('cliente_id', $cliente->id);
         }
 
-        $status = $request->string('status')->trim()->toString();
+        $status = trim($this->inputString($request, 'status'));
         if (in_array($status, ['agendado', 'confirmado', 'em_andamento', 'concluido', 'cancelado'], true)) {
             $query->where('status', $status);
         }
 
-        $busca = $request->string('busca')->trim()->toString();
+        $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
             $query->where(function ($q) use ($busca, $user) {
                 $q->whereHas('veiculo', fn ($vq) => $vq->where('placa', 'like', "%{$busca}%")

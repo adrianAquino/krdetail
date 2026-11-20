@@ -16,7 +16,7 @@ class ProdutoController extends Controller
     {
         $query = Produto::query();
 
-        $busca = $request->string('busca')->trim()->toString();
+        $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
             $query->where(function ($q) use ($busca) {
                 $q->where('nome', 'like', "%{$busca}%")
@@ -24,8 +24,8 @@ class ProdutoController extends Controller
             });
         }
 
-        $status = $request->string('status')->toString();
-        $alerta = $request->string('alerta')->toString();
+        $status = $this->inputString($request, 'status');
+        $alerta = $this->inputString($request, 'alerta');
         if ($status === 'baixo' || $alerta === 'baixo') {
             $query->whereColumn('quantidade_estoque', '<=', 'estoque_minimo');
         } elseif ($status === 'ativo') {

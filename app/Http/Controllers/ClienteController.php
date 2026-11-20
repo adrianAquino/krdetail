@@ -25,7 +25,7 @@ class ClienteController extends Controller
     {
         $query = Cliente::with('user')->withCount('veiculos');
 
-        $busca = $request->string('busca')->trim()->toString();
+        $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
             $query->where(function ($q) use ($busca) {
                 $q->where('nome', 'like', "%{$busca}%")
@@ -35,7 +35,7 @@ class ClienteController extends Controller
             });
         }
 
-        $acesso = $request->string('acesso')->toString();
+        $acesso = $this->inputString($request, 'acesso');
         if (in_array($acesso, ['ativo', 'com'], true)) {
             $query->whereNotNull('user_id')
                 ->whereHas('user', fn ($q) => $q->where('ativo', true));
@@ -60,13 +60,18 @@ class ClienteController extends Controller
     {
         $criarUsuario = $request->boolean('criar_usuario');
 
-        $emailRaw = $request->string('email')->trim()->lower()->toString();
-        $estadoRaw = $request->string('estado')->trim()->upper()->toString();
-        $request->merge([
-            'email' => $emailRaw !== '' ? $emailRaw : null,
+        $mergeCli = [
             'cpf_cnpj' => CpfCnpj::normalizar($request->input('cpf_cnpj')),
-            'estado' => $estadoRaw !== '' ? $estadoRaw : null,
-        ]);
+        ];
+        if (is_scalar($request->input('email'))) {
+            $emailRaw = mb_strtolower(trim((string) $request->input('email')));
+            $mergeCli['email'] = $emailRaw !== '' ? $emailRaw : null;
+        }
+        if (is_scalar($request->input('estado'))) {
+            $estadoRaw = mb_strtoupper(trim((string) $request->input('estado')));
+            $mergeCli['estado'] = $estadoRaw !== '' ? $estadoRaw : null;
+        }
+        $request->merge($mergeCli);
 
         $rules = [
             'nome' => 'required|string|min:3|max:100',
@@ -200,13 +205,18 @@ class ClienteController extends Controller
     {
         $criarUsuario = $request->boolean('criar_usuario') && empty($cliente->user_id);
 
-        $emailRaw = $request->string('email')->trim()->lower()->toString();
-        $estadoRaw = $request->string('estado')->trim()->upper()->toString();
-        $request->merge([
-            'email' => $emailRaw !== '' ? $emailRaw : null,
+        $mergeCli = [
             'cpf_cnpj' => CpfCnpj::normalizar($request->input('cpf_cnpj')),
-            'estado' => $estadoRaw !== '' ? $estadoRaw : null,
-        ]);
+        ];
+        if (is_scalar($request->input('email'))) {
+            $emailRaw = mb_strtolower(trim((string) $request->input('email')));
+            $mergeCli['email'] = $emailRaw !== '' ? $emailRaw : null;
+        }
+        if (is_scalar($request->input('estado'))) {
+            $estadoRaw = mb_strtoupper(trim((string) $request->input('estado')));
+            $mergeCli['estado'] = $estadoRaw !== '' ? $estadoRaw : null;
+        }
+        $request->merge($mergeCli);
 
         $emailRules = ['nullable', 'email', 'max:100'];
         if ($criarUsuario) {
@@ -341,10 +351,10 @@ class ClienteController extends Controller
                     $user = User::find($userId);
                     if ($user && $user->isCliente()) {
                         DB::table('sessions')->where('user_id', $user->id)->delete();
-                        $user->update([
+                        $user->forceFill([
                             'ativo' => false,
                             'remember_token' => Str::random(60),
-                        ]);
+                        ])->save();
                     }
                 }
 
@@ -354,7 +364,7 @@ class ClienteController extends Controller
                         || User::where('pessoa_id', $pessoaId)->where('ativo', true)->exists();
 
                     if (! $aindaEmUso) {
-                        Pessoa::where('id', $pessoaId)->delete();
+                        Pessoa::find($pessoaId)?->delete();
                     }
                 }
             });

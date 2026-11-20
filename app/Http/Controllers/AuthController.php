@@ -27,9 +27,11 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
-        ]);
+        if (is_scalar($request->input('email'))) {
+            $request->merge([
+                'email' => mb_strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
 
         $credentials = $request->validate([
             'email' => 'required|email|max:100',
@@ -58,14 +60,17 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $emailNormalizado = $request->string('email')->trim()->lower()->toString();
+        $emailNormalizado = mb_strtolower(trim($this->inputString($request, 'email')));
         $cpfCnpjRaw = $request->input('cpf_cnpj');
         $cpfCnpjNormalizado = CpfCnpj::normalizar($cpfCnpjRaw);
 
-        $request->merge([
-            'email' => $emailNormalizado,
+        $mergeRegister = [
             'cpf_cnpj' => is_string($cpfCnpjRaw) && trim($cpfCnpjRaw) !== '' ? $cpfCnpjNormalizado : null,
-        ]);
+        ];
+        if (is_scalar($request->input('email'))) {
+            $mergeRegister['email'] = $emailNormalizado;
+        }
+        $request->merge($mergeRegister);
 
         // Verifica se já existe um cadastro presencial de cliente (sem user_id) com este e-mail
         $clienteExistente = $emailNormalizado !== ''
@@ -234,9 +239,11 @@ class AuthController extends Controller
 
     public function sendResetLinkEmail(Request $request)
     {
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
-        ]);
+        if (is_scalar($request->input('email'))) {
+            $request->merge([
+                'email' => mb_strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
 
         $validated = $request->validate([
             'email' => 'required|email|max:100',
@@ -286,15 +293,17 @@ class AuthController extends Controller
     {
         return view('auth.reset-password', [
             'token' => $token,
-            'email' => $request->string('email')->trim()->toString(),
+            'email' => trim($this->inputString($request, 'email')),
         ]);
     }
 
     public function resetPassword(Request $request)
     {
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
-        ]);
+        if (is_scalar($request->input('email'))) {
+            $request->merge([
+                'email' => mb_strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
 
         $validated = $request->validate([
             'token' => 'required|string',

@@ -155,12 +155,17 @@ class ConfiguracaoController extends Controller
             ? $user->ensureClienteProfile()
             : Cliente::withoutGlobalScopes()->where('user_id', $user->id)->first();
 
-        $estadoRaw = $request->string('estado')->trim()->upper()->toString();
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
+        $mergePerfil = [
             'cpf_cnpj' => CpfCnpj::normalizar($request->input('cpf_cnpj')),
-            'estado' => $estadoRaw !== '' ? $estadoRaw : null,
-        ]);
+        ];
+        if (is_scalar($request->input('email'))) {
+            $mergePerfil['email'] = mb_strtolower(trim((string) $request->input('email')));
+        }
+        if (is_scalar($request->input('estado'))) {
+            $estadoRaw = mb_strtoupper(trim((string) $request->input('estado')));
+            $mergePerfil['estado'] = $estadoRaw !== '' ? $estadoRaw : null;
+        }
+        $request->merge($mergePerfil);
 
         $rules = [
             'name' => 'required|string|min:3|max:100',
@@ -213,10 +218,13 @@ class ConfiguracaoController extends Controller
                 $alterouSenha = ! empty($validated['password']);
                 if ($alterouSenha) {
                     $dadosUser['password'] = $validated['password'];
-                    $dadosUser['remember_token'] = Str::random(60);
                 }
 
                 $user->update($dadosUser);
+
+                if ($alterouSenha) {
+                    $user->forceFill(['remember_token' => Str::random(60)])->save();
+                }
 
                 if ($user->pessoa_id) {
                     $pessoa = Pessoa::withTrashed()->find($user->pessoa_id);
@@ -290,12 +298,17 @@ class ConfiguracaoController extends Controller
             return back()->with('error', 'Para cadastrar uma empresa, é necessário estar logado como Dono de Empresa ou Administrador Geral do Sistema.');
         }
 
-        $ufRaw = $request->string('uf')->trim()->upper()->toString();
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
+        $mergeStoreEmp = [
             'cnpj' => CpfCnpj::normalizar($request->input('cnpj')),
-            'uf' => $ufRaw !== '' ? $ufRaw : null,
-        ]);
+        ];
+        if (is_scalar($request->input('email'))) {
+            $mergeStoreEmp['email'] = mb_strtolower(trim((string) $request->input('email')));
+        }
+        if (is_scalar($request->input('uf'))) {
+            $ufRaw = mb_strtoupper(trim((string) $request->input('uf')));
+            $mergeStoreEmp['uf'] = $ufRaw !== '' ? $ufRaw : null;
+        }
+        $request->merge($mergeStoreEmp);
 
         $validated = $request->validate([
             'nome_fantasia' => 'required|string|max:100',
@@ -392,12 +405,17 @@ class ConfiguracaoController extends Controller
             return back()->with('error', 'Você não possui permissão para alterar os dados da empresa.');
         }
 
-        $ufRaw = $request->string('uf')->trim()->upper()->toString();
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
+        $mergeStoreEmp = [
             'cnpj' => CpfCnpj::normalizar($request->input('cnpj')),
-            'uf' => $ufRaw !== '' ? $ufRaw : null,
-        ]);
+        ];
+        if (is_scalar($request->input('email'))) {
+            $mergeStoreEmp['email'] = mb_strtolower(trim((string) $request->input('email')));
+        }
+        if (is_scalar($request->input('uf'))) {
+            $ufRaw = mb_strtoupper(trim((string) $request->input('uf')));
+            $mergeStoreEmp['uf'] = $ufRaw !== '' ? $ufRaw : null;
+        }
+        $request->merge($mergeStoreEmp);
 
         $validated = $request->validate([
             'nome_fantasia' => 'required|string|max:100',
@@ -554,9 +572,11 @@ class ConfiguracaoController extends Controller
             return back()->with('error', 'Seu usuário não está vinculado a uma empresa ativa.');
         }
 
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
-        ]);
+        if (is_scalar($request->input('email'))) {
+            $request->merge([
+                'email' => mb_strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
 
         $rolesPermitidos = $usuarioLogado->isAdministrador()
             ? ['administrador', 'dono', 'funcionario', 'cliente']
@@ -649,9 +669,11 @@ class ConfiguracaoController extends Controller
             }
         }
 
-        $request->merge([
-            'email' => $request->string('email')->trim()->lower()->toString(),
-        ]);
+        if (is_scalar($request->input('email'))) {
+            $request->merge([
+                'email' => mb_strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
 
         $rolesPermitidos = $usuarioLogado->isAdministrador()
             ? ['administrador', 'dono', 'funcionario', 'cliente']
@@ -693,10 +715,13 @@ class ConfiguracaoController extends Controller
 
                 if (! empty($validated['password'])) {
                     $dados['password'] = $validated['password'];
-                    $dados['remember_token'] = Str::random(60);
                 }
 
                 $user->update($dados);
+
+                if (! empty($validated['password'])) {
+                    $user->forceFill(['remember_token' => Str::random(60)])->save();
+                }
 
                 if (in_array($validated['tipo_usuario'], ['dono', 'funcionario'], true)) {
                     $cargoPadrao = $validated['tipo_usuario'] === 'dono'
@@ -765,12 +790,14 @@ class ConfiguracaoController extends Controller
         }
 
         $novoStatus = ! $user->ativo;
-        $dadosUpdate = ['ativo' => $novoStatus];
         if (! $novoStatus) {
-            $dadosUpdate['remember_token'] = Str::random(60);
+            $user->forceFill([
+                'ativo' => false,
+                'remember_token' => Str::random(60),
+            ])->save();
+        } else {
+            $user->update(['ativo' => true]);
         }
-
-        $user->update($dadosUpdate);
 
         if (! $novoStatus) {
             DB::table('sessions')->where('user_id', $user->id)->delete();
@@ -834,7 +861,7 @@ class ConfiguracaoController extends Controller
                         || Cliente::withoutGlobalScopes()->where('pessoa_id', $pessoaId)->exists();
 
                     if (! $aindaEmUso) {
-                        Pessoa::where('id', $pessoaId)->delete();
+                        Pessoa::find($pessoaId)?->delete();
                     }
                 }
             });

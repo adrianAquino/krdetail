@@ -12,7 +12,7 @@ class ServicoController extends Controller
     {
         $query = Servico::query();
 
-        $busca = $request->string('busca')->trim()->toString();
+        $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
             $query->where(function ($q) use ($busca) {
                 $q->where('nome', 'like', "%{$busca}%")
@@ -20,7 +20,7 @@ class ServicoController extends Controller
             });
         }
 
-        $status = $request->string('status')->toString();
+        $status = $this->inputString($request, 'status');
         if ($status === 'ativo') {
             $query->where('ativo', true);
         } elseif ($status === 'inativo') {

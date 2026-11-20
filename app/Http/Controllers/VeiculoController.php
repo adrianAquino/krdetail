@@ -26,7 +26,7 @@ class VeiculoController extends Controller
             $query = Veiculo::with('cliente')->withCount('agendamentos');
         }
 
-        $busca = $request->string('busca')->trim()->toString();
+        $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
             $query->where(function ($q) use ($busca, $user) {
                 $q->where('placa', 'like', "%{$busca}%")
@@ -71,8 +71,10 @@ class VeiculoController extends Controller
             $request->merge(['cliente_id' => $cliente->id]);
         }
 
-        $placaNormalizada = strtoupper((string) preg_replace('/[\s\-]+/', '', $request->string('placa')->toString()));
-        $request->merge(['placa' => $placaNormalizada]);
+        if (is_scalar($request->input('placa'))) {
+            $placaNormalizada = strtoupper((string) preg_replace('/[\s\-]+/', '', (string) $request->input('placa')));
+            $request->merge(['placa' => $placaNormalizada]);
+        }
 
         $clienteRule = Rule::exists('clientes', 'id');
         if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {
@@ -174,8 +176,10 @@ class VeiculoController extends Controller
             $request->merge(['cliente_id' => $cliente->id]);
         }
 
-        $placaNormalizada = strtoupper((string) preg_replace('/[\s\-]+/', '', $request->string('placa')->toString()));
-        $request->merge(['placa' => $placaNormalizada]);
+        if (is_scalar($request->input('placa'))) {
+            $placaNormalizada = strtoupper((string) preg_replace('/[\s\-]+/', '', (string) $request->input('placa')));
+            $request->merge(['placa' => $placaNormalizada]);
+        }
 
         $clienteRule = Rule::exists('clientes', 'id');
         if ($user instanceof User && ($user->isDono() || $user->isFuncionario())) {

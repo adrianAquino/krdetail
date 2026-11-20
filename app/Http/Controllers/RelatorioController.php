@@ -17,7 +17,7 @@ class RelatorioController extends Controller
 {
     public function index(Request $request): View
     {
-        $periodoRaw = $request->string('periodo')->toString();
+        $periodoRaw = $this->inputString($request, 'periodo');
         $periodo = in_array($periodoRaw, ['hoje', 'semana', 'mes', 'ano'], true) ? $periodoRaw : 'mes';
         $agora = Carbon::now();
 

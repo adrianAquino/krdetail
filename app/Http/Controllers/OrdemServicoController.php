@@ -25,12 +25,12 @@ class OrdemServicoController extends Controller
             'tarefas.funcionario.user',
         ]);
 
-        $status = $request->string('status')->trim()->toString();
+        $status = trim($this->inputString($request, 'status'));
         if (in_array($status, ['aberta', 'em_andamento', 'concluida', 'cancelada'], true)) {
             $query->where('status', $status);
         }
 
-        $busca = $request->string('busca')->trim()->toString();
+        $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
             $query->where(function ($q) use ($busca) {
                 $q->where('numero', 'like', "%{$busca}%")
