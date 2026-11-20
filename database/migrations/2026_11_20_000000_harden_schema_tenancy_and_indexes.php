@@ -155,6 +155,10 @@ return new class extends Migration
         }
 
         if (Schema::hasTable('lancamentos_financeiros') && Schema::hasColumn('lancamentos_financeiros', 'empresa_id')) {
+            Schema::table('lancamentos_financeiros', function (Blueprint $table) {
+                $table->dropForeign(['empresa_id']);
+            });
+
             if (Schema::hasIndex('lancamentos_financeiros', 'lancamentos_financeiros_empresa_id_index')) {
                 Schema::table('lancamentos_financeiros', function (Blueprint $table) {
                     $table->dropIndex('lancamentos_financeiros_empresa_id_index');
@@ -162,7 +166,7 @@ return new class extends Migration
             }
 
             Schema::table('lancamentos_financeiros', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('empresa_id');
+                $table->dropColumn('empresa_id');
             });
         }
     }
