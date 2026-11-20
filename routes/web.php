@@ -21,18 +21,18 @@ Route::get('/', function () {
 // Autenticação, Recuperação de Senha e Auto-Cadastro (Visitantes)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:15,1')->name('login.post');
     Route::get('/cadastro', [AuthController::class, 'showRegistrationForm'])->name('register');
-    Route::post('/cadastro', [AuthController::class, 'register'])->name('register.post');
+    Route::post('/cadastro', [AuthController::class, 'register'])->middleware('throttle:15,1')->name('register.post');
 
     Route::get('/esqueci-senha', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
-    Route::post('/esqueci-senha', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
+    Route::post('/esqueci-senha', [AuthController::class, 'sendResetLinkEmail'])->middleware('throttle:10,1')->name('password.email');
     Route::get('/redefinir-senha/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
-    Route::post('/redefinir-senha', [AuthController::class, 'resetPassword'])->name('password.update');
+    Route::post('/redefinir-senha', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1')->name('password.update');
 });
 
-// Sistema (Usuários Autenticados: Equipe e Clientes)
-Route::middleware('auth')->group(function () {
+// Sistema (Usuários Autenticados e Ativos: Equipe e Clientes)
+Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     // Dashboard (Adaptado por perfil: Equipe vs Portal do Cliente)

@@ -7,12 +7,16 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected $attributes = [
+        'ativo' => true,
+        'tipo_usuario' => 'cliente',
+    ];
 
     protected $fillable = [
         'pessoa_id',
@@ -33,6 +37,8 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'pessoa_id' => 'integer',
+            'empresa_id' => 'integer',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'ativo' => 'boolean',
@@ -44,13 +50,24 @@ class User extends Authenticatable
         // Centraliza e sincroniza os dados pessoais na tabela `pessoas` (Seção 9.3c)
         static::saving(function (User $user) {
             if ($user->pessoa_id) {
-                Pessoa::withoutEvents(function () use ($user) {
-                    Pessoa::where('id', $user->pessoa_id)->update([
-                        'nome' => $user->name,
-                        'email' => $user->email,
-                        'telefone' => $user->telefone,
-                    ]);
-                });
+                if ($user->isDirty(['name', 'email', 'telefone'])) {
+                    $dadosPessoa = [];
+                    if ($user->isDirty('name')) {
+                        $dadosPessoa['nome'] = $user->name;
+                    }
+                    if ($user->isDirty('email')) {
+                        $dadosPessoa['email'] = $user->email;
+                    }
+                    if ($user->isDirty('telefone')) {
+                        $dadosPessoa['telefone'] = $user->telefone;
+                    }
+
+                    if (! empty($dadosPessoa)) {
+                        Pessoa::withoutEvents(function () use ($user, $dadosPessoa) {
+                            Pessoa::where('id', $user->pessoa_id)->update($dadosPessoa);
+                        });
+                    }
+                }
             } else {
                 $pessoa = Pessoa::withoutEvents(fn () => Pessoa::create([
                     'nome' => $user->name,
@@ -60,52 +77,74 @@ class User extends Authenticatable
                 $user->pessoa_id = $pessoa->id;
             }
 
-            if (empty($user->empresa_id) && $user->tipo_usuario !== 'administrador' && Schema::hasTable('empresas')) {
-                $user->empresa_id = Empresa::query()->value('id');
+            if (empty($user->empresa_id) && $user->tipo_usuario === 'cliente' && $user->pessoa_id) {
+                $empresaDoCliente = Cliente::withoutGlobalScopes()
+                    ->where('pessoa_id', $user->pessoa_id)
+                    ->whereNotNull('empresa_id')
+                    ->value('empresa_id');
+
+                if ($empresaDoCliente) {
+                    $user->empresa_id = (int) $empresaDoCliente;
+                }
             }
         });
 
         static::saved(function (User $user) {
-            Cliente::withoutEvents(function () use ($user) {
-                $dadosUpdate = [
-                    'pessoa_id' => $user->pessoa_id,
-                    'nome' => $user->name,
-                    'email' => $user->email,
-                    'telefone' => $user->telefone ?? '',
-                ];
-                if ($user->empresa_id) {
-                    $dadosUpdate['empresa_id'] = $user->empresa_id;
-                }
+            // Propaga apenas alteração cadastral básica para Cliente vinculado (sem alterar empresa_id existente)
+            if ($user->wasRecentlyCreated || $user->wasChanged(['name', 'email', 'telefone', 'pessoa_id'])) {
+                Cliente::withoutEvents(function () use ($user) {
+                    $queryCliente = Cliente::withoutGlobalScopes()->where(function ($q) use ($user) {
+                        $q->where('user_id', $user->id);
+                        if ($user->pessoa_id) {
+                            $q->orWhere('pessoa_id', $user->pessoa_id);
+                        }
+                    });
 
-                Cliente::withoutGlobalScopes()
-                    ->where('user_id', $user->id)
-                    ->orWhere('pessoa_id', $user->pessoa_id)
-                    ->update($dadosUpdate);
-            });
+                    $dadosUpdate = [
+                        'pessoa_id' => $user->pessoa_id,
+                        'nome' => $user->name,
+                        'email' => $user->email,
+                        'telefone' => $user->telefone ?? '',
+                    ];
 
-            // Donos de empresa também podem prestar serviços (não limitado somente a funcionários)
-            if (in_array($user->tipo_usuario, ['dono', 'funcionario'], true) && Schema::hasTable('funcionarios')) {
-                $cargoPadrao = $user->tipo_usuario === 'dono'
-                    ? 'Proprietário / Especialista'
-                    : 'Operador de Detalhamento';
+                    (clone $queryCliente)->update($dadosUpdate);
 
-                $funcExistente = Funcionario::withoutGlobalScopes()->where('user_id', $user->id)->first();
-                if ($funcExistente) {
-                    $dadosFunc = ['ativo' => (bool) $user->ativo];
                     if ($user->empresa_id) {
-                        $dadosFunc['empresa_id'] = $user->empresa_id;
+                        (clone $queryCliente)->whereNull('empresa_id')->update(['empresa_id' => $user->empresa_id]);
                     }
-                    if ($user->tipo_usuario === 'dono' && $funcExistente->cargo === 'Operador de Detalhamento') {
-                        $dadosFunc['cargo'] = $cargoPadrao;
+                });
+            }
+
+            // Donos de empresa e funcionários possuem registro em funcionarios apenas quando o perfil/status exige
+            if ($user->wasRecentlyCreated || $user->wasChanged(['tipo_usuario', 'ativo', 'empresa_id'])) {
+                if (in_array($user->tipo_usuario, ['dono', 'funcionario'], true)) {
+                    $ativo = (bool) ($user->ativo ?? true);
+                    $cargoPadrao = $user->tipo_usuario === 'dono'
+                        ? 'Proprietário / Especialista'
+                        : 'Operador de Detalhamento';
+
+                    $funcExistente = Funcionario::withoutGlobalScopes()->where('user_id', $user->id)->first();
+                    if ($funcExistente) {
+                        $dadosFunc = ['ativo' => $ativo];
+                        if ($user->empresa_id) {
+                            $dadosFunc['empresa_id'] = $user->empresa_id;
+                        }
+                        if ($user->tipo_usuario === 'dono' && $funcExistente->cargo === 'Operador de Detalhamento') {
+                            $dadosFunc['cargo'] = $cargoPadrao;
+                        }
+                        $funcExistente->update($dadosFunc);
+                    } else {
+                        Funcionario::withoutGlobalScopes()->create([
+                            'user_id' => $user->id,
+                            'empresa_id' => $user->empresa_id,
+                            'cargo' => $cargoPadrao,
+                            'ativo' => $ativo,
+                        ]);
                     }
-                    $funcExistente->update($dadosFunc);
-                } else {
-                    Funcionario::withoutGlobalScopes()->create([
-                        'user_id' => $user->id,
-                        'empresa_id' => $user->empresa_id,
-                        'cargo' => $cargoPadrao,
-                        'ativo' => (bool) $user->ativo,
-                    ]);
+                } elseif ($user->wasChanged('tipo_usuario')) {
+                    Funcionario::withoutGlobalScopes()
+                        ->where('user_id', $user->id)
+                        ->update(['ativo' => false]);
                 }
             }
         });
@@ -141,6 +180,10 @@ class User extends Authenticatable
      */
     public function canManageEmpresa(?Empresa $empresa = null): bool
     {
+        if (! $this->ativo) {
+            return false;
+        }
+
         if ($this->isAdministrador()) {
             return true;
         }
@@ -150,8 +193,13 @@ class User extends Authenticatable
                 return true;
             }
 
-            return (int) $this->empresa_id === (int) $empresa->id
-                || (int) $empresa->dono_id === (int) $this->id;
+            if (! $empresa->exists) {
+                return false;
+            }
+
+            $mesmaEmpresa = $this->empresa_id !== null && (int) $this->empresa_id === (int) $empresa->id;
+
+            return $mesmaEmpresa || ((int) $empresa->dono_id === (int) $this->id);
         }
 
         return false;
@@ -163,26 +211,50 @@ class User extends Authenticatable
      */
     public function canManageUsers(): bool
     {
-        return $this->isAdministrador() || $this->isDono();
+        return $this->ativo && ($this->isAdministrador() || $this->isDono());
     }
 
     /**
-     * Retorna o ID da empresa ativa do usuário (para Dono, Funcionário ou Cliente).
+     * Retorna o ID da empresa ativa do usuário (fail-closed: sem fallback cruzado para Dono/Funcionário).
      */
     public function getEmpresaAtivaId(): ?int
     {
         if ($this->empresa_id) {
-            return (int) $this->empresa_id;
+            if (Empresa::whereKey($this->empresa_id)->exists()) {
+                return (int) $this->empresa_id;
+            }
+
+            if ($this->isDono()) {
+                $id = Empresa::where('dono_id', $this->id)->orderBy('id')->value('id');
+                return $id ? (int) $id : null;
+            }
+
+            return null;
         }
 
         if ($this->isDono()) {
-            $id = Empresa::where('dono_id', $this->id)->value('id');
-            if ($id) {
-                return (int) $id;
-            }
+            $id = Empresa::where('dono_id', $this->id)->orderBy('id')->value('id');
+            return $id ? (int) $id : null;
         }
 
-        return Empresa::query()->value('id');
+        if ($this->isCliente()) {
+            $empresaCliente = Cliente::withoutGlobalScopes()
+                ->where('user_id', $this->id)
+                ->value('empresa_id');
+
+            if ($empresaCliente && Empresa::whereKey($empresaCliente)->exists()) {
+                return (int) $empresaCliente;
+            }
+
+            return null;
+        }
+
+        if ($this->isAdministrador()) {
+            $id = Empresa::query()->orderBy('id')->value('id');
+            return $id ? (int) $id : null;
+        }
+
+        return null;
     }
 
     public function getRoleLabelAttribute(): string
@@ -198,7 +270,7 @@ class User extends Authenticatable
 
     /**
      * Garante que um usuário do tipo cliente possua um perfil Cliente vinculado
-     * compartilhando o mesmo registro em `pessoas`.
+     * dentro da mesma empresa e compartilhando o registro em `pessoas`.
      */
     public function ensureClienteProfile(): Cliente
     {
@@ -207,20 +279,24 @@ class User extends Authenticatable
             return $cliente;
         }
 
+        $empresaId = $this->getEmpresaAtivaId();
+
         $clienteExistente = Cliente::withoutGlobalScopes()
             ->whereNull('user_id')
+            ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
             ->where(function ($q) {
-                $q->whereRaw('LOWER(email) = ?', [strtolower($this->email)]);
+                $q->whereRaw('LOWER(email) = ?', [strtolower((string) $this->email)]);
                 if ($this->pessoa_id) {
                     $q->orWhere('pessoa_id', $this->pessoa_id);
                 }
             })
             ->first();
 
-        $empresaId = $this->getEmpresaAtivaId();
-
         if ($clienteExistente) {
-            $pessoaId = $clienteExistente->pessoa_id ?? $this->pessoa_id;
+            $pessoaId = $clienteExistente->pessoa_id ?: $this->pessoa_id;
+            if ($pessoaId && self::where('pessoa_id', $pessoaId)->where('id', '!=', $this->id)->exists()) {
+                $pessoaId = $this->pessoa_id;
+            }
 
             $clienteExistente->update([
                 'user_id' => $this->id,
@@ -229,16 +305,22 @@ class User extends Authenticatable
                 'telefone' => $clienteExistente->telefone ?: ($this->telefone ?? ''),
             ]);
 
-            if ($pessoaId && $this->pessoa_id !== $pessoaId) {
+            if ($pessoaId && (int) $this->pessoa_id !== (int) $pessoaId) {
                 $oldPessoaId = $this->pessoa_id;
                 self::withoutEvents(fn () => $this->update(['pessoa_id' => $pessoaId]));
-                if ($oldPessoaId && $oldPessoaId !== $pessoaId) {
-                    Pessoa::where('id', $oldPessoaId)->delete();
+                if ($oldPessoaId && (int) $oldPessoaId !== (int) $pessoaId) {
+                    $emUso = self::where('pessoa_id', $oldPessoaId)->exists()
+                        || Cliente::withoutGlobalScopes()->where('pessoa_id', $oldPessoaId)->exists();
+                    if (! $emUso) {
+                        Pessoa::where('id', $oldPessoaId)->delete();
+                    }
                 }
             }
 
             return $clienteExistente;
         }
+
+        $pessoa = $this->pessoa_id ? Pessoa::find($this->pessoa_id) : null;
 
         return Cliente::withoutGlobalScopes()->create([
             'pessoa_id' => $this->pessoa_id,
@@ -247,68 +329,52 @@ class User extends Authenticatable
             'nome' => $this->name,
             'email' => $this->email,
             'telefone' => $this->telefone ?? '',
+            'cpf_cnpj' => $pessoa?->cpf_cnpj,
+            'cep' => $pessoa?->cep,
+            'logradouro' => $pessoa?->logradouro,
+            'numero' => $pessoa?->numero,
+            'complemento' => $pessoa?->complemento,
+            'bairro' => $pessoa?->bairro,
+            'cidade' => $pessoa?->cidade,
+            'estado' => $pessoa?->estado,
         ]);
     }
 
-    /**
-     * Empresa à qual o usuário pertence.
-     */
     public function empresa()
     {
         return $this->belongsTo(Empresa::class, 'empresa_id');
     }
 
-    /**
-     * Empresas das quais o usuário é proprietário (dono).
-     */
     public function empresasProprias()
     {
         return $this->hasMany(Empresa::class, 'dono_id');
     }
 
-    /**
-     * Dados pessoais centralizados na tabela PESSOAS (3FN).
-     */
     public function pessoa()
     {
         return $this->belongsTo(Pessoa::class, 'pessoa_id');
     }
 
-    /**
-     * Um usuário pode estar associado a um cliente.
-     */
     public function cliente()
     {
         return $this->hasOne(Cliente::class);
     }
 
-    /**
-     * Um usuário pode estar associado a um funcionário (ou dono prestador de serviço).
-     */
     public function funcionario()
     {
         return $this->hasOne(Funcionario::class);
     }
 
-    /**
-     * Movimentações de estoque registradas pelo usuário.
-     */
     public function movimentacoesEstoque()
     {
         return $this->hasMany(MovimentacaoEstoque::class, 'usuario_id');
     }
 
-    /**
-     * Lançamentos financeiros registrados pelo usuário.
-     */
     public function lancamentosFinanceiros()
     {
         return $this->hasMany(LancamentoFinanceiro::class, 'usuario_id');
     }
 
-    /**
-     * Envia a notificação de redefinição de senha personalizada em Português.
-     */
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new ResetPasswordNotification($token));

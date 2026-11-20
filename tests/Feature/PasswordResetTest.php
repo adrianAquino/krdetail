@@ -83,7 +83,7 @@ class PasswordResetTest extends TestCase
         );
     }
 
-    public function test_solicitacao_para_email_inexistente_retorna_erro_e_nao_envia_notificacao(): void
+    public function test_solicitacao_para_email_inexistente_retorna_resposta_generica_e_nao_envia_notificacao(): void
     {
         Notification::fake();
 
@@ -91,7 +91,8 @@ class PasswordResetTest extends TestCase
             'email' => 'naoexiste@krdetail.test',
         ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
         Notification::assertNothingSent();
         $this->assertDatabaseMissing('password_reset_tokens', [
             'email' => 'naoexiste@krdetail.test',

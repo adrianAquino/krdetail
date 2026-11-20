@@ -32,11 +32,27 @@ class Empresa extends Model
         'ativo',
     ];
 
+    protected $attributes = [
+        'ativo' => true,
+    ];
+
     protected function casts(): array
     {
         return [
             'ativo' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Libera o CNPJ ao excluir logicamente a empresa para permitir recadastro futuro
+        static::deleting(function (Empresa $empresa) {
+            if (! $empresa->isForceDeleting() && $empresa->cnpj !== null) {
+                self::withoutEvents(function () use ($empresa) {
+                    self::where('id', $empresa->id)->update(['cnpj' => null]);
+                });
+            }
+        });
     }
 
     /**

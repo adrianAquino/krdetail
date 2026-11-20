@@ -32,18 +32,18 @@ class Pessoa extends Model
         // propaga de forma consistente para os registros vinculados em users e clientes.
         static::saved(function (Pessoa $pessoa) {
             User::withoutEvents(function () use ($pessoa) {
-                $dadosUser = ['name' => $pessoa->nome];
-                if (!empty($pessoa->email)) {
+                $dadosUser = [
+                    'name' => $pessoa->nome,
+                    'telefone' => $pessoa->telefone,
+                ];
+                if (! empty($pessoa->email)) {
                     $dadosUser['email'] = $pessoa->email;
-                }
-                if ($pessoa->telefone !== null) {
-                    $dadosUser['telefone'] = $pessoa->telefone;
                 }
                 User::where('pessoa_id', $pessoa->id)->update($dadosUser);
             });
 
             Cliente::withoutEvents(function () use ($pessoa) {
-                Cliente::where('pessoa_id', $pessoa->id)->update([
+                Cliente::withoutGlobalScopes()->where('pessoa_id', $pessoa->id)->update([
                     'nome' => $pessoa->nome,
                     'cpf_cnpj' => $pessoa->cpf_cnpj,
                     'telefone' => $pessoa->telefone ?? '',
@@ -58,19 +58,22 @@ class Pessoa extends Model
                 ]);
             });
         });
+
+        // Ao excluir logicamente, libera cpf_cnpj para evitar bloqueio permanente em UNIQUE
+        static::deleting(function (Pessoa $pessoa) {
+            if (! $pessoa->isForceDeleting() && $pessoa->cpf_cnpj !== null) {
+                self::withoutEvents(function () use ($pessoa) {
+                    self::where('id', $pessoa->id)->update(['cpf_cnpj' => null]);
+                });
+            }
+        });
     }
 
-    /**
-     * Conta de usuário vinculada a esta pessoa (0..1).
-     */
     public function user()
     {
         return $this->hasOne(User::class, 'pessoa_id');
     }
 
-    /**
-     * Perfil de cliente vinculado a esta pessoa (0..1).
-     */
     public function cliente()
     {
         return $this->hasOne(Cliente::class, 'pessoa_id');
