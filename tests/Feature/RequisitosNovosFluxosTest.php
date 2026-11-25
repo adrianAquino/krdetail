@@ -425,4 +425,81 @@ class RequisitosNovosFluxosTest extends TestCase
         $this->assertSame(0, $slotQuarta10['boxes_livres']);
         $this->assertFalse($slotQuarta10['disponivel']);
     }
+
+    public function test_todos_formularios_com_endereco_renderizam_consulta_viacep(): void
+    {
+        $dono = User::create([
+            'name' => 'Dono ViaCEP',
+            'email' => 'dono.viacep@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 90000-0022',
+            'tipo_usuario' => 'dono',
+            'ativo' => true,
+        ]);
+
+        $empresa = Empresa::create([
+            'dono_id' => $dono->id,
+            'nome_fantasia' => 'Kraus ViaCEP',
+            'razao_social' => 'Kraus ViaCEP LTDA',
+            'whatsapp' => '(11) 90000-0022',
+            'email' => 'viacep@krdetail.test',
+            'ativo' => true,
+        ]);
+        $dono->update(['empresa_id' => $empresa->id]);
+
+        $cliente = Cliente::create([
+            'empresa_id' => $empresa->id,
+            'nome' => 'Cliente ViaCEP',
+            'telefone' => '(11) 97777-8888',
+        ]);
+
+        $clienteUser = User::create([
+            'name' => 'Cliente Conta ViaCEP',
+            'email' => 'cliente.viacep@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 97777-9999',
+            'tipo_usuario' => 'cliente',
+            'empresa_id' => $empresa->id,
+            'ativo' => true,
+        ]);
+
+        // Formulários com x-layouts.app
+        $this->actingAs($dono)->get(route('clientes.create'))
+            ->assertOk()
+            ->assertSee('onblur="pesquisacep(this.value);"', false)
+            ->assertSee('window.consultarViaCepInput', false)
+            ->assertSee('https://viacep.com.br/ws/', false);
+
+        $this->actingAs($dono)->get(route('clientes.edit', $cliente))
+            ->assertOk()
+            ->assertSee('onblur="pesquisacep(this.value);"', false)
+            ->assertSee('window.consultarViaCepInput', false);
+
+        $this->actingAs($dono)->get(route('veiculos.create'))
+            ->assertOk()
+            ->assertSee('onblur="pesquisacepModal(this.value);"', false)
+            ->assertSee('window.consultarViaCepInput', false);
+
+        // Modal Editar Empresa, Modal Nova Empresa e Modal Editar Meu Perfil em configuracoes.index
+        $respConfigDono = $this->actingAs($dono)->get(route('configuracoes.index'));
+        $respConfigDono->assertOk()
+            ->assertSee('window.consultarViaCepInput = async function', false)
+            ->assertSee('https://viacep.com.br/ws/', false)
+            ->assertSee('id="edit_emp_' . $empresa->id . '_cep"', false)
+            ->assertSee('id="nova_emp_cep"', false)
+            ->assertSee('id="meu_perfil_cep"', false);
+
+        $htmlConfigDono = $respConfigDono->getContent();
+        $this->assertSame(
+            3,
+            substr_count($htmlConfigDono, 'onblur="window.consultarViaCepInput(this);"'),
+            'Os 3 modais com endereço (Editar Empresa, Nova Empresa e Editar Meu Perfil) devem chamar consultarViaCepInput no evento blur.'
+        );
+
+        // Cliente também visualiza o modal Editar Meu Perfil com ViaCEP habilitado
+        $this->actingAs($clienteUser)->get(route('configuracoes.index'))
+            ->assertOk()
+            ->assertSee('id="meu_perfil_cep"', false)
+            ->assertSee('onblur="window.consultarViaCepInput(this);"', false);
+    }
 }

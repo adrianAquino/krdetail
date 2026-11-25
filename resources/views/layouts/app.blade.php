@@ -158,6 +158,115 @@
                 }
             }, 8000);
         });
+
+        // Consulta automática de endereço via ViaCEP (escopo isolado por formulário)
+        window.consultarViaCepInput = async function (inputOrEvent) {
+            const inputEl = inputOrEvent && inputOrEvent.target ? inputOrEvent.target : inputOrEvent;
+            if (!inputEl || typeof inputEl.value !== 'string') {
+                return;
+            }
+
+            const cep = inputEl.value.replace(/\D/g, '');
+            const form = inputEl.closest('form') || document;
+            const ruaEl = form.querySelector('input[name="logradouro"]');
+            const bairroEl = form.querySelector('input[name="bairro"]');
+            const cidadeEl = form.querySelector('input[name="cidade"]');
+            const ufEl = form.querySelector('input[name="estado"], input[name="uf"], select[name="estado"], select[name="uf"]');
+            const numeroEl = form.querySelector('input[name="numero"]');
+
+            const limparCamposEndereco = function () {
+                if (ruaEl) ruaEl.value = '';
+                if (bairroEl) bairroEl.value = '';
+                if (cidadeEl) cidadeEl.value = '';
+                if (ufEl) ufEl.value = '';
+            };
+
+            if (cep === '') {
+                return;
+            }
+
+            if (!/^[0-9]{8}$/.test(cep)) {
+                limparCamposEndereco();
+                alert('Formato de CEP inválido.');
+                return;
+            }
+
+            if (inputEl.dataset.viacepLoading === cep) {
+                return;
+            }
+            inputEl.dataset.viacepLoading = cep;
+            inputEl.value = cep.slice(0, 5) + '-' + cep.slice(5);
+
+            const valoresAnteriores = {
+                rua: ruaEl ? ruaEl.value : '',
+                bairro: bairroEl ? bairroEl.value : '',
+                cidade: cidadeEl ? cidadeEl.value : '',
+                uf: ufEl ? ufEl.value : '',
+            };
+
+            if (ruaEl) ruaEl.value = '...';
+            if (bairroEl) bairroEl.value = '...';
+            if (cidadeEl) cidadeEl.value = '...';
+            if (ufEl) ufEl.value = '...';
+
+            const controller = new AbortController();
+            const timer = setTimeout(function () {
+                controller.abort();
+            }, 5000);
+
+            try {
+                const response = await fetch('https://viacep.com.br/ws/' + cep + '/json/', {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' },
+                });
+
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                const conteudo = await response.json();
+                if (conteudo && !conteudo.erro) {
+                    if (ruaEl) ruaEl.value = String(conteudo.logradouro || '').slice(0, 100);
+                    if (bairroEl) bairroEl.value = String(conteudo.bairro || '').slice(0, 100);
+                    if (cidadeEl) cidadeEl.value = String(conteudo.localidade || '').slice(0, 100);
+                    if (ufEl) ufEl.value = String(conteudo.uf || '').toUpperCase().slice(0, 2);
+
+                    const modalPai = inputEl.closest('[data-modal]');
+                    const modalVisivel = !modalPai || !modalPai.classList.contains('hidden');
+                    if (modalVisivel && numeroEl && (!numeroEl.value || numeroEl.value.trim() === '')) {
+                        numeroEl.focus();
+                    }
+                } else {
+                    limparCamposEndereco();
+                    alert('CEP não encontrado.');
+                }
+            } catch (e) {
+                if (ruaEl && ruaEl.value === '...') ruaEl.value = valoresAnteriores.rua;
+                if (bairroEl && bairroEl.value === '...') bairroEl.value = valoresAnteriores.bairro;
+                if (cidadeEl && cidadeEl.value === '...') cidadeEl.value = valoresAnteriores.cidade;
+                if (ufEl && ufEl.value === '...') ufEl.value = valoresAnteriores.uf;
+
+                if (e.name !== 'AbortError') {
+                    console.warn('Falha ao consultar ViaCEP:', e);
+                }
+                alert('Não foi possível consultar o CEP no momento. Preencha o endereço manualmente.');
+            } finally {
+                clearTimeout(timer);
+                delete inputEl.dataset.viacepLoading;
+            }
+        };
+
+        // Delegação automática para qualquer input[name="cep"] sem manipulador onblur próprio
+        document.addEventListener('focusout', function (event) {
+            const target = event.target;
+            if (!target || !target.matches || !target.matches('input[name="cep"]')) {
+                return;
+            }
+            if (target.hasAttribute('onblur') || target.dataset.viacepBound === '1') {
+                return;
+            }
+            window.consultarViaCepInput(target);
+        });
     </script>
 
     @stack('scripts')

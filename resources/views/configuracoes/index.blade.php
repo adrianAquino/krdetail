@@ -1261,7 +1261,7 @@
                             Endereço da Sede
                         </h4>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <x-input :id="'edit_emp_' . $empItem->id . '_cep'" name="cep" label="CEP" :value="$empItem->cep" maxlength="9" />
+                            <x-input :id="'edit_emp_' . $empItem->id . '_cep'" name="cep" label="CEP" :value="$empItem->cep" maxlength="9" placeholder="00000-000" onblur="window.consultarViaCepInput(this);" />
                             <div class="sm:col-span-2">
                                 <x-input :id="'edit_emp_' . $empItem->id . '_logradouro'" name="logradouro" label="Logradouro" :value="$empItem->logradouro" maxlength="100" />
                             </div>
@@ -1336,7 +1336,7 @@
                     Endereço da Sede
                 </h4>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <x-input id="nova_emp_cep" name="cep" label="CEP" placeholder="00000-000" maxlength="9" />
+                    <x-input id="nova_emp_cep" name="cep" label="CEP" placeholder="00000-000" maxlength="9" onblur="window.consultarViaCepInput(this);" />
                     <div class="sm:col-span-2">
                         <x-input id="nova_emp_logradouro" name="logradouro" label="Logradouro" placeholder="Avenida / Rua" maxlength="100" />
                     </div>
@@ -1389,7 +1389,7 @@
                 Meu Endereço
             </h4>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <x-input id="meu_perfil_cep" name="cep" label="CEP" :value="$isModalPerfil ? old('cep', $cepAtual) : $cepAtual" maxlength="9" placeholder="00000-000" />
+                <x-input id="meu_perfil_cep" name="cep" label="CEP" :value="$isModalPerfil ? old('cep', $cepAtual) : $cepAtual" maxlength="9" placeholder="00000-000" onblur="window.consultarViaCepInput(this);" />
                 <div class="sm:col-span-2">
                     <x-input id="meu_perfil_logradouro" name="logradouro" label="Logradouro" :value="$isModalPerfil ? old('logradouro', $logradouroAtual) : $logradouroAtual" maxlength="100" />
                 </div>
