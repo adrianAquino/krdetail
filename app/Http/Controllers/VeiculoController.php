@@ -111,9 +111,30 @@ class VeiculoController extends Controller
         try {
             $veiculo = Veiculo::create($validated);
         } catch (QueryException $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Não foi possível cadastrar o veículo. Verifique se a placa já está cadastrada.',
+                ], 422);
+            }
+
             return back()
                 ->withInput()
                 ->with('error', 'Não foi possível cadastrar o veículo. Verifique se a placa já está cadastrada.');
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Veículo cadastrado com sucesso!',
+                'veiculo' => [
+                    'id' => $veiculo->id,
+                    'cliente_id' => (int) $veiculo->cliente_id,
+                    'placa' => $veiculo->placa,
+                    'marca' => $veiculo->marca,
+                    'modelo' => $veiculo->modelo,
+                    'cor' => $veiculo->cor,
+                    'ano' => $veiculo->ano,
+                ],
+            ], 201);
         }
 
         return redirect()->route('veiculos.show', $veiculo)->with('success', 'Veículo cadastrado com sucesso!');

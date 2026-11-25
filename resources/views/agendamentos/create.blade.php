@@ -27,6 +27,19 @@
         </x-slot:actions>
     </x-header>
 
+    <!-- Alerta dinâmico quando um veículo é cadastrado pelo modal -->
+    <div id="alerta-veiculo-criado" class="mb-6 hidden">
+        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 text-xs font-semibold">
+                <x-icon name="check-circle" class="w-5 h-5 text-emerald-500 shrink-0" />
+                <span id="alerta-veiculo-criado-texto">Veículo cadastrado e selecionado com sucesso!</span>
+            </div>
+            <button type="button" onclick="document.getElementById('alerta-veiculo-criado').classList.add('hidden')" class="text-emerald-400/70 hover:text-emerald-400 cursor-pointer">
+                <x-icon name="x" class="w-4 h-4" />
+            </button>
+        </div>
+    </div>
+
     <form
         method="POST"
         action="{{ route('agendamentos.store') }}"
@@ -34,6 +47,7 @@
         data-clientes-veiculos="{{ json_encode($clientesVeiculosMap) }}"
         data-target-veiculo-pre="{{ (string) old('veiculo_id', (string) request('veiculo_id', '')) }}"
         data-rota-veiculos-create="{{ route('veiculos.create') }}"
+        data-rota-disponibilidade="{{ route('agendamentos.disponibilidade') }}"
     >
         @csrf
 
@@ -44,7 +58,7 @@
                 <x-card :title="$isCliente ? 'Meu Veículo' : 'Cliente & Veículo'" :description="$isCliente ? 'Selecione qual dos seus veículos receberá o atendimento' : 'Selecione o cliente para visualizar apenas os veículos pertencentes a ele'">
                     <div class="space-y-4">
                         @if($isCliente && $clienteUnico)
-                            <input type="hidden" name="cliente_id" id="cliente_select" value="{{ $clienteUnico?->id }}" />
+                            <input type="hidden" name="cliente_id" id="cliente_select" value="{{ $clienteUnico?->id }}" data-nome="{{ $clienteUnico?->nome ?? auth()->user()->name }}" />
                         @else
                             <div>
                                 <x-select
@@ -54,7 +68,7 @@
                                     required
                                 >
                                     @foreach($clientes as $cli)
-                                        <option value="{{ $cli->id }}" {{ old('cliente_id', request('cliente_id')) == $cli->id ? 'selected' : '' }}>
+                                        <option value="{{ $cli->id }}" data-nome="{{ $cli->nome }}" {{ old('cliente_id', request('cliente_id')) == $cli->id ? 'selected' : '' }}>
                                             {{ $cli->nome }} — {{ $cli->telefone }}
                                         </option>
                                     @endforeach
@@ -95,19 +109,37 @@
                     @endphp
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                                <label for="data_inicio" class="block text-xs font-medium text-foreground">
+                                    Data e Horário Desejados <span class="text-destructive">*</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    onclick="window.abrirCalendarioAgenda()"
+                                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                                >
+                                    <x-icon name="calendar" class="w-3.5 h-3.5" />
+                                    Consultar Calendário Disponível
+                                </button>
+                            </div>
                             <x-input
                                 type="datetime-local"
                                 name="data_inicio"
                                 id="data_inicio"
-                                label="Data e Horário Desejados"
                                 min="{{ now()->format('Y-m-d\TH:i') }}"
                                 :value="old('data_inicio', $padraoInicio->format('Y-m-d\TH:i'))"
-                                hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00."
+                                hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00 (4 boxes simultâneos)."
                                 required
                             />
                             <p id="erro_data_inicio" class="text-xs text-destructive mt-1 font-medium hidden">
                                 A data e o horário devem ser futuros e dentro do expediente (Seg-Sáb, 08:00 às 18:00).
                             </p>
+                            <div id="aviso_ultrapassa_expediente" class="hidden mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-300 space-y-1.5">
+                                <p>Os serviços selecionados ultrapassam o expediente das 18:00 neste horário.</p>
+                                <button type="button" onclick="const c=document.getElementById('deixar_veiculo'); if(c){c.checked=true; c.dispatchEvent(new Event('change'));}" class="font-bold underline text-amber-200 cursor-pointer">
+                                    Ativar &quot;Deixar veículo na estética&quot; para concluir no próximo dia útil
+                                </button>
+                            </div>
                         </div>
 
                         <div>
@@ -117,10 +149,33 @@
                                 id="data_fim"
                                 label="Previsão Estimada de Conclusão (+30min de margem)"
                                 :value="old('data_hora_estimado_conclusao')"
-                                hint="Calculado automaticamente: soma dos serviços + 30 min de gargalo operacional."
+                                hint="Calculado automaticamente com base nos serviços escolhidos e eventual pernoite."
                                 readonly
                                 class="cursor-not-allowed opacity-80"
                             />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="deixar_veiculo" class="flex items-start gap-3 p-3.5 rounded-xl border border-border bg-secondary/25 hover:bg-secondary/40 cursor-pointer transition-colors">
+                                <input
+                                    type="checkbox"
+                                    name="deixar_veiculo"
+                                    id="deixar_veiculo"
+                                    value="1"
+                                    {{ old('deixar_veiculo') ? 'checked' : '' }}
+                                    class="mt-0.5 h-4 w-4 rounded border-border bg-input text-primary focus:ring-primary cursor-pointer"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-semibold text-foreground block">Deixar o veículo na estética (Pernoite / Continuação no próximo dia útil)</span>
+                                    <span class="text-muted-foreground">Marque esta opção quando a duração total dos serviços ultrapassar as 18:00 do dia selecionado; a execução retoma às 08:00 do próximo dia útil respeitando os boxes da estética.</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <x-button type="button" variant="outline" size="md" class="w-full" icon="calendar" onclick="window.abrirCalendarioAgenda()">
+                                Abrir Calendário de Horários Disponíveis (por Serviços e Boxes)
+                            </x-button>
                         </div>
 
                         @if(!$isCliente)
@@ -265,254 +320,5 @@
         </div>
     </form>
 
-    <!-- Script de Dependência Cliente -> Veículos e Totalizador de Serviços -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const formCfg = document.getElementById('form-agendamento')?.dataset || {};
-            const clientesVeiculos = JSON.parse(formCfg.clientesVeiculos || '{}');
-            const clienteSelect = document.getElementById('cliente_select');
-            const veiculoSelect = document.getElementById('veiculo_select');
-            const veiculoAviso = document.getElementById('veiculo_aviso');
-            const targetVeiculoPre = formCfg.targetVeiculoPre || '';
-            const rotaVeiculosCreate = formCfg.rotaVeiculosCreate || '';
-
-            function renderAvisoVeiculo(semVeiculos, clienteId) {
-                if (!veiculoAviso) return;
-                veiculoAviso.replaceChildren();
-                const link = document.createElement('a');
-                link.className = 'text-primary underline';
-                if (semVeiculos) {
-                    veiculoAviso.appendChild(document.createTextNode('Nenhum veículo cadastrado. '));
-                    link.href = rotaVeiculosCreate + (clienteId ? ('?cliente_id=' + encodeURIComponent(clienteId)) : '');
-                    link.textContent = 'Cadastrar veículo agora';
-                    veiculoAviso.appendChild(link);
-                } else {
-                    veiculoAviso.appendChild(document.createTextNode('Não encontrou seu veículo? '));
-                    link.href = rotaVeiculosCreate;
-                    link.textContent = 'Cadastrar novo veículo';
-                    veiculoAviso.appendChild(link);
-                    veiculoAviso.appendChild(document.createTextNode('.'));
-                }
-            }
-
-            function atualizarVeiculos() {
-                if (!clienteSelect || !veiculoSelect) return;
-                const clienteId = clienteSelect.value;
-                const veiculos = clientesVeiculos[clienteId] || [];
-
-                veiculoSelect.replaceChildren();
-
-                if (veiculos.length === 0) {
-                    const opt = document.createElement('option');
-                    opt.value = '';
-                    opt.textContent = 'Nenhum veículo cadastrado';
-                    veiculoSelect.appendChild(opt);
-                    renderAvisoVeiculo(true, clienteId);
-                } else {
-                    const optDefault = document.createElement('option');
-                    optDefault.value = '';
-                    optDefault.textContent = 'Selecione o veículo (' + veiculos.length + ' disponível(is))';
-                    veiculoSelect.appendChild(optDefault);
-
-                    veiculos.forEach(v => {
-                        const opt = document.createElement('option');
-                        opt.value = String(v.id);
-                        opt.textContent = `${v.placa} — ${v.marca} ${v.modelo}`;
-                        if (targetVeiculoPre && String(targetVeiculoPre) === String(v.id)) {
-                            opt.selected = true;
-                        }
-                        veiculoSelect.appendChild(opt);
-                    });
-
-                    if (veiculos.length === 1 && !targetVeiculoPre) {
-                        veiculoSelect.value = String(veiculos[0].id);
-                    }
-
-                    renderAvisoVeiculo(false, clienteId);
-                }
-            }
-
-            if (clienteSelect) {
-                clienteSelect.addEventListener('change', atualizarVeiculos);
-                atualizarVeiculos();
-            }
-
-            // Totalizador Dinâmico de Serviços e Cálculo Automático da Previsão (+30 min de gargalo)
-            const GARGALO_MINUTOS = 30;
-            const checkboxes = document.querySelectorAll('.service-checkbox');
-            const listaResumo = document.getElementById('resumo-servicos-lista');
-            const resumoValorTotal = document.getElementById('resumo-valor-total');
-            const resumoTempoServicos = document.getElementById('resumo-tempo-servicos');
-            const resumoGargalo = document.getElementById('resumo-gargalo');
-            const resumoTempoTotal = document.getElementById('resumo-tempo-total');
-            const resumoDataFim = document.getElementById('resumo-data-fim');
-            const formAgendamento = document.getElementById('form-agendamento');
-            const inputDataInicio = document.getElementById('data_inicio');
-            const inputDataFim = document.getElementById('data_fim');
-            const erroDataInicio = document.getElementById('erro_data_inicio');
-
-            let totalMinutosComGargaloAtual = 0;
-
-            function formatarDuracao(minutosTotais) {
-                if (minutosTotais <= 0) return '0min';
-                const horas = Math.floor(minutosTotais / 60);
-                const minutos = minutosTotais % 60;
-                if (horas > 0) {
-                    return minutos > 0 ? `${horas}h ${minutos}min` : `${horas}h 00min`;
-                }
-                return `${minutos}min`;
-            }
-
-            function atualizarPrevisaoConclusao() {
-                if (!inputDataInicio || !inputDataInicio.value || totalMinutosComGargaloAtual <= 0) {
-                    if (inputDataFim) inputDataFim.value = '';
-                    if (resumoDataFim) resumoDataFim.textContent = '--/--/---- --:--';
-                    return;
-                }
-
-                const inicio = new Date(inputDataInicio.value);
-                if (isNaN(inicio.getTime())) {
-                    if (inputDataFim) inputDataFim.value = '';
-                    if (resumoDataFim) resumoDataFim.textContent = '--/--/---- --:--';
-                    return;
-                }
-
-                const fim = new Date(inicio.getTime() + totalMinutosComGargaloAtual * 60000);
-                const pad = n => String(n).padStart(2, '0');
-
-                const valorLocal = `${fim.getFullYear()}-${pad(fim.getMonth() + 1)}-${pad(fim.getDate())}T${pad(fim.getHours())}:${pad(fim.getMinutes())}`;
-                const valorExibicao = `${pad(fim.getDate())}/${pad(fim.getMonth() + 1)}/${fim.getFullYear()} às ${pad(fim.getHours())}:${pad(fim.getMinutes())}`;
-
-                if (inputDataFim) inputDataFim.value = valorLocal;
-                if (resumoDataFim) resumoDataFim.textContent = valorExibicao;
-            }
-
-            function atualizarResumoServicos() {
-                let totalValor = 0;
-                let totalMinutosServicos = 0;
-                const selecionados = [];
-
-                checkboxes.forEach(cb => {
-                    const label = cb.closest('.service-checkbox-label');
-                    if (cb.checked) {
-                        label.classList.add('border-primary', 'bg-primary/10');
-                        const preco = parseFloat(cb.dataset.preco) || 0;
-                        const tempo = parseInt(cb.dataset.tempo) || 0;
-                        totalValor += preco;
-                        totalMinutosServicos += tempo;
-                        selecionados.push({
-                            nome: cb.dataset.nome,
-                            preco: preco,
-                            tempoStr: cb.dataset.tempoStr
-                        });
-                    } else {
-                        label.classList.remove('border-primary', 'bg-primary/10');
-                    }
-                });
-
-                listaResumo.replaceChildren();
-                if (selecionados.length === 0) {
-                    const emptyP = document.createElement('p');
-                    emptyP.className = 'text-muted-foreground italic text-center py-4';
-                    emptyP.textContent = 'Nenhum serviço selecionado ainda.';
-                    listaResumo.appendChild(emptyP);
-                    totalMinutosComGargaloAtual = 0;
-                } else {
-                    selecionados.forEach(s => {
-                        const row = document.createElement('div');
-                        row.className = 'flex items-center justify-between py-1.5 border-b border-border/50';
-
-                        const info = document.createElement('div');
-                        const nomeSpan = document.createElement('span');
-                        nomeSpan.className = 'font-medium text-foreground';
-                        nomeSpan.textContent = s.nome;
-                        const tempoSpan = document.createElement('span');
-                        tempoSpan.className = 'text-[10px] text-muted-foreground block';
-                        tempoSpan.textContent = s.tempoStr;
-                        info.appendChild(nomeSpan);
-                        info.appendChild(tempoSpan);
-
-                        const valorSpan = document.createElement('span');
-                        valorSpan.className = 'font-bold text-foreground';
-                        valorSpan.textContent = `R$ ${s.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-
-                        row.appendChild(info);
-                        row.appendChild(valorSpan);
-                        listaResumo.appendChild(row);
-                    });
-                    totalMinutosComGargaloAtual = totalMinutosServicos + GARGALO_MINUTOS;
-                }
-
-                if (resumoTempoServicos) resumoTempoServicos.textContent = formatarDuracao(totalMinutosServicos);
-                if (resumoGargalo) resumoGargalo.textContent = selecionados.length > 0 ? `+${GARGALO_MINUTOS}min` : '0min';
-                resumoTempoTotal.textContent = formatarDuracao(totalMinutosComGargaloAtual);
-                resumoValorTotal.textContent = `R$ ${totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-
-                atualizarPrevisaoConclusao();
-            }
-
-            checkboxes.forEach(cb => cb.addEventListener('change', atualizarResumoServicos));
-            atualizarResumoServicos();
-
-            function validarDatas() {
-                let valido = true;
-                const agora = new Date();
-                agora.setSeconds(0, 0);
-                const limiteMinimo = new Date(agora.getTime() - 60000);
-
-                if (inputDataInicio && inputDataInicio.value) {
-                    const dtInicio = new Date(inputDataInicio.value);
-                    const hora = dtInicio.getHours();
-                    const minuto = dtInicio.getMinutes();
-                    const domingo = dtInicio.getDay() === 0;
-                    const foraExpediente = hora < 8 || hora > 18 || (hora === 18 && minuto > 0);
-
-                    if (dtInicio < limiteMinimo) {
-                        if (erroDataInicio) {
-                            erroDataInicio.textContent = 'A data e o horário não podem ser inferiores à data e horário atuais.';
-                            erroDataInicio.classList.remove('hidden');
-                        }
-                        inputDataInicio.classList.add('border-destructive');
-                        inputDataInicio.setCustomValidity('A data e o horário não podem ser inferiores à data e horário atuais.');
-                        valido = false;
-                    } else if (domingo) {
-                        if (erroDataInicio) {
-                            erroDataInicio.textContent = 'A oficina não realiza atendimentos aos domingos. Escolha entre segunda e sábado.';
-                            erroDataInicio.classList.remove('hidden');
-                        }
-                        inputDataInicio.classList.add('border-destructive');
-                        inputDataInicio.setCustomValidity('A oficina não realiza atendimentos aos domingos.');
-                        valido = false;
-                    } else if (foraExpediente) {
-                        if (erroDataInicio) {
-                            erroDataInicio.textContent = 'Horário fora do expediente comercial (08:00 às 18:00).';
-                            erroDataInicio.classList.remove('hidden');
-                        }
-                        inputDataInicio.classList.add('border-destructive');
-                        inputDataInicio.setCustomValidity('Horário fora do expediente comercial (08:00 às 18:00).');
-                        valido = false;
-                    } else {
-                        erroDataInicio?.classList.add('hidden');
-                        inputDataInicio.classList.remove('border-destructive');
-                        inputDataInicio.setCustomValidity('');
-                    }
-                }
-
-                atualizarPrevisaoConclusao();
-                return valido;
-            }
-
-            if (inputDataInicio) {
-                inputDataInicio.addEventListener('change', validarDatas);
-                inputDataInicio.addEventListener('input', validarDatas);
-            }
-            if (formAgendamento) {
-                formAgendamento.addEventListener('submit', function (e) {
-                    if (!validarDatas()) {
-                        e.preventDefault();
-                    }
-                });
-            }
-        });
-    </script>
+    @include('agendamentos.partials._modais_e_script', ['podeCadastrarVeiculo' => true])
 </x-layouts.app>

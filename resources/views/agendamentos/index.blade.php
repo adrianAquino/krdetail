@@ -1,5 +1,7 @@
 @php
-    $isCliente = auth()->check() && auth()->user()->isCliente();
+    $usuarioAtual = auth()->user();
+    $isCliente = $usuarioAtual && $usuarioAtual->isCliente();
+    $possuiEsteticaVinculada = $isCliente ? $usuarioAtual->possuiEsteticaVinculada() : true;
 @endphp
 
 <x-layouts.app :title="$isCliente ? 'Meus Agendamentos' : 'Agendamentos'">
@@ -8,11 +10,21 @@
         :subtitle="$isCliente ? 'Acompanhe o andamento dos seus agendamentos, o progresso dos serviços e consulte seu histórico.' : 'Organização do fluxo de entrada de veículos, agendamento de serviços e acompanhamento de status.'"
     >
         <x-slot:actions>
-            <x-button href="{{ route('agendamentos.create') }}" icon="plus" size="md">
-                Novo Agendamento
-            </x-button>
+            @if(!$isCliente || $possuiEsteticaVinculada)
+                <x-button href="{{ route('agendamentos.create') }}" icon="plus" size="md">
+                    Novo Agendamento
+                </x-button>
+            @endif
         </x-slot:actions>
     </x-header>
+
+    @if($isCliente && !$possuiEsteticaVinculada)
+        <div class="mb-6">
+            <x-alert type="warning" title="Sem estética vinculada para novos agendamentos">
+                Você ainda não está vinculado a nenhuma estética automotiva no momento. Seus agendamentos e serviços anteriores permanecem disponíveis para consulta abaixo, e você pode cadastrar seus veículos normalmente, mas novos agendamentos só são liberados após uma estética vincular seu cadastro.
+            </x-alert>
+        </div>
+    @endif
 
     <!-- Filters Bar -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -97,6 +109,11 @@
                                     </span>
                                 @endif
                                 <x-badge-status :status="$ag->status" />
+                                @if($isCliente && $ag->empresa)
+                                    <span class="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">
+                                        {{ $ag->empresa->nome_fantasia }}
+                                    </span>
+                                @endif
                                 @if(!empty($ag->origem))
                                     <span class="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">
                                         Via {{ $ag->origem }}
@@ -201,11 +218,13 @@
                     <x-icon name="calendar" class="w-10 h-10 mx-auto text-muted-foreground mb-3" />
                     <h4 class="text-base font-semibold text-foreground">Nenhum agendamento encontrado</h4>
                     <p class="text-xs text-muted-foreground mt-1">Nenhum agendamento corresponde aos filtros selecionados.</p>
-                    <div class="mt-4">
-                        <x-button href="{{ route('agendamentos.create') }}" icon="plus">
-                            Novo Agendamento
-                        </x-button>
-                    </div>
+                    @if(!$isCliente || $possuiEsteticaVinculada)
+                        <div class="mt-4">
+                            <x-button href="{{ route('agendamentos.create') }}" icon="plus">
+                                Novo Agendamento
+                            </x-button>
+                        </div>
+                    @endif
                 </div>
             </x-card>
         @endforelse

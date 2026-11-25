@@ -117,6 +117,11 @@
                             <span class="font-semibold text-foreground text-sm">
                                 {{ $agendamentoObj?->data_fim ? \Carbon\Carbon::parse($agendamentoObj?->data_fim)->format('d/m/Y \à\s H:i') : 'Não calculada' }}
                             </span>
+                            @if($agendamentoObj?->deixar_veiculo)
+                                <span class="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                    Veículo deixado na estética (Pernoite)
+                                </span>
+                            @endif
                         </div>
 
                         <div class="p-2.5 rounded-lg bg-secondary/30 border border-border/60">
@@ -140,6 +145,15 @@
                             {{ $agendamentoObj?->origem ?? 'Direto' }}
                         </span>
                     </div>
+
+                    @if($agendamentoObj?->empresa)
+                        <div class="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Estética Responsável:</span>
+                            <span class="font-semibold text-foreground px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                {{ $agendamentoObj?->empresa?->nome_fantasia }}
+                            </span>
+                        </div>
+                    @endif
 
                     @if(!empty($agendamentoObj?->observacoes))
                         <div class="pt-2">
