@@ -54,8 +54,12 @@ class Tarefa extends Model
                 }
                 $builder->whereHas('ordemServico', function (Builder $oq) use ($empresaId) {
                     $oq->withoutGlobalScopes()->whereHas('agendamento', function (Builder $aq) use ($empresaId) {
-                        $aq->withoutGlobalScopes()->whereHas('cliente', function (Builder $cq) use ($empresaId) {
-                            $cq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                        $aq->withoutGlobalScopes()->where(function (Builder $q) use ($empresaId) {
+                            $q->where('agendamentos.empresa_id', $empresaId)
+                                ->orWhere(function (Builder $q2) use ($empresaId) {
+                                    $q2->whereNull('agendamentos.empresa_id')
+                                        ->whereHas('cliente', fn (Builder $cq) => $cq->withoutGlobalScopes()->where('empresa_id', $empresaId));
+                                });
                         });
                     });
                 });

@@ -132,7 +132,7 @@ class User extends Authenticatable
                         if ($user->tipo_usuario === 'dono' && $funcExistente->cargo === 'Operador de Detalhamento') {
                             $dadosFunc['cargo'] = $cargoPadrao;
                         }
-                        $funcExistente->update($dadosFunc);
+                        Funcionario::withoutEvents(fn () => $funcExistente->update($dadosFunc));
                     } else {
                         Funcionario::withoutGlobalScopes()->create([
                             'user_id' => $user->id,
@@ -215,7 +215,22 @@ class User extends Authenticatable
     }
 
     /**
-     * Retorna o ID da empresa ativa do usuário (fail-closed: sem fallback cruzado para Dono/Funcionário).
+     * Indica se o usuário possui atualmente uma estética automotiva vinculada e ativa.
+     */
+    public function possuiEsteticaVinculada(): bool
+    {
+        if ($this->isCliente()) {
+            $empresaId = $this->empresa_id
+                ?: Cliente::withoutGlobalScopes()->where('user_id', $this->id)->value('empresa_id');
+
+            return $empresaId !== null && Empresa::whereKey($empresaId)->exists();
+        }
+
+        return $this->getEmpresaAtivaId() !== null;
+    }
+
+    /**
+     * Retorna o ID da empresa ativa do usuário (fail-closed: sem fallback cruzado para Dono/Funcionário/Cliente).
      */
     public function getEmpresaAtivaId(): ?int
     {
@@ -269,25 +284,35 @@ class User extends Authenticatable
     }
 
     /**
-     * Garante que um usuário do tipo cliente possua um perfil Cliente vinculado
-     * dentro da mesma empresa e compartilhando o registro em `pessoas`.
+     * Garante que um usuário do tipo cliente possua um perfil Cliente vinculado.
+     * Sem pré-cadastro em uma estética, o perfil base permanece sem empresa_id (null)
+     * até que um dono de estética cadastre/vincule este cliente.
      */
     public function ensureClienteProfile(): Cliente
     {
         $cliente = Cliente::withoutGlobalScopes()->where('user_id', $this->id)->first();
         if ($cliente) {
+            if ($cliente->empresa_id === null && $this->empresa_id) {
+                $cliente->update(['empresa_id' => $this->empresa_id]);
+            } elseif ($cliente->empresa_id) {
+                ClienteEmpresaHistorico::registrarVinculo($this->id, $cliente->id, (int) $cliente->empresa_id);
+            }
+
             return $cliente;
         }
 
         $empresaId = $this->getEmpresaAtivaId();
+        $pessoa = $this->pessoa_id ? Pessoa::find($this->pessoa_id) : null;
 
         $clienteExistente = Cliente::withoutGlobalScopes()
             ->whereNull('user_id')
-            ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
-            ->where(function ($q) {
+            ->where(function ($q) use ($pessoa) {
                 $q->whereRaw('LOWER(email) = ?', [strtolower((string) $this->email)]);
                 if ($this->pessoa_id) {
                     $q->orWhere('pessoa_id', $this->pessoa_id);
+                }
+                if ($pessoa?->cpf_cnpj) {
+                    $q->orWhere('cpf_cnpj', $pessoa->cpf_cnpj);
                 }
             })
             ->first();
@@ -298,12 +323,18 @@ class User extends Authenticatable
                 $pessoaId = $this->pessoa_id;
             }
 
+            $empresaFinalId = $clienteExistente->empresa_id ?: $empresaId;
+
             $clienteExistente->update([
                 'user_id' => $this->id,
                 'pessoa_id' => $pessoaId,
-                'empresa_id' => $clienteExistente->empresa_id ?: $empresaId,
+                'empresa_id' => $empresaFinalId,
                 'telefone' => $clienteExistente->telefone ?: ($this->telefone ?? ''),
             ]);
+
+            if ($empresaFinalId && (int) $this->empresa_id !== (int) $empresaFinalId) {
+                self::withoutEvents(fn () => $this->update(['empresa_id' => $empresaFinalId]));
+            }
 
             if ($pessoaId && (int) $this->pessoa_id !== (int) $pessoaId) {
                 $oldPessoaId = $this->pessoa_id;
@@ -317,12 +348,14 @@ class User extends Authenticatable
                 }
             }
 
+            if ($empresaFinalId) {
+                ClienteEmpresaHistorico::registrarVinculo($this->id, $clienteExistente->id, (int) $empresaFinalId);
+            }
+
             return $clienteExistente;
         }
 
-        $pessoa = $this->pessoa_id ? Pessoa::find($this->pessoa_id) : null;
-
-        return Cliente::withoutGlobalScopes()->create([
+        $novoCliente = Cliente::withoutGlobalScopes()->create([
             'pessoa_id' => $this->pessoa_id,
             'empresa_id' => $empresaId,
             'user_id' => $this->id,
@@ -338,6 +371,17 @@ class User extends Authenticatable
             'cidade' => $pessoa?->cidade,
             'estado' => $pessoa?->estado,
         ]);
+
+        if ($empresaId) {
+            ClienteEmpresaHistorico::registrarVinculo($this->id, $novoCliente->id, (int) $empresaId);
+        }
+
+        return $novoCliente;
+    }
+
+    public function historicoEmpresas()
+    {
+        return $this->hasMany(ClienteEmpresaHistorico::class, 'user_id')->orderByDesc('vinculado_em');
     }
 
     public function empresa()

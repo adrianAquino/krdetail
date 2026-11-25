@@ -16,11 +16,13 @@ class Agendamento extends Model
     protected $table = 'agendamentos';
 
     protected $fillable = [
+        'empresa_id',
         'cliente_id',
         'veiculo_id',
         'data_inicio',
         'data_fim',
         'data_conclusao',
+        'deixar_veiculo',
         'status',
         'origem',
         'observacoes',
@@ -29,9 +31,11 @@ class Agendamento extends Model
     protected function casts(): array
     {
         return [
+            'empresa_id' => 'integer',
             'data_inicio' => 'datetime',
             'data_fim' => 'datetime',
             'data_conclusao' => 'datetime',
+            'deixar_veiculo' => 'boolean',
         ];
     }
 
@@ -58,8 +62,12 @@ class Agendamento extends Model
                     $builder->whereRaw('1 = 0');
                     return;
                 }
-                $builder->whereHas('cliente', function (Builder $cq) use ($empresaId) {
-                    $cq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                $builder->where(function (Builder $q) use ($empresaId) {
+                    $q->where('agendamentos.empresa_id', $empresaId)
+                        ->orWhere(function (Builder $q2) use ($empresaId) {
+                            $q2->whereNull('agendamentos.empresa_id')
+                                ->whereHas('cliente', fn (Builder $cq) => $cq->withoutGlobalScopes()->where('empresa_id', $empresaId));
+                        });
                 });
             } elseif ($user->isCliente()) {
                 $builder->whereHas('cliente', function (Builder $cq) use ($user) {
@@ -69,6 +77,15 @@ class Agendamento extends Model
         });
 
         static::saving(function (Agendamento $agendamento) {
+            if (empty($agendamento->empresa_id) && $agendamento->cliente_id) {
+                $empresaDoCliente = Cliente::withoutGlobalScopes()
+                    ->where('id', $agendamento->cliente_id)
+                    ->value('empresa_id');
+                if ($empresaDoCliente) {
+                    $agendamento->empresa_id = (int) $empresaDoCliente;
+                }
+            }
+
             if (!$agendamento->exists || $agendamento->isDirty(['cliente_id', 'veiculo_id'])) {
                 if ($agendamento->veiculo_id && $agendamento->cliente_id) {
                     $veiculoPertenceAoCliente = Veiculo::withoutGlobalScopes()
@@ -203,6 +220,14 @@ class Agendamento extends Model
         }
 
         return "{$minutos}min";
+    }
+
+    /**
+     * Estética / empresa onde o agendamento foi realizado.
+     */
+    public function empresa()
+    {
+        return $this->belongsTo(Empresa::class, 'empresa_id')->withTrashed();
     }
 
     /**

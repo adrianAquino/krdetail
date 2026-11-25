@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\ClienteEmpresaHistorico;
 use App\Models\Empresa;
 use App\Models\Pessoa;
 use App\Models\User;
@@ -72,11 +73,25 @@ class AuthController extends Controller
         }
         $request->merge($mergeRegister);
 
-        // Verifica se já existe um cadastro presencial de cliente (sem user_id) com este e-mail
-        $clienteExistente = $emailNormalizado !== ''
+        // Verifica se já existe um cadastro presencial de cliente (sem user_id) com este e-mail ou CPF/CNPJ
+        $cpfCnpjDigitos = $cpfCnpjNormalizado
+            ? (preg_replace('/[^0-9A-Za-z]/', '', strtoupper($cpfCnpjNormalizado)) ?? '')
+            : '';
+
+        $clienteExistente = ($emailNormalizado !== '' || $cpfCnpjNormalizado !== null)
             ? Cliente::withoutGlobalScopes()
                 ->whereNull('user_id')
-                ->whereRaw('LOWER(email) = ?', [$emailNormalizado])
+                ->where(function ($q) use ($emailNormalizado, $cpfCnpjNormalizado, $cpfCnpjDigitos) {
+                    if ($emailNormalizado !== '') {
+                        $q->whereRaw('LOWER(email) = ?', [$emailNormalizado]);
+                    }
+                    if ($cpfCnpjNormalizado !== null) {
+                        $q->orWhere('cpf_cnpj', $cpfCnpjNormalizado);
+                        if ($cpfCnpjDigitos !== '' && $cpfCnpjDigitos !== $cpfCnpjNormalizado) {
+                            $q->orWhere('cpf_cnpj', $cpfCnpjDigitos);
+                        }
+                    }
+                })
                 ->first()
             : null;
 
@@ -160,7 +175,8 @@ class AuthController extends Controller
                     }
 
                     $empresaOriginalId = $clienteExistente->empresa_id
-                        ?: Empresa::query()->orderBy('id')->value('id');
+                        ? (int) $clienteExistente->empresa_id
+                        : null;
 
                     $novoUsuario = User::create([
                         'pessoa_id' => $pessoa->id,
@@ -182,9 +198,14 @@ class AuthController extends Controller
                         'telefone' => $pessoa->telefone,
                         'cpf_cnpj' => $pessoa->cpf_cnpj,
                     ]);
-                } else {
-                    $empresaPadraoId = Empresa::query()->orderBy('id')->value('id');
 
+                    if ($empresaOriginalId) {
+                        $foiVinculado = true;
+                        ClienteEmpresaHistorico::registrarVinculo($novoUsuario->id, $clienteExistente->id, $empresaOriginalId);
+                    } else {
+                        $foiVinculado = false;
+                    }
+                } else {
                     $pessoa = Pessoa::create([
                         'nome' => $validated['name'],
                         'email' => $validated['email'],
@@ -192,9 +213,10 @@ class AuthController extends Controller
                         'cpf_cnpj' => $validated['cpf_cnpj'] ?? null,
                     ]);
 
+                    // Auto-cadastro sem pré-cadastro em estética inicia sem empresa vinculada (empresa_id = null)
                     $novoUsuario = User::create([
                         'pessoa_id' => $pessoa->id,
-                        'empresa_id' => $empresaPadraoId,
+                        'empresa_id' => null,
                         'name' => $validated['name'],
                         'email' => $validated['email'],
                         'telefone' => $validated['telefone'],
@@ -205,7 +227,7 @@ class AuthController extends Controller
 
                     Cliente::withoutGlobalScopes()->create([
                         'pessoa_id' => $pessoa->id,
-                        'empresa_id' => $empresaPadraoId,
+                        'empresa_id' => null,
                         'user_id' => $novoUsuario->id,
                         'nome' => $validated['name'],
                         'email' => $validated['email'],
@@ -226,8 +248,8 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         $mensagem = $foiVinculado
-            ? 'Conta criada com sucesso! Encontramos seu cadastro na oficina e vinculamos seu histórico de veículos e serviços.'
-            : 'Cadastro realizado com sucesso! Bem-vindo(a) ao Portal do Cliente.';
+            ? 'Conta criada com sucesso! Encontramos seu cadastro na estética e vinculamos seu histórico de veículos e serviços.'
+            : 'Cadastro realizado com sucesso! Você já pode cadastrar seus veículos. Para solicitar agendamentos, aguarde o vínculo com uma estética automotiva.';
 
         return redirect()->route('dashboard')->with('success', $mensagem);
     }

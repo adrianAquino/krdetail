@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Agendamento;
 use App\Models\Cliente;
+use App\Models\ClienteEmpresaHistorico;
 use App\Models\Empresa;
 use App\Models\Funcionario;
 use App\Models\Pessoa;
@@ -31,16 +33,26 @@ class ConfiguracaoController extends Controller
         $usuarioLogado = Auth::user();
         $usuarioLogado->load(['pessoa', 'empresa', 'cliente']);
 
-        // Se for Cliente: carrega apenas os dados do próprio perfil e informações da empresa vinculada
+        // Se for Cliente: carrega apenas os dados do próprio perfil, estética atual e histórico de vínculos
         if ($usuarioLogado->isCliente()) {
             $cliente = $usuarioLogado->ensureClienteProfile();
             $cliente->load(['pessoa', 'empresa']);
-            $empresaAtual = $cliente->empresa ?? $usuarioLogado->empresa;
+            $empresaAtual = $cliente->empresa;
+
+            $historicoEmpresas = ClienteEmpresaHistorico::with('empresa')
+                ->where(function ($q) use ($usuarioLogado, $cliente) {
+                    $q->where('user_id', $usuarioLogado->id)
+                        ->orWhere('cliente_id', $cliente->id);
+                })
+                ->orderByDesc('vinculado_em')
+                ->orderByDesc('id')
+                ->get();
 
             return view('configuracoes.index', [
                 'isCliente' => true,
                 'clientePerfil' => $cliente,
                 'empresaAtual' => $empresaAtual,
+                'historicoEmpresas' => $historicoEmpresas,
                 'empresas' => collect($empresaAtual ? [$empresaAtual] : []),
                 'usuarios' => collect(),
                 'donosDisponiveis' => collect(),
@@ -104,9 +116,8 @@ class ConfiguracaoController extends Controller
         $queryUsuarios = User::with(['empresa', 'funcionario'])->orderBy('name', 'asc');
 
         if (! $usuarioLogado->isAdministrador()) {
-            $idsGerenciaveis = $empresas->pluck('id')->filter()->values();
-            if ($idsGerenciaveis->isNotEmpty()) {
-                $queryUsuarios->whereIn('empresa_id', $idsGerenciaveis);
+            if ($empresaAtivaId) {
+                $queryUsuarios->where('empresa_id', $empresaAtivaId);
             } else {
                 $queryUsuarios->whereRaw('1 = 0');
             }
@@ -138,6 +149,7 @@ class ConfiguracaoController extends Controller
             'isCliente' => false,
             'clientePerfil' => null,
             'empresaAtual' => $empresaAtual,
+            'historicoEmpresas' => collect(),
             'empresas' => $empresas,
             'usuarios' => $usuarios,
             'donosDisponiveis' => $donosDisponiveis,
@@ -556,6 +568,51 @@ class ConfiguracaoController extends Controller
     }
 
     /**
+     * Alterna a estética ativa operada pelo Dono da Empresa (ou Administrador),
+     * isolando imediatamente todas as listagens e operações para a unidade escolhida.
+     */
+    public function selecionarEmpresa(Request $request, Empresa $empresa)
+    {
+        /** @var User $usuarioLogado */
+        $usuarioLogado = Auth::user();
+
+        if (! $usuarioLogado->isDono() && ! $usuarioLogado->isAdministrador()) {
+            return back()->with('error', 'Apenas o Dono da Empresa ou Administrador Geral pode alternar a estética ativa.');
+        }
+
+        if (! $usuarioLogado->canManageEmpresa($empresa)) {
+            return back()->with('error', 'Você não possui permissão para acessar esta estética.');
+        }
+
+        DB::transaction(function () use ($usuarioLogado, $empresa) {
+            $usuarioLogado->update(['empresa_id' => $empresa->id]);
+
+            if ($usuarioLogado->isDono()) {
+                Funcionario::withoutEvents(function () use ($usuarioLogado, $empresa) {
+                    Funcionario::withoutGlobalScopes()->updateOrCreate(
+                        ['user_id' => $usuarioLogado->id],
+                        [
+                            'empresa_id' => $empresa->id,
+                            'cargo' => 'Proprietário / Especialista',
+                            'ativo' => true,
+                        ]
+                    );
+                });
+            }
+        });
+
+        $mensagem = "Estética ativa alterada para \"{$empresa->nome_fantasia}\". Agora você está visualizando somente os dados desta unidade.";
+
+        if ($request->input('redirect_to') === 'configuracoes') {
+            return redirect()
+                ->route('configuracoes.index', ['tab' => 'empresa'])
+                ->with('success', $mensagem);
+        }
+
+        return back()->with('success', $mensagem);
+    }
+
+    /**
      * Cadastra um novo usuário no sistema.
      */
     public function storeUsuario(Request $request)
@@ -578,9 +635,10 @@ class ConfiguracaoController extends Controller
             ]);
         }
 
+        // Administrador não pode cadastrar outro Administrador; Dono pode cadastrar apenas Funcionário ou Cliente.
         $rolesPermitidos = $usuarioLogado->isAdministrador()
-            ? ['administrador', 'dono', 'funcionario', 'cliente']
-            : ['dono', 'funcionario', 'cliente'];
+            ? ['dono', 'funcionario', 'cliente']
+            : ['funcionario', 'cliente'];
 
         $validated = $request->validate([
             'name' => 'required|string|min:3|max:100',
@@ -590,6 +648,10 @@ class ConfiguracaoController extends Controller
             'empresa_id' => 'nullable|exists:empresas,id',
             'cargo' => 'nullable|string|max:80',
             'password' => 'required|string|min:8|max:64',
+        ], [
+            'tipo_usuario.in' => $usuarioLogado->isAdministrador()
+                ? 'Não é permitido cadastrar outro Administrador Geral pelo sistema.'
+                : 'Um dono de estética só pode cadastrar Funcionários ou Clientes.',
         ]);
 
         try {
@@ -597,10 +659,6 @@ class ConfiguracaoController extends Controller
                 $empresaId = $usuarioLogado->isAdministrador()
                     ? ($validated['empresa_id'] ?? $empresaAtivaId)
                     : $empresaAtivaId;
-
-                if ($validated['tipo_usuario'] === 'administrador') {
-                    $empresaId = null;
-                }
 
                 $user = User::create([
                     'empresa_id' => $empresaId,
@@ -652,20 +710,19 @@ class ConfiguracaoController extends Controller
             return back()->with('error', 'Um funcionário não pode alterar dados de outros funcionários ou usuários.');
         }
 
+        if ($usuarioLogado->isAdministrador() && $user->isAdministrador() && (int) $user->id !== (int) $usuarioLogado->id) {
+            return back()->with('error', 'Não é permitido alterar outro Administrador Geral pelo sistema.');
+        }
+
         if ($usuarioLogado->isDono()) {
             $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
-            $podeGerenciarAlvo = $empresaAtivaId !== null
+            $mesmaEmpresa = $empresaAtivaId !== null && (int) $user->empresa_id === (int) $empresaAtivaId;
+            $podeGerenciarAlvo = $mesmaEmpresa
                 && ! $user->isAdministrador()
-                && ((int) $user->empresa_id === (int) $empresaAtivaId);
+                && (! $user->isDono() || (int) $user->id === (int) $usuarioLogado->id);
 
             if (! $podeGerenciarAlvo) {
-                return back()->with('error', 'Você só pode gerenciar usuários vinculados à sua empresa.');
-            }
-
-            // Protege o proprietário titular da empresa contra alterações por outro usuário secundário
-            $ehTitularDaEmpresa = Empresa::where('id', $empresaAtivaId)->where('dono_id', $user->id)->exists();
-            if ($ehTitularDaEmpresa && (int) $user->id !== (int) $usuarioLogado->id) {
-                return back()->with('error', 'Não é permitido alterar os dados ou permissões do proprietário titular da empresa.');
+                return back()->with('error', 'Você só pode gerenciar funcionários e clientes vinculados à sua estética ativa.');
             }
         }
 
@@ -675,9 +732,12 @@ class ConfiguracaoController extends Controller
             ]);
         }
 
-        $rolesPermitidos = $usuarioLogado->isAdministrador()
-            ? ['administrador', 'dono', 'funcionario', 'cliente']
-            : ['dono', 'funcionario', 'cliente'];
+        $ehProprioUsuario = (int) $user->id === (int) $usuarioLogado->id;
+        if ($usuarioLogado->isAdministrador()) {
+            $rolesPermitidos = $ehProprioUsuario ? ['administrador'] : ['dono', 'funcionario', 'cliente'];
+        } else {
+            $rolesPermitidos = $ehProprioUsuario ? ['dono'] : ['funcionario', 'cliente'];
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|min:3|max:100',
@@ -687,9 +747,13 @@ class ConfiguracaoController extends Controller
             'empresa_id' => 'nullable|exists:empresas,id',
             'cargo' => 'nullable|string|max:80',
             'password' => 'nullable|string|min:8|max:64',
+        ], [
+            'tipo_usuario.in' => $usuarioLogado->isAdministrador()
+                ? 'Não é permitido atribuir o perfil de Administrador Geral pelo sistema.'
+                : 'Um dono de estética só pode atribuir perfis de Funcionário ou Cliente.',
         ]);
 
-        if ((int) $user->id === (int) $usuarioLogado->id && $validated['tipo_usuario'] !== $user->tipo_usuario) {
+        if ($ehProprioUsuario && $validated['tipo_usuario'] !== $user->tipo_usuario) {
             return back()->with('error', 'Você não pode alterar seu próprio perfil de acesso por esta tela.');
         }
 
@@ -780,8 +844,8 @@ class ConfiguracaoController extends Controller
 
         if ($usuarioLogado->isDono()) {
             $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
-            if ($empresaAtivaId === null || $user->isAdministrador() || (int) $user->empresa_id !== (int) $empresaAtivaId) {
-                return back()->with('error', 'Você só pode gerenciar usuários vinculados à sua empresa.');
+            if ($empresaAtivaId === null || $user->isAdministrador() || $user->isDono() || (int) $user->empresa_id !== (int) $empresaAtivaId) {
+                return back()->with('error', 'Você só pode gerenciar funcionários e clientes vinculados à sua estética ativa.');
             }
 
             if (Empresa::where('id', $empresaAtivaId)->where('dono_id', $user->id)->exists()) {
@@ -829,8 +893,8 @@ class ConfiguracaoController extends Controller
 
         if ($usuarioLogado->isDono()) {
             $empresaAtivaId = $usuarioLogado->getEmpresaAtivaId();
-            if ($empresaAtivaId === null || $user->isAdministrador() || (int) $user->empresa_id !== (int) $empresaAtivaId) {
-                return back()->with('error', 'Você só pode gerenciar usuários vinculados à sua empresa.');
+            if ($empresaAtivaId === null || $user->isAdministrador() || $user->isDono() || (int) $user->empresa_id !== (int) $empresaAtivaId) {
+                return back()->with('error', 'Você só pode gerenciar funcionários e clientes vinculados à sua estética ativa.');
             }
         }
 

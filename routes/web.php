@@ -48,6 +48,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Agendamentos (Clientes visualizam andamento/histórico e criam/cancelam agendamentos próprios)
     Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
+    Route::get('/agendamentos/disponibilidade', [AgendamentoController::class, 'disponibilidade'])->name('agendamentos.disponibilidade');
     Route::get('/agendamentos/create', [AgendamentoController::class, 'create'])->name('agendamentos.create');
     Route::post('/agendamentos', [AgendamentoController::class, 'store'])->name('agendamentos.store');
     Route::get('/agendamentos/{agendamento}', [AgendamentoController::class, 'show'])->name('agendamentos.show');
@@ -117,6 +118,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // Gestão de Empresas (CRUD Completo - Dono da Empresa / Administrador Geral)
         Route::post('/configuracoes/empresas', [ConfiguracaoController::class, 'storeEmpresa'])->name('configuracoes.empresas.store');
+        Route::post('/configuracoes/empresas/{empresa}/selecionar', [ConfiguracaoController::class, 'selecionarEmpresa'])->name('configuracoes.empresas.selecionar');
         Route::put('/configuracoes/empresas/{empresa}', [ConfiguracaoController::class, 'updateEmpresa'])->name('configuracoes.empresas.update');
         Route::delete('/configuracoes/empresas/{empresa}', [ConfiguracaoController::class, 'destroyEmpresa'])->name('configuracoes.empresas.destroy');
 

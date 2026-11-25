@@ -25,7 +25,19 @@
     $nomeUsuario = $usuarioLogado?->name ?? 'Usuário';
     $emailUsuario = $usuarioLogado?->email ?? '';
     $papelUsuario = $usuarioLogado?->role_label ?? '';
-    $nomeEmpresa = $usuarioLogado?->empresa?->nome_fantasia ?? 'Kraus Detail';
+    $empresaAtivaId = $usuarioLogado?->getEmpresaAtivaId();
+    $empresaAtivaObj = $empresaAtivaId ? \App\Models\Empresa::find($empresaAtivaId) : null;
+    $nomeEmpresa = $isCliente
+        ? ($empresaAtivaObj?->nome_fantasia ?? 'Sem Estética Vinculada')
+        : ($empresaAtivaObj?->nome_fantasia ?? 'Kraus Detail');
+    $minhasEmpresasSidebar = ($usuarioLogado && $usuarioLogado->isDono())
+        ? \App\Models\Empresa::where(function ($q) use ($usuarioLogado) {
+            $q->where('dono_id', $usuarioLogado->id);
+            if ($usuarioLogado->empresa_id) {
+                $q->orWhere('id', $usuarioLogado->empresa_id);
+            }
+        })->orderBy('nome_fantasia')->get()
+        : collect();
     $configUrl = \Illuminate\Support\Facades\Route::has('configuracoes.index') ? route('configuracoes.index') : '#';
     $configActive = request()->routeIs('configuracoes*');
 @endphp
@@ -74,6 +86,31 @@
             </p>
         </div>
     </div>
+
+    @if($minhasEmpresasSidebar->count() > 1)
+        <div class="border-b border-sidebar-border px-3 py-2.5 bg-secondary/20">
+            <label for="sidebar-empresa-switch" class="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                Estética Ativa
+            </label>
+            <select
+                id="sidebar-empresa-switch"
+                class="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground focus:border-ring focus:outline-none cursor-pointer"
+                onchange="if(this.value){ var f=document.getElementById('sidebar-empresa-switch-form'); f.action=this.value; f.submit(); }"
+            >
+                @foreach($minhasEmpresasSidebar as $empSidebar)
+                    <option
+                        value="{{ route('configuracoes.empresas.selecionar', $empSidebar->id) }}"
+                        {{ (int) $empresaAtivaId === (int) $empSidebar->id ? 'selected' : '' }}
+                    >
+                        {{ $empSidebar->nome_fantasia }}
+                    </option>
+                @endforeach
+            </select>
+            <form id="sidebar-empresa-switch-form" method="POST" action="" class="hidden">
+                @csrf
+            </form>
+        </div>
+    @endif
 
     <!-- Navigation Links -->
     <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">

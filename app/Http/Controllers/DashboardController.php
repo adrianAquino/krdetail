@@ -33,6 +33,7 @@ class DashboardController extends Controller
                 ->get();
 
             $agendamentosAtivos = Agendamento::with([
+                'empresa',
                 'veiculo',
                 'servicos',
                 'ordemServico.tarefas.agendamentoServico.servico',
@@ -46,7 +47,7 @@ class DashboardController extends Controller
                 ->where('status', 'concluido')
                 ->count();
 
-            $historicoServicos = Agendamento::with(['veiculo', 'servicos'])
+            $historicoServicos = Agendamento::with(['empresa', 'veiculo', 'servicos'])
                 ->where('cliente_id', $cliente->id)
                 ->where('status', 'concluido')
                 ->orderByDesc('data_conclusao')
@@ -54,12 +55,15 @@ class DashboardController extends Controller
                 ->limit(5)
                 ->get();
 
+            $possuiEsteticaVinculada = $user->possuiEsteticaVinculada();
+
             return view('dashboard.cliente', compact(
                 'cliente',
                 'meusVeiculos',
                 'agendamentosAtivos',
                 'totalConcluidos',
-                'historicoServicos'
+                'historicoServicos',
+                'possuiEsteticaVinculada'
             ));
         }
 

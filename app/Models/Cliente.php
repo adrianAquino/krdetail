@@ -83,17 +83,28 @@ class Cliente extends Model
                         'pessoa_id' => $cliente->pessoa_id,
                         'name' => $cliente->nome,
                         'telefone' => $cliente->telefone,
+                        'empresa_id' => $cliente->empresa_id,
                     ];
-                    if ($cliente->empresa_id) {
-                        $dadosUser['empresa_id'] = $cliente->empresa_id;
-                    }
                     if (! empty($cliente->email)) {
                         $dadosUser['email'] = $cliente->email;
                     }
                     User::where('id', $cliente->user_id)->update($dadosUser);
                 });
             }
+
+            if ($cliente->empresa_id) {
+                ClienteEmpresaHistorico::registrarVinculo(
+                    $cliente->user_id ? (int) $cliente->user_id : null,
+                    (int) $cliente->id,
+                    (int) $cliente->empresa_id
+                );
+            }
         });
+    }
+
+    public function historicoEmpresas()
+    {
+        return $this->hasMany(ClienteEmpresaHistorico::class, 'cliente_id')->orderByDesc('vinculado_em');
     }
 
     public function pessoa()

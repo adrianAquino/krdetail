@@ -32,8 +32,12 @@ class AgendamentoServico extends Model
                     return;
                 }
                 $builder->whereHas('agendamento', function (Builder $aq) use ($empresaId) {
-                    $aq->withoutGlobalScopes()->whereHas('cliente', function (Builder $cq) use ($empresaId) {
-                        $cq->withoutGlobalScopes()->where('empresa_id', $empresaId);
+                    $aq->withoutGlobalScopes()->where(function (Builder $q) use ($empresaId) {
+                        $q->where('agendamentos.empresa_id', $empresaId)
+                            ->orWhere(function (Builder $q2) use ($empresaId) {
+                                $q2->whereNull('agendamentos.empresa_id')
+                                    ->whereHas('cliente', fn (Builder $cq) => $cq->withoutGlobalScopes()->where('empresa_id', $empresaId));
+                            });
                     });
                 });
             } elseif ($user->isCliente()) {

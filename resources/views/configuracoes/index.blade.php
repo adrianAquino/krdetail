@@ -273,25 +273,44 @@
                     <x-card>
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                             <div>
-                                <h2 class="text-sm font-semibold text-foreground">Suas Empresas ({{ $empresas->count() }})</h2>
-                                <p class="text-xs text-muted-foreground">Selecione qual unidade deseja visualizar ou gerenciar.</p>
+                                <h2 class="text-sm font-semibold text-foreground">Suas Estéticas ({{ $empresas->count() }})</h2>
+                                <p class="text-xs text-muted-foreground">Alterne entre suas estéticas para operar e visualizar apenas os dados da unidade selecionada.</p>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @php $empresaAtivaDonoId = $usuarioLogado->getEmpresaAtivaId(); @endphp
                             @foreach($empresas as $empItem)
                                 @php
+                                    $ehAtiva = (int) $empresaAtivaDonoId === (int) $empItem->id;
                                     $selecionada = $empresaAtual && (int) $empresaAtual->id === (int) $empItem->id;
                                 @endphp
-                                <a href="{{ route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empItem->id]) }}"
-                                   class="p-3 rounded-xl border transition-all flex items-center justify-between gap-3 {{ $selecionada ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-secondary/20 hover:border-border/80' }}">
-                                    <div class="min-w-0">
-                                        <p class="font-semibold text-sm text-foreground truncate">{{ $empItem->nome_fantasia }}</p>
-                                        <p class="text-[11px] text-muted-foreground truncate">{{ $empItem->cnpj ?: 'CNPJ não informado' }}</p>
+                                <div class="p-3 rounded-xl border transition-all flex flex-col justify-between gap-3 {{ $ehAtiva ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : ($selecionada ? 'border-border bg-secondary/40' : 'border-border bg-secondary/20') }}">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-sm text-foreground truncate">{{ $empItem->nome_fantasia }}</p>
+                                            <p class="text-[11px] text-muted-foreground truncate">{{ $empItem->cnpj ?: 'CNPJ não informado' }}</p>
+                                        </div>
+                                        @if($ehAtiva)
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">Em operação</span>
+                                        @endif
                                     </div>
-                                    @if($selecionada)
-                                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold shrink-0">Em exibição</span>
-                                    @endif
-                                </a>
+                                    <div class="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                                        <a href="{{ route('configuracoes.index', ['tab' => 'empresa', 'empresa_id' => $empItem->id]) }}"
+                                           class="text-[11px] font-medium text-muted-foreground hover:text-foreground underline">
+                                            Ver ficha
+                                        </a>
+                                        @if(!$ehAtiva)
+                                            <form method="POST" action="{{ route('configuracoes.empresas.selecionar', $empItem->id) }}" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="redirect_to" value="configuracoes" />
+                                                <button type="submit"
+                                                        class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                                                    Trocar para esta estética
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </div>
                             @endforeach
                         </div>
                     </x-card>
@@ -619,7 +638,17 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                                    @if($podeGerenciarUsuarios && ($isAdmin || $user['tipo'] !== 'administrador'))
+                                    @php
+                                        $podeEditarLinha = $podeGerenciarUsuarios
+                                            && ($isAdmin ? $user['tipo'] !== 'administrador' : !in_array($user['tipo'], ['administrador', 'dono'], true));
+                                    @endphp
+                                    @if((int) $user['id'] === (int) $usuarioLogado->id)
+                                        <button type="button"
+                                                onclick="switchConfigTab('perfil')"
+                                                class="text-[11px] font-semibold text-primary hover:underline cursor-pointer">
+                                            Editar Meu Perfil
+                                        </button>
+                                    @elseif($podeEditarLinha)
                                         <button
                                             type="button"
                                             onclick="openModal('modal-editar-usuario-{{ $user['id'] }}')"
@@ -629,40 +658,32 @@
                                             <x-icon name="edit" class="w-4 h-4" />
                                         </button>
 
-                                        @if((int) $user['id'] !== (int) $usuarioLogado->id)
-                                            <form method="POST" action="{{ route('configuracoes.usuarios.toggle-status', $user['id']) }}" class="inline">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button
-                                                    type="submit"
-                                                    class="p-1 text-muted-foreground {{ $user['ativo'] ? 'hover:text-amber-400' : 'hover:text-emerald-400' }} transition-colors ml-1 cursor-pointer"
-                                                    title="{{ $user['ativo'] ? 'Desativar Acesso' : 'Ativar Acesso' }}"
-                                                >
-                                                    <x-icon :name="$user['ativo'] ? 'user-x' : 'user-check'" class="w-4 h-4" />
-                                                </button>
-                                            </form>
+                                        <form method="POST" action="{{ route('configuracoes.usuarios.toggle-status', $user['id']) }}" class="inline">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button
+                                                type="submit"
+                                                class="p-1 text-muted-foreground {{ $user['ativo'] ? 'hover:text-amber-400' : 'hover:text-emerald-400' }} transition-colors ml-1 cursor-pointer"
+                                                title="{{ $user['ativo'] ? 'Desativar Acesso' : 'Ativar Acesso' }}"
+                                            >
+                                                <x-icon :name="$user['ativo'] ? 'user-x' : 'user-check'" class="w-4 h-4" />
+                                            </button>
+                                        </form>
 
-                                            <form method="POST"
-                                                  action="{{ route('configuracoes.usuarios.destroy', $user['id']) }}"
-                                                  class="inline"
-                                                  onsubmit="return confirm('Deseja realmente excluir este usuário?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button
-                                                    type="submit"
-                                                    class="p-1 text-muted-foreground hover:text-rose-400 transition-colors ml-1 cursor-pointer"
-                                                    title="Excluir Usuário"
-                                                >
-                                                    <x-icon name="trash-2" class="w-4 h-4" />
-                                                </button>
-                                            </form>
-                                        @endif
-                                    @elseif((int) $user['id'] === (int) $usuarioLogado->id)
-                                        <button type="button"
-                                                onclick="switchConfigTab('perfil')"
-                                                class="text-[11px] font-semibold text-primary hover:underline cursor-pointer">
-                                            Editar Meu Perfil
-                                        </button>
+                                        <form method="POST"
+                                              action="{{ route('configuracoes.usuarios.destroy', $user['id']) }}"
+                                              class="inline"
+                                              onsubmit="return confirm('Deseja realmente excluir este usuário?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button
+                                                type="submit"
+                                                class="p-1 text-muted-foreground hover:text-rose-400 transition-colors ml-1 cursor-pointer"
+                                                title="Excluir Usuário"
+                                            >
+                                                <x-icon name="trash-2" class="w-4 h-4" />
+                                            </button>
+                                        </form>
                                     @else
                                         <span class="text-[11px] text-muted-foreground italic">Somente leitura</span>
                                     @endif
@@ -789,6 +810,97 @@
                 </dl>
             </x-card>
         </div>
+
+        @if($isCliente)
+            @php
+                $historicoLista = $historicoEmpresas ?? collect();
+            @endphp
+            <x-card>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 mb-4 border-b border-border">
+                    <div class="flex items-center gap-2">
+                        <x-icon name="briefcase" class="w-5 h-5 text-primary" />
+                        <div>
+                            <h3 class="text-sm font-semibold text-foreground">Vínculo com Estética Automotiva &amp; Histórico</h3>
+                            <p class="text-xs text-muted-foreground">Acompanhe a estética à qual sua conta está vinculada atualmente e seu histórico anterior.</p>
+                        </div>
+                    </div>
+                    @if($empresaAtual)
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 self-start sm:self-auto">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Vinculado atualmente
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 self-start sm:self-auto">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                            Sem vínculo ativo no momento
+                        </span>
+                    @endif
+                </div>
+
+                <div class="space-y-4">
+                    <div class="p-3.5 rounded-xl border {{ $empresaAtual ? 'border-primary/30 bg-primary/5' : 'border-amber-500/30 bg-amber-500/5' }}">
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Estética Vinculada Atualmente</p>
+                        @if($empresaAtual)
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div>
+                                    <p class="font-bold text-sm text-foreground">{{ $empresaAtual->nome_fantasia }}</p>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ $empresaAtual->razao_social }}
+                                        @if($empresaAtual->cidade)
+                                            • {{ $empresaAtual->cidade }}{{ $empresaAtual->uf ? '/' . $empresaAtual->uf : '' }}
+                                        @endif
+                                    </p>
+                                </div>
+                                <div class="text-xs text-muted-foreground">
+                                    <span>WhatsApp: <strong class="text-foreground">{{ $empresaAtual->whatsapp ?: '-' }}</strong></span>
+                                </div>
+                            </div>
+                        @else
+                            <p class="text-sm font-semibold text-foreground">Nenhuma estética vinculada no momento</p>
+                            <p class="text-xs text-muted-foreground mt-0.5">
+                                Você pode gerenciar seus veículos e consultar serviços já realizados, mas só poderá solicitar novos agendamentos quando um dono de estética cadastrar ou vincular seus dados.
+                            </p>
+                        @endif
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">Histórico de Vínculos com Estéticas</h4>
+                        @if($historicoLista->isNotEmpty())
+                            <div class="space-y-2">
+                                @foreach($historicoLista as $hist)
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-secondary/25 border border-border/60 text-xs">
+                                        <div>
+                                            <p class="font-semibold text-foreground text-sm">
+                                                {{ $hist->empresa?->nome_fantasia ?? 'Estética #' . $hist->empresa_id }}
+                                            </p>
+                                            <p class="text-muted-foreground">
+                                                Vinculado em {{ $hist->vinculado_em?->format('d/m/Y H:i') ?? '-' }}
+                                                @if($hist->desvinculado_em)
+                                                    • Encerrado em {{ $hist->desvinculado_em->format('d/m/Y H:i') }}
+                                                @endif
+                                            </p>
+                                        </div>
+                                        @if($hist->desvinculado_em === null)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 self-start sm:self-auto">
+                                                Vínculo Ativo
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 self-start sm:self-auto">
+                                                Vínculo Anterior
+                                            </span>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-xs text-muted-foreground italic p-3 rounded-lg bg-secondary/20 border border-border/50">
+                                Você ainda não esteve vinculado a nenhuma estética automotiva.
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            </x-card>
+        @endif
     </div>
 
     @if($isCliente && $empresaAtual)
@@ -1317,7 +1429,11 @@
 @if($podeGerenciarUsuarios)
     <!-- Modais de Edição de Usuário (renderizados fora da tabela HTML para estrutura válida) -->
     @foreach(($usuarios ?? collect()) as $user)
-        @if($isAdmin || $user['tipo'] !== 'administrador')
+        @php
+            $podeRenderModalEdit = (int) $user['id'] !== (int) $usuarioLogado->id
+                && ($isAdmin ? $user['tipo'] !== 'administrador' : !in_array($user['tipo'], ['administrador', 'dono'], true));
+        @endphp
+        @if($podeRenderModalEdit)
             @php $isModalEditUser = old('_modal_target') === 'editar-usuario-' . $user['id']; @endphp
             <x-modal id="modal-editar-usuario-{{ $user['id'] }}" :title="'Editar Usuário: ' . $user['nome']">
                 <form action="{{ route('configuracoes.usuarios.update', $user['id']) }}" method="POST" class="space-y-4 text-left">
@@ -1330,11 +1446,10 @@
 
                     @php $tipoUserModal = $isModalEditUser ? old('tipo_usuario', $user['tipo']) : $user['tipo']; @endphp
                     <x-select :id="'edit_user_tipo_' . $user['id']" name="tipo_usuario" label="Perfil de Acesso" required>
-                        <option value="dono" {{ $tipoUserModal === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
-                        <option value="funcionario" {{ $tipoUserModal === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
                         @if($isAdmin)
-                            <option value="administrador" {{ $tipoUserModal === 'administrador' ? 'selected' : '' }}>Administrador Geral do Sistema</option>
+                            <option value="dono" {{ $tipoUserModal === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
                         @endif
+                        <option value="funcionario" {{ $tipoUserModal === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
                         <option value="cliente" {{ $tipoUserModal === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
                     </x-select>
 
@@ -1381,9 +1496,8 @@
             @php $tipoNovoUser = $isModalNovoUser ? old('tipo_usuario', 'funcionario') : 'funcionario'; @endphp
             <x-select id="novo_user_tipo_usuario" name="tipo_usuario" label="Perfil de Acesso" required>
                 <option value="funcionario" {{ $tipoNovoUser === 'funcionario' ? 'selected' : '' }}>Funcionário / Operador de Detalhamento</option>
-                <option value="dono" {{ $tipoNovoUser === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
                 @if($isAdmin)
-                    <option value="administrador" {{ $tipoNovoUser === 'administrador' ? 'selected' : '' }}>Administrador Geral do Sistema</option>
+                    <option value="dono" {{ $tipoNovoUser === 'dono' ? 'selected' : '' }}>Dono da Empresa (Gestão + Execução de Serviços)</option>
                 @endif
                 <option value="cliente" {{ $tipoNovoUser === 'cliente' ? 'selected' : '' }}>Cliente (Acesso ao Portal)</option>
             </x-select>

@@ -1,3 +1,7 @@
+@php
+    $possuiEsteticaVinculada = $possuiEsteticaVinculada ?? (auth()->check() && auth()->user()->possuiEsteticaVinculada());
+@endphp
+
 <x-layouts.app title="Meu Painel">
     <x-header
         :title="'Olá, ' . ($cliente->nome ?? auth()->user()->name)"
@@ -7,11 +11,21 @@
             <x-button href="{{ route('veiculos.create') }}" variant="outline" icon="car" size="md">
                 Cadastrar Veículo
             </x-button>
-            <x-button href="{{ route('agendamentos.create') }}" icon="plus" size="md">
-                Novo Agendamento
-            </x-button>
+            @if($possuiEsteticaVinculada)
+                <x-button href="{{ route('agendamentos.create') }}" icon="plus" size="md">
+                    Novo Agendamento
+                </x-button>
+            @endif
         </x-slot:actions>
     </x-header>
+
+    @if(!$possuiEsteticaVinculada)
+        <div class="mb-6">
+            <x-alert type="warning" title="Conta sem estética automotiva vinculada">
+                Você ainda não está vinculado a nenhuma estética no momento. Você já pode cadastrar seus veículos em <strong>Meus Veículos</strong> e consultar seu histórico de atendimentos anteriores, porém novos agendamentos só ficam disponíveis após um dono de estética cadastrar ou vincular seus dados (e-mail ou CPF/CNPJ). Você pode acompanhar seus vínculos na aba <a href="{{ route('configuracoes.index', ['tab' => 'perfil']) }}" class="underline font-semibold">Meu Perfil</a>.
+            </x-alert>
+        </div>
+    @endif
 
     <!-- Cards de Resumo do Cliente -->
     <div class="grid gap-4 sm:grid-cols-3 mb-8">
@@ -145,11 +159,13 @@
                     @empty
                         <div class="text-center py-8 text-muted-foreground text-sm">
                             Você não possui agendamentos em andamento no momento.
-                            <div class="mt-3">
-                                <x-button href="{{ route('agendamentos.create') }}" size="sm" icon="plus">
-                                    Agendar um Serviço
-                                </x-button>
-                            </div>
+                            @if($possuiEsteticaVinculada)
+                                <div class="mt-3">
+                                    <x-button href="{{ route('agendamentos.create') }}" size="sm" icon="plus">
+                                        Agendar um Serviço
+                                    </x-button>
+                                </div>
+                            @endif
                         </div>
                     @endforelse
                 </div>
@@ -181,6 +197,9 @@
                                 </p>
                                 <p class="text-[11px] text-muted-foreground mt-0.5">
                                     Realizado em {{ \Carbon\Carbon::parse($hist->data_inicio)->format('d/m/Y \à\s H:i') }}
+                                    @if($hist->empresa)
+                                        • Estética: <strong class="text-foreground">{{ $hist->empresa->nome_fantasia }}</strong>
+                                    @endif
                                 </p>
                             </div>
                             <div class="text-right shrink-0 ml-3">
