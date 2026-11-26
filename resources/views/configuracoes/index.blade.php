@@ -1513,10 +1513,10 @@
             </x-select>
 
             @if($isAdmin)
-                @php $empNovoUser = $isModalNovoUser ? old('empresa_id', $empresaAtual?->id) : $empresaAtual?->id; @endphp
-                <x-select id="novo_user_empresa_id" name="empresa_id" label="Empresa Vinculada">
+                @php $empNovoUser = $isModalNovoUser ? old('empresa_id') : null; @endphp
+                <x-select id="novo_user_empresa_id" name="empresa_id" label="Empresa Vinculada" placeholder="Sem vínculo inicial (Criará empresa depois)">
                     @foreach($empresas as $empOpcao)
-                        <option value="{{ $empOpcao->id }}" {{ (int) $empNovoUser === (int) $empOpcao->id ? 'selected' : '' }}>
+                        <option value="{{ $empOpcao->id }}" {{ (string) $empNovoUser === (string) $empOpcao->id ? 'selected' : '' }}>
                             {{ $empOpcao->nome_fantasia }}
                         </option>
                     @endforeach

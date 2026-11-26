@@ -678,7 +678,7 @@ class ConfiguracaoController extends Controller
         try {
             DB::transaction(function () use ($validated, $usuarioLogado, $empresaAtivaId) {
                 $empresaId = $usuarioLogado->isAdministrador()
-                    ? ($validated['empresa_id'] ?? $empresaAtivaId)
+                    ? ($validated['empresa_id'] ?? null)
                     : $empresaAtivaId;
 
                 $user = User::create([
@@ -783,9 +783,9 @@ class ConfiguracaoController extends Controller
                 if ($validated['tipo_usuario'] === 'administrador') {
                     $empresaId = null;
                 } elseif ($usuarioLogado->isAdministrador()) {
-                    $empresaId = array_key_exists('empresa_id', $validated) && $validated['empresa_id'] !== null
-                        ? (int) $validated['empresa_id']
-                        : ($user->empresa_id ?? $usuarioLogado->getEmpresaAtivaId());
+                    $empresaId = array_key_exists('empresa_id', $validated)
+                        ? ($validated['empresa_id'] !== null ? (int) $validated['empresa_id'] : null)
+                        : $user->empresa_id;
                 } else {
                     $empresaId = $usuarioLogado->getEmpresaAtivaId();
                 }

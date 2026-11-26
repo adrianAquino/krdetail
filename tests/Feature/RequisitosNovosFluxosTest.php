@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Veiculo;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 class RequisitosNovosFluxosTest extends TestCase
@@ -201,6 +202,19 @@ class RequisitosNovosFluxosTest extends TestCase
         ])->assertSessionHasErrors('tipo_usuario');
         $this->assertDatabaseMissing('users', ['email' => 'admin2@krdetail.test']);
 
+        // Admin pode cadastrar Dono sem selecionar empresa_id (dono criará sua estética depois)
+        $this->actingAs($admin)->post(route('configuracoes.usuarios.store'), [
+            'name' => 'Dono Sem Empresa Inicial',
+            'email' => 'dono.novo@krdetail.test',
+            'tipo_usuario' => 'dono',
+            'empresa_id' => '',
+            'password' => 'SenhaForte123',
+        ])->assertRedirect(route('configuracoes.index', ['tab' => 'equipe']));
+
+        $donoNovo = User::where('email', 'dono.novo@krdetail.test')->firstOrFail();
+        $this->assertSame('dono', $donoNovo->tipo_usuario);
+        $this->assertNull($donoNovo->empresa_id, 'O Dono cadastrado sem empresa não deve ter empresa_id vinculada automaticamente');
+
         // Admin pode cadastrar Dono, Funcionário e Cliente; Dono NÃO pode cadastrar Admin nem outro Dono
         $this->actingAs($dono)->post(route('configuracoes.usuarios.store'), [
             'name' => 'Outro Dono',
@@ -227,7 +241,8 @@ class RequisitosNovosFluxosTest extends TestCase
         $this->assertSame('funcionario', $funcAlpha->fresh()->tipo_usuario);
 
         // Cria clientes exclusivos na Estética Alpha e na Estética Beta (sem usuário logado sobrescrever empresa_id)
-        auth()->logout();
+        
+        Auth::logout();
         Cliente::withoutGlobalScopes()->create([
             'empresa_id' => $esteticaA->id,
             'nome' => 'Cliente Exclusivo Alpha',
