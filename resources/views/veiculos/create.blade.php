@@ -346,7 +346,7 @@
 
                 <!-- Conta de Acesso -->
                 <div>
-                    <div class="flex items-start gap-3 p-3 rounded-lg border border-border bg-secondary/30">
+                    <div id="modal_criar_usuario_wrapper" class="flex items-start gap-3 p-3 rounded-lg border border-border bg-secondary/30">
                         <input
                             type="checkbox"
                             id="modal_criar_usuario"
@@ -382,9 +382,9 @@
                         />
                     </div>
 
-                    <p id="modal-aviso-conta-ja-existe" class="hidden text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2">
+                    <div id="modal-aviso-conta-ja-existe" class="hidden rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                         Este usuário já possui conta de acesso na plataforma; ela será vinculada automaticamente à sua estética ao salvar (não é necessário criar senha).
-                    </p>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
@@ -472,6 +472,8 @@
                     chkModal.checked = false;
                     toggleSenhaModalCliente(false);
                 }
+                const wrapperModalCriarUsuario = document.getElementById('modal_criar_usuario_wrapper');
+                if (wrapperModalCriarUsuario) wrapperModalCriarUsuario.classList.remove('hidden');
                 if (aviso) aviso.classList.add('hidden');
             }
 
@@ -556,6 +558,8 @@
                     chkModal.disabled = true;
                     toggleSenhaModalCliente(false);
                 }
+                const wrapperModalCriarUsuario = document.getElementById('modal_criar_usuario_wrapper');
+                if (wrapperModalCriarUsuario) wrapperModalCriarUsuario.classList.add('hidden');
                 if (aviso) aviso.classList.remove('hidden');
 
                 const mensagemConfirmacao = status === 'vinculado_outra_empresa'

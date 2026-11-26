@@ -172,7 +172,7 @@
             <!-- Acesso ao Sistema -->
             <x-card title="Conta de Acesso ao Sistema" description="Permite que o cliente consulte seus agendamentos e veículos pelo portal">
                 <div class="space-y-4">
-                    <div class="flex items-start gap-3 p-3.5 rounded-lg border border-border bg-secondary/30">
+                    <div id="criar_usuario_wrapper" class="flex items-start gap-3 p-3.5 rounded-lg border border-border bg-secondary/30">
                         <input
                             type="checkbox"
                             id="criar_usuario"
@@ -207,9 +207,9 @@
                         />
                     </div>
 
-                    <p id="aviso-conta-ja-existe" class="hidden text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                    <div id="aviso-conta-ja-existe" class="hidden rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                         Este usuário já possui conta de acesso na plataforma; ela será vinculada automaticamente à sua estética ao salvar (não é necessário criar senha).
-                    </p>
+                    </div>
                 </div>
             </x-card>
 
@@ -306,6 +306,8 @@
                 chk.disabled = true;
                 toggleSenhaCliente(false);
             }
+            const wrapperCriarUsuario = document.getElementById('criar_usuario_wrapper');
+            if (wrapperCriarUsuario) wrapperCriarUsuario.classList.add('hidden');
             if (aviso) aviso.classList.remove('hidden');
 
             const mensagemConfirmacao = status === 'vinculado_outra_empresa'
@@ -426,6 +428,8 @@
                 chk.checked = false;
                 toggleSenhaCliente(false);
             }
+            const wrapperCriarUsuario = document.getElementById('criar_usuario_wrapper');
+            if (wrapperCriarUsuario) wrapperCriarUsuario.classList.remove('hidden');
             if (aviso) aviso.classList.add('hidden');
         }
 
