@@ -175,6 +175,30 @@
                     <ul id="modal-cliente-erros-lista" class="list-disc list-inside space-y-0.5"></ul>
                 </div>
 
+                <!-- Busca Rápida de Conta Existente (Opcional) -->
+                <div class="rounded-lg border border-border bg-secondary/20 p-3.5 space-y-2.5">
+                    <div>
+                        <h4 class="text-xs font-semibold text-foreground">Cliente já possui conta? (Opcional)</h4>
+                        <p class="text-[11px] text-muted-foreground">Informe o e-mail completo ou CPF/CNPJ para puxar os dados automaticamente.</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <div class="flex-1">
+                            <input
+                                type="text"
+                                id="modal_busca_usuario_cliente"
+                                placeholder="E-mail completo ou CPF/CNPJ"
+                                maxlength="100"
+                                autocomplete="off"
+                                class="block w-full rounded-lg bg-input/40 border border-border px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring/40 focus:outline-none focus:ring-2 transition-all"
+                            />
+                        </div>
+                        <x-button type="button" id="btn-modal-buscar-usuario" variant="outline" size="sm" icon="search" class="shrink-0">
+                            Buscar dados
+                        </x-button>
+                    </div>
+                    <div id="modal-resultado-busca-usuario" class="hidden rounded-lg border p-2.5 text-xs"></div>
+                </div>
+
                 <!-- Dados Principais -->
                 <div>
                     <h4 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 pb-1.5 border-b border-border">
@@ -357,6 +381,10 @@
                             placeholder="Repita a senha"
                         />
                     </div>
+
+                    <p id="modal-aviso-conta-ja-existe" class="hidden text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2">
+                        Este usuário já possui conta de acesso na plataforma; ela será vinculada automaticamente à sua estética ao salvar (não é necessário criar senha).
+                    </p>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
@@ -392,6 +420,217 @@
                     errosLista.appendChild(li);
                 });
                 errosContainer.classList.remove('hidden');
+            }
+
+            function selecionarClienteNoFormularioVeiculo(clienteId, nomeCliente, documento) {
+                const selectCliente = document.getElementById('cliente_id');
+                if (!selectCliente || !clienteId) return;
+
+                let optionExistente = Array.from(selectCliente.options).find(function (opt) {
+                    return String(opt.value) === String(clienteId);
+                });
+
+                if (!optionExistente) {
+                    const doc = documento ? documento : 'Sem documento';
+                    const nome = nomeCliente ? nomeCliente : 'Cliente';
+                    optionExistente = new Option(`${nome} (${doc})`, clienteId, true, true);
+                    selectCliente.add(optionExistente);
+                }
+                selectCliente.value = String(clienteId);
+            }
+
+            function limparBuscaUsuarioModal() {
+                const inputBusca = document.getElementById('modal_busca_usuario_cliente');
+                const box = document.getElementById('modal-resultado-busca-usuario');
+                const chkModal = document.getElementById('modal_criar_usuario');
+                const aviso = document.getElementById('modal-aviso-conta-ja-existe');
+
+                if (inputBusca) inputBusca.value = '';
+                if (box) {
+                    box.replaceChildren();
+                    box.classList.add('hidden');
+                }
+                [
+                    'modal_cliente_nome',
+                    'modal_cliente_cpf_cnpj',
+                    'modal_cliente_telefone',
+                    'modal_cliente_email',
+                    'modal_cep',
+                    'modal_rua',
+                    'modal_numero',
+                    'modal_complemento',
+                    'modal_bairro',
+                    'modal_cidade',
+                    'modal_uf',
+                ].forEach(function (id) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+
+                if (chkModal) {
+                    chkModal.disabled = false;
+                    chkModal.checked = false;
+                    toggleSenhaModalCliente(false);
+                }
+                if (aviso) aviso.classList.add('hidden');
+            }
+
+            function renderModalResultadoBuscaUsuario(tipo, mensagem, opcoes) {
+                const box = document.getElementById('modal-resultado-busca-usuario');
+                if (!box) return;
+
+                box.replaceChildren();
+                box.className = 'rounded-lg border p-2.5 text-xs space-y-2';
+
+                if (tipo === 'sucesso') {
+                    box.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-700', 'dark:text-emerald-300');
+                } else if (tipo === 'aviso') {
+                    box.classList.add('border-amber-500/40', 'bg-amber-500/10', 'text-amber-700', 'dark:text-amber-300');
+                } else if (tipo === 'erro') {
+                    box.classList.add('border-destructive/40', 'bg-destructive/10', 'text-destructive');
+                } else {
+                    box.classList.add('border-border', 'bg-secondary/40', 'text-muted-foreground');
+                }
+
+                const p = document.createElement('p');
+                p.textContent = String(mensagem || '');
+                box.appendChild(p);
+
+                const acoes = document.createElement('div');
+                acoes.className = 'flex flex-wrap items-center gap-3';
+
+                if (opcoes && opcoes.clienteId) {
+                    const btnSelecionar = document.createElement('button');
+                    btnSelecionar.type = 'button';
+                    btnSelecionar.textContent = 'Selecionar este cliente';
+                    btnSelecionar.className = 'font-semibold underline text-primary hover:text-primary/80 cursor-pointer';
+                    btnSelecionar.addEventListener('click', function () {
+                        selecionarClienteNoFormularioVeiculo(
+                            opcoes.clienteId,
+                            opcoes.dados?.nome,
+                            opcoes.dados?.cpf_cnpj
+                        );
+                        const alertaCriado = document.getElementById('alerta-cliente-criado');
+                        const alertaCriadoTexto = document.getElementById('alerta-cliente-criado-texto');
+                        if (alertaCriado && alertaCriadoTexto) {
+                            alertaCriadoTexto.textContent = `Cliente "${opcoes.dados?.nome || 'selecionado'}" encontrado e selecionado automaticamente!`;
+                            alertaCriado.classList.remove('hidden');
+                        }
+                        limparBuscaUsuarioModal();
+                        window.closeModal('modal-novo-cliente');
+                    });
+                    acoes.appendChild(btnSelecionar);
+                }
+
+                if (opcoes && opcoes.mostrarLimpar) {
+                    const btnLimpar = document.createElement('button');
+                    btnLimpar.type = 'button';
+                    btnLimpar.textContent = 'Limpar / Novo cadastro';
+                    btnLimpar.className = 'font-semibold underline text-foreground hover:text-primary cursor-pointer';
+                    btnLimpar.addEventListener('click', limparBuscaUsuarioModal);
+                    acoes.appendChild(btnLimpar);
+                }
+
+                if (acoes.childNodes.length > 0) {
+                    box.appendChild(acoes);
+                }
+
+                box.classList.remove('hidden');
+            }
+
+            async function buscarUsuarioClienteModal() {
+                const inputBusca = document.getElementById('modal_busca_usuario_cliente');
+                const btnBuscar = document.getElementById('btn-modal-buscar-usuario');
+                const chkModal = document.getElementById('modal_criar_usuario');
+                const aviso = document.getElementById('modal-aviso-conta-ja-existe');
+                const empresaSelect = document.getElementById('modal_cliente_empresa_id');
+
+                const termo = (inputBusca?.value || '').trim();
+                if (!termo) {
+                    renderModalResultadoBuscaUsuario('erro', 'Informe um e-mail completo ou CPF/CNPJ para buscar.');
+                    return;
+                }
+
+                const empresaId = empresaSelect ? empresaSelect.value : '';
+                const url = @json(route('clientes.buscar-usuario'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES)
+                    + '?termo=' + encodeURIComponent(termo)
+                    + (empresaId ? '&empresa_id=' + encodeURIComponent(empresaId) : '');
+
+                if (btnBuscar) btnBuscar.disabled = true;
+
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        if (chkModal) chkModal.disabled = false;
+                        if (aviso) aviso.classList.add('hidden');
+                        renderModalResultadoBuscaUsuario('erro', data.message || 'Não foi possível realizar a busca.');
+                        return;
+                    }
+
+                    if (!data.found) {
+                        if (chkModal) chkModal.disabled = false;
+                        if (aviso) aviso.classList.add('hidden');
+                        renderModalResultadoBuscaUsuario('neutro', data.message || 'Nenhuma conta encontrada.');
+                        return;
+                    }
+
+                    if (data.status === 'ja_vinculado_esta_empresa') {
+                        if (chkModal) chkModal.disabled = false;
+                        if (aviso) aviso.classList.add('hidden');
+                        renderModalResultadoBuscaUsuario('aviso', data.message, {
+                            clienteId: data.cliente_id,
+                            dados: data.dados,
+                        });
+                        return;
+                    }
+
+                    if (data.dados) {
+                        const mapaCampos = {
+                            nome: 'modal_cliente_nome',
+                            cpf_cnpj: 'modal_cliente_cpf_cnpj',
+                            telefone: 'modal_cliente_telefone',
+                            email: 'modal_cliente_email',
+                            cep: 'modal_cep',
+                            logradouro: 'modal_rua',
+                            numero: 'modal_numero',
+                            complemento: 'modal_complemento',
+                            bairro: 'modal_bairro',
+                            cidade: 'modal_cidade',
+                            estado: 'modal_uf',
+                        };
+                        Object.entries(mapaCampos).forEach(function ([campo, elementId]) {
+                            const el = document.getElementById(elementId);
+                            if (el && data.dados[campo] !== undefined && data.dados[campo] !== null) {
+                                el.value = String(data.dados[campo]);
+                            }
+                        });
+                    }
+
+                    if (chkModal) {
+                        chkModal.checked = false;
+                        chkModal.disabled = true;
+                        toggleSenhaModalCliente(false);
+                    }
+                    if (aviso) aviso.classList.remove('hidden');
+
+                    renderModalResultadoBuscaUsuario(
+                        data.status === 'vinculado_outra_empresa' ? 'aviso' : 'sucesso',
+                        data.message,
+                        { mostrarLimpar: true }
+                    );
+                } catch (e) {
+                    renderModalResultadoBuscaUsuario('erro', 'Erro ao consultar conta de usuário. Tente novamente.');
+                } finally {
+                    if (btnBuscar) btnBuscar.disabled = false;
+                }
             }
 
             async function pesquisacepModal(valor) {
@@ -439,10 +678,23 @@
                 const chkModal = document.getElementById('modal_criar_usuario');
                 if (chkModal) toggleSenhaModalCliente(chkModal.checked);
 
+                const btnModalBuscar = document.getElementById('btn-modal-buscar-usuario');
+                const inputModalBusca = document.getElementById('modal_busca_usuario_cliente');
+                if (btnModalBuscar) {
+                    btnModalBuscar.addEventListener('click', buscarUsuarioClienteModal);
+                }
+                if (inputModalBusca) {
+                    inputModalBusca.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            buscarUsuarioClienteModal();
+                        }
+                    });
+                }
+
                 const formModalCliente = document.getElementById('form-modal-cliente');
                 const errosContainer = document.getElementById('modal-cliente-erros');
                 const errosLista = document.getElementById('modal-cliente-erros-lista');
-                const selectCliente = document.getElementById('cliente_id');
                 const alertaCriado = document.getElementById('alerta-cliente-criado');
                 const alertaCriadoTexto = document.getElementById('alerta-cliente-criado-texto');
                 const btnSalvar = document.getElementById('btn-salvar-cliente-modal');
@@ -483,19 +735,20 @@
                                 return;
                             }
 
-                            if (data.cliente && selectCliente) {
-                                const doc = data.cliente.cpf_cnpj ? data.cliente.cpf_cnpj : 'Sem documento';
-                                const option = new Option(`${data.cliente.nome} (${doc})`, data.cliente.id, true, true);
-                                selectCliente.add(option);
-                                selectCliente.value = data.cliente.id;
+                            if (data.cliente) {
+                                selecionarClienteNoFormularioVeiculo(
+                                    data.cliente.id,
+                                    data.cliente.nome,
+                                    data.cliente.cpf_cnpj
+                                );
                             }
 
                             formModalCliente.reset();
-                            toggleSenhaModalCliente(false);
+                            limparBuscaUsuarioModal();
                             window.closeModal('modal-novo-cliente');
 
                             if (alertaCriado && alertaCriadoTexto && data.cliente) {
-                                alertaCriadoTexto.textContent = `Cliente "${data.cliente.nome}" cadastrado e selecionado automaticamente!`;
+                                alertaCriadoTexto.textContent = data.message || `Cliente "${data.cliente.nome}" cadastrado e selecionado automaticamente!`;
                                 alertaCriado.classList.remove('hidden');
                             }
                         } catch (err) {

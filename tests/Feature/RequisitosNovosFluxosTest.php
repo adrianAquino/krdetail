@@ -6,6 +6,7 @@ use App\Models\Agendamento;
 use App\Models\Cliente;
 use App\Models\ClienteEmpresaHistorico;
 use App\Models\Empresa;
+use App\Models\Pessoa;
 use App\Models\Servico;
 use App\Models\User;
 use App\Models\Veiculo;
@@ -562,5 +563,229 @@ class RequisitosNovosFluxosTest extends TestCase
             ->assertOk()
             ->assertSee('id="meu_perfil_cep"', false)
             ->assertSee('onblur="window.consultarViaCepInput(this);"', false);
+    }
+
+    public function test_busca_usuario_cliente_existente_por_email_ou_cpf_respeita_privacidade_e_isolamento(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin Busca',
+            'email' => 'admin.busca@krdetail.test',
+            'password' => 'SenhaForte123',
+            'tipo_usuario' => 'administrador',
+            'ativo' => true,
+        ]);
+
+        $donoAlfa = User::create([
+            'name' => 'Dono Alfa Busca',
+            'email' => 'dono.alfa.busca@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 91000-0001',
+            'tipo_usuario' => 'dono',
+            'ativo' => true,
+        ]);
+
+        $empresaAlfa = Empresa::create([
+            'dono_id' => $donoAlfa->id,
+            'nome_fantasia' => 'Estética Alfa Busca',
+            'razao_social' => 'Alfa Busca LTDA',
+            'whatsapp' => '(11) 91000-0001',
+            'email' => 'alfa.busca@krdetail.test',
+            'ativo' => true,
+        ]);
+        $donoAlfa->update(['empresa_id' => $empresaAlfa->id]);
+
+        $funcAlfa = User::create([
+            'name' => 'Func Alfa Busca',
+            'email' => 'func.alfa.busca@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 91000-0002',
+            'tipo_usuario' => 'funcionario',
+            'empresa_id' => $empresaAlfa->id,
+            'ativo' => true,
+        ]);
+
+        $donoBeta = User::create([
+            'name' => 'Dono Beta Busca',
+            'email' => 'dono.beta.busca@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 92000-0001',
+            'tipo_usuario' => 'dono',
+            'ativo' => true,
+        ]);
+
+        $empresaBeta = Empresa::create([
+            'dono_id' => $donoBeta->id,
+            'nome_fantasia' => 'Estética Beta Secreta',
+            'razao_social' => 'Beta Secreta LTDA',
+            'whatsapp' => '(11) 92000-0001',
+            'email' => 'beta.busca@krdetail.test',
+            'ativo' => true,
+        ]);
+        $donoBeta->update(['empresa_id' => $empresaBeta->id]);
+
+        // 1. Usuário cliente recém-cadastrado sem empresa vinculada e com dados em Pessoa
+        $usuarioDisponivel = User::create([
+            'name' => 'João Usuário Livre',
+            'email' => 'joao.livre@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 98888-1122',
+            'tipo_usuario' => 'cliente',
+            'ativo' => true,
+        ]);
+
+        Pessoa::withoutEvents(function () use ($usuarioDisponivel) {
+            Pessoa::where('id', $usuarioDisponivel->pessoa_id)->update([
+                'cpf_cnpj' => '111.444.777-35',
+                'cep' => '01310-100',
+                'logradouro' => 'Avenida Paulista',
+                'numero' => '1000',
+                'complemento' => 'Conjunto 12',
+                'bairro' => 'Bela Vista',
+                'cidade' => 'São Paulo',
+                'estado' => 'SP',
+            ]);
+        });
+
+        // Busca por e-mail exato -> found: true, status: disponivel, sem campos sensíveis
+        $respEmail = $this->actingAs($donoAlfa)
+            ->getJson(route('clientes.buscar-usuario', ['termo' => 'JOAO.LIVRE@KRDETAIL.TEST']));
+
+        $respEmail->assertOk()
+            ->assertJson([
+                'found' => true,
+                'status' => 'disponivel',
+                'dados' => [
+                    'nome' => 'João Usuário Livre',
+                    'cpf_cnpj' => '111.444.777-35',
+                    'telefone' => '(11) 98888-1122',
+                    'email' => 'joao.livre@krdetail.test',
+                    'cep' => '01310-100',
+                    'logradouro' => 'Avenida Paulista',
+                    'numero' => '1000',
+                    'complemento' => 'Conjunto 12',
+                    'bairro' => 'Bela Vista',
+                    'cidade' => 'São Paulo',
+                    'estado' => 'SP',
+                ],
+            ]);
+        $this->assertArrayNotHasKey('password', $respEmail->json('dados'));
+
+        // Busca por CPF sem máscara -> mesmo resultado
+        $this->actingAs($donoAlfa)
+            ->getJson(route('clientes.buscar-usuario', ['termo' => '11144477735']))
+            ->assertOk()
+            ->assertJson([
+                'found' => true,
+                'status' => 'disponivel',
+                'dados' => [
+                    'email' => 'joao.livre@krdetail.test',
+                ],
+            ]);
+
+        // 2. Busca parcial/incompleta bloqueada com HTTP 422
+        $this->actingAs($donoAlfa)
+            ->getJson(route('clientes.buscar-usuario', ['termo' => 'joao']))
+            ->assertStatus(422)
+            ->assertJson(['found' => false]);
+
+        $this->actingAs($donoAlfa)
+            ->getJson(route('clientes.buscar-usuario', ['termo' => '12345']))
+            ->assertStatus(422)
+            ->assertJson(['found' => false]);
+
+        // 3. E-mails de Administrador, Dono ou Funcionário não são retornados pela busca
+        foreach ([$admin->email, $donoBeta->email, $funcAlfa->email] as $emailInterno) {
+            $this->actingAs($donoAlfa)
+                ->getJson(route('clientes.buscar-usuario', ['termo' => $emailInterno]))
+                ->assertOk()
+                ->assertJson([
+                    'found' => false,
+                    'status' => 'nao_encontrado',
+                ]);
+        }
+
+        // 4. Cliente já vinculado à própria empresa retorna ja_vinculado_esta_empresa com cliente_id e cliente_url
+        $userMesmaEmpresa = User::create([
+            'name' => 'Cliente Mesma Estética',
+            'email' => 'mesma.estetica@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 97777-3344',
+            'tipo_usuario' => 'cliente',
+            'empresa_id' => $empresaAlfa->id,
+            'ativo' => true,
+        ]);
+
+        $clienteMesmaEmpresa = Cliente::withoutGlobalScopes()->create([
+            'empresa_id' => $empresaAlfa->id,
+            'user_id' => $userMesmaEmpresa->id,
+            'pessoa_id' => $userMesmaEmpresa->pessoa_id,
+            'nome' => 'Cliente Mesma Estética',
+            'email' => 'mesma.estetica@krdetail.test',
+            'telefone' => '(11) 97777-3344',
+        ]);
+
+        $this->actingAs($donoAlfa)
+            ->getJson(route('clientes.buscar-usuario', ['termo' => 'mesma.estetica@krdetail.test']))
+            ->assertOk()
+            ->assertJson([
+                'found' => true,
+                'status' => 'ja_vinculado_esta_empresa',
+                'cliente_id' => $clienteMesmaEmpresa->id,
+                'cliente_url' => route('clientes.show', $clienteMesmaEmpresa->id),
+            ]);
+
+        // 5. Cliente vinculado à Empresa Beta consultado pelo Dono da Empresa Alfa não vaza nome da Empresa Beta e ignora spoofing ?empresa_id
+        Auth::logout();
+
+        $userOutraEmpresa = User::create([
+            'name' => 'Cliente Outra Estética',
+            'email' => 'outra.estetica@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 96666-5566',
+            'tipo_usuario' => 'cliente',
+            'empresa_id' => $empresaBeta->id,
+            'ativo' => true,
+        ]);
+
+        $clienteOutraEmpresa = Cliente::withoutGlobalScopes()->create([
+            'empresa_id' => $empresaBeta->id,
+            'user_id' => $userOutraEmpresa->id,
+            'pessoa_id' => $userOutraEmpresa->pessoa_id,
+            'nome' => 'Cliente Outra Estética',
+            'email' => 'outra.estetica@krdetail.test',
+            'telefone' => '(11) 96666-5566',
+        ]);
+        $this->assertSame((int) $empresaBeta->id, (int) $clienteOutraEmpresa->empresa_id);
+
+        $respOutra = $this->actingAs($donoAlfa)
+            ->getJson(route('clientes.buscar-usuario', [
+                'termo' => 'outra.estetica@krdetail.test',
+                'empresa_id' => $empresaBeta->id,
+            ]));
+
+        $respOutra->assertOk()
+            ->assertJson([
+                'found' => true,
+                'status' => 'vinculado_outra_empresa',
+            ]);
+        $this->assertStringNotContainsString('Estética Beta Secreta', (string) $respOutra->getContent());
+
+        // 6. Usuário com perfil cliente não tem acesso à busca (HTTP 403)
+        $this->actingAs($usuarioDisponivel)
+            ->getJson(route('clientes.buscar-usuario', ['termo' => 'joao.livre@krdetail.test']))
+            ->assertForbidden();
+
+        // 7. Telas clientes.create e veiculos.create renderizam controles e endpoint clientes/buscar-usuario
+        $this->actingAs($donoAlfa)->get(route('clientes.create'))
+            ->assertOk()
+            ->assertSee('clientes/buscar-usuario', false)
+            ->assertSee('id="busca_usuario_cliente"', false)
+            ->assertSee('id="btn-buscar-usuario-cliente"', false);
+
+        $this->actingAs($donoAlfa)->get(route('veiculos.create'))
+            ->assertOk()
+            ->assertSee('clientes/buscar-usuario', false)
+            ->assertSee('id="modal_busca_usuario_cliente"', false)
+            ->assertSee('id="btn-modal-buscar-usuario"', false);
     }
 }

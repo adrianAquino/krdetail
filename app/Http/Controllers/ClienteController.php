@@ -10,6 +10,7 @@ use App\Models\Pessoa;
 use App\Models\User;
 use App\Rules\CpfCnpj;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,130 @@ class ClienteController extends Controller
         $empresaSelecionadaId = $isAdmin ? ($request->integer('empresa_id') ?: null) : null;
 
         return view('clientes.create', compact('isAdmin', 'empresas', 'empresaSelecionadaId'));
+    }
+
+    /**
+     * Busca uma conta de usuário cliente existente por correspondência exata de e-mail ou CPF/CNPJ
+     * para autopreenchimento no cadastro de clientes (sem listar clientes de outras empresas).
+     */
+    public function buscarUsuarioExistente(Request $request): JsonResponse
+    {
+        /** @var User|null $usuarioAtual */
+        $usuarioAtual = Auth::user();
+        $isAdmin = $usuarioAtual instanceof User && $usuarioAtual->isAdministrador();
+        $empresaAlvoId = $isAdmin
+            ? ($request->integer('empresa_id') ?: null)
+            : $usuarioAtual?->getEmpresaAtivaId();
+
+        if (! $isAdmin && ! $empresaAlvoId) {
+            return response()->json([
+                'found' => false,
+                'message' => 'Seu usuário não está vinculado a uma estética ativa.',
+            ], 403);
+        }
+
+        $termoRaw = $request->query('termo');
+        if (! is_scalar($termoRaw) || trim((string) $termoRaw) === '') {
+            return response()->json([
+                'found' => false,
+                'message' => 'Informe um e-mail ou CPF/CNPJ completo para buscar.',
+            ], 422);
+        }
+
+        $termoTrim = trim((string) $termoRaw);
+        $emailNormalizado = mb_strtolower($termoTrim);
+        $isEmail = filter_var($emailNormalizado, FILTER_VALIDATE_EMAIL) !== false;
+        $cpfNormalizado = CpfCnpj::normalizar($termoTrim);
+        $cpfLimpo = preg_replace('/[^0-9A-Za-z]/', '', strtoupper($termoTrim)) ?? '';
+        $isDocumentoCompleto = ! $isEmail && ((strlen($cpfLimpo) === 11 && ctype_digit($cpfLimpo)) || strlen($cpfLimpo) === 14);
+
+        if (! $isEmail && ! $isDocumentoCompleto) {
+            return response()->json([
+                'found' => false,
+                'message' => 'Informe um e-mail válido ou um CPF (11 dígitos) / CNPJ (14 caracteres) completo.',
+            ], 422);
+        }
+
+        $usuario = User::with('pessoa')
+            ->where('tipo_usuario', 'cliente')
+            ->when($isEmail, function ($q) use ($emailNormalizado) {
+                $q->whereRaw('LOWER(email) = ?', [$emailNormalizado]);
+            }, function ($q) use ($cpfNormalizado, $cpfLimpo) {
+                $q->where(function ($sub) use ($cpfNormalizado, $cpfLimpo) {
+                    $sub->whereHas('pessoa', function ($pq) use ($cpfNormalizado, $cpfLimpo) {
+                        $pq->where('cpf_cnpj', $cpfNormalizado);
+                        if ($cpfLimpo !== '' && $cpfLimpo !== $cpfNormalizado) {
+                            $pq->orWhere('cpf_cnpj', $cpfLimpo);
+                        }
+                    })->orWhereHas('cliente', function ($cq) use ($cpfNormalizado, $cpfLimpo) {
+                        $cq->withoutGlobalScopes()->where(function ($docQ) use ($cpfNormalizado, $cpfLimpo) {
+                            $docQ->where('cpf_cnpj', $cpfNormalizado);
+                            if ($cpfLimpo !== '' && $cpfLimpo !== $cpfNormalizado) {
+                                $docQ->orWhere('cpf_cnpj', $cpfLimpo);
+                            }
+                        });
+                    });
+                });
+            })
+            ->first();
+
+        if (! $usuario) {
+            return response()->json([
+                'found' => false,
+                'status' => 'nao_encontrado',
+                'message' => 'Nenhuma conta de usuário cliente foi encontrada com esse e-mail ou CPF/CNPJ. Prossiga com o cadastro normal.',
+            ]);
+        }
+
+        $clienteExistente = Cliente::withoutGlobalScopes()
+            ->with('pessoa')
+            ->where('user_id', $usuario->id)
+            ->first();
+
+        $pessoa = $clienteExistente?->pessoa ?? $usuario->pessoa;
+
+        $dados = [
+            'nome' => $clienteExistente?->nome ?: ($pessoa?->nome ?: $usuario->name),
+            'cpf_cnpj' => $clienteExistente?->cpf_cnpj ?: ($pessoa?->cpf_cnpj ?? ''),
+            'telefone' => $clienteExistente?->telefone ?: ($pessoa?->telefone ?: ($usuario->telefone ?? '')),
+            'email' => $clienteExistente?->email ?: ($pessoa?->email ?: $usuario->email),
+            'cep' => $clienteExistente?->cep ?: ($pessoa?->cep ?? ''),
+            'logradouro' => $clienteExistente?->logradouro ?: ($pessoa?->logradouro ?? ''),
+            'numero' => $clienteExistente?->numero ?: ($pessoa?->numero ?? ''),
+            'complemento' => $clienteExistente?->complemento ?: ($pessoa?->complemento ?? ''),
+            'bairro' => $clienteExistente?->bairro ?: ($pessoa?->bairro ?? ''),
+            'cidade' => $clienteExistente?->cidade ?: ($pessoa?->cidade ?? ''),
+            'estado' => $clienteExistente?->estado ?: ($pessoa?->estado ?? ''),
+        ];
+
+        $empresaDoClienteId = $clienteExistente?->empresa_id ?? $usuario->empresa_id;
+
+        if ($empresaAlvoId && $empresaDoClienteId && (int) $empresaDoClienteId === (int) $empresaAlvoId) {
+            return response()->json([
+                'found' => true,
+                'status' => 'ja_vinculado_esta_empresa',
+                'message' => 'Este cliente já está cadastrado e vinculado à sua estética.',
+                'cliente_id' => $clienteExistente?->id,
+                'cliente_url' => $clienteExistente ? route('clientes.show', $clienteExistente->id) : null,
+                'dados' => $dados,
+            ]);
+        }
+
+        if ($empresaDoClienteId !== null) {
+            return response()->json([
+                'found' => true,
+                'status' => 'vinculado_outra_empresa',
+                'message' => 'Conta de usuário encontrada! Os dados foram preenchidos. Este cliente atualmente possui vínculo em outra estética; ao salvar, o vínculo ativo passará para a sua estética (preservando o histórico anterior, sem precisar criar senha).',
+                'dados' => $dados,
+            ]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'status' => 'disponivel',
+            'message' => 'Conta de usuário encontrada! Os dados foram preenchidos automaticamente. Ao salvar, esta conta será vinculada à sua estética (não é necessário criar senha).',
+            'dados' => $dados,
+        ]);
     }
 
     public function store(Request $request)

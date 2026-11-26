@@ -68,6 +68,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // Clientes
         Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
+        Route::get('/clientes/buscar-usuario', [ClienteController::class, 'buscarUsuarioExistente'])
+            ->middleware('throttle:30,1')
+            ->name('clientes.buscar-usuario');
         Route::get('/clientes/create', [ClienteController::class, 'create'])->name('clientes.create');
         Route::post('/clientes', [ClienteController::class, 'store'])->name('clientes.store');
         Route::get('/clientes/{cliente}', [ClienteController::class, 'show'])->name('clientes.show');
