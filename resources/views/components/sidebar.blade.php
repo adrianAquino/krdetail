@@ -28,11 +28,12 @@
     $isAdminSidebar = $usuarioLogado && $usuarioLogado->isAdministrador();
     $empresaAtivaId = $isAdminSidebar ? null : $usuarioLogado?->getEmpresaAtivaId();
     $empresaAtivaObj = $empresaAtivaId ? \App\Models\Empresa::find($empresaAtivaId) : null;
-    $nomeEmpresa = $isAdminSidebar
+    $nomeEmpresa = (! $usuarioLogado || $isAdminSidebar)
         ? 'KR Detail'
-        : ($isCliente
-            ? ($empresaAtivaObj?->nome_fantasia ?? 'Sem Estética Vinculada')
-            : ($empresaAtivaObj?->nome_fantasia ?? 'Kraus Detail'));
+        : ($empresaAtivaObj?->nome_fantasia ?? 'Sem Estética');
+    $nomeEmpresaTitle = (! $usuarioLogado || $isAdminSidebar)
+        ? 'KR Detail'
+        : ($empresaAtivaObj?->nome_fantasia ?? 'Sem Estética Vinculada');
     $minhasEmpresasSidebar = ($usuarioLogado && $usuarioLogado->isDono())
         ? \App\Models\Empresa::where(function ($q) use ($usuarioLogado) {
             $q->where('dono_id', $usuarioLogado->id);
@@ -52,7 +53,7 @@
             <x-icon name="sparkles" class="h-5 w-5 text-primary-foreground" />
         </div>
         <div>
-            <span class="text-base font-bold text-foreground tracking-tight">{{ $nomeEmpresa }}</span>
+            <span class="text-base font-bold text-foreground tracking-tight" title="{{ $nomeEmpresaTitle }}">{{ $nomeEmpresa }}</span>
             <p class="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
                 {{ $isCliente ? 'Portal do Cliente' : ($papelUsuario ?: 'Estética Automotiva') }}
             </p>
@@ -83,7 +84,7 @@
             <x-icon name="sparkles" class="h-6 w-6 text-primary-foreground" />
         </div>
         <div class="overflow-hidden">
-            <h1 class="text-lg font-bold text-sidebar-foreground truncate tracking-tight">{{ $nomeEmpresa }}</h1>
+            <h1 class="text-lg font-bold text-sidebar-foreground truncate tracking-tight" title="{{ $nomeEmpresaTitle }}">{{ $nomeEmpresa }}</h1>
             <p class="text-xs text-muted-foreground truncate">
                 {{ $isCliente ? 'Portal do Cliente' : ($papelUsuario ?: 'Estética Automotiva') }}
             </p>

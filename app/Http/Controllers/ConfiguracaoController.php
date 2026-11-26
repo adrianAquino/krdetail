@@ -127,9 +127,12 @@ class ConfiguracaoController extends Controller
                 $queryUsuarios->where('empresa_id', $empresaFiltroEquipeId);
             }
         } elseif ($empresaAtivaId) {
-            $queryUsuarios->where('empresa_id', $empresaAtivaId);
+            $queryUsuarios->where(function ($q) use ($empresaAtivaId, $usuarioLogado) {
+                $q->where('empresa_id', $empresaAtivaId)
+                    ->orWhere('id', $usuarioLogado->id);
+            });
         } else {
-            $queryUsuarios->whereRaw('1 = 0');
+            $queryUsuarios->where('id', $usuarioLogado->id);
         }
 
         $usuarios = $queryUsuarios->get()->map(function (User $u) {
@@ -141,7 +144,7 @@ class ConfiguracaoController extends Controller
                 'tipo' => $u->tipo_usuario ?? 'funcionario',
                 'tipo_label' => $u->role_label,
                 'empresa_id' => $u->empresa_id,
-                'empresa_nome' => $u->empresa?->nome_fantasia ?? ($u->isAdministrador() ? 'Global (Sistema)' : '-'),
+                'empresa_nome' => $u->empresa?->nome_fantasia ?? ($u->isAdministrador() ? 'Global (Sistema)' : 'Sem empresa vinculada'),
                 'cargo' => $u->funcionario?->cargo ?? null,
                 'ativo' => (bool) $u->ativo,
             ];

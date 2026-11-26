@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@hasSection('title')@yield('title') - Kraus Detail @else{{ isset($title) ? $title . ' - Kraus Detail' : 'Kraus Detail - Sistema de Gestão de Estética Automotiva' }}@endif</title>
+    <title>@hasSection('title')@yield('title') - KR Detail @else{{ isset($title) ? $title . ' - KR Detail' : 'KR Detail - Sistema de Gestão de Estética Automotiva' }}@endif</title>
     <meta name="description" content="Sistema de gestão e agendamento para estética automotiva profissional">
 
     <script>

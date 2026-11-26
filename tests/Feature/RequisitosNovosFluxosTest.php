@@ -215,6 +215,20 @@ class RequisitosNovosFluxosTest extends TestCase
         $this->assertSame('dono', $donoNovo->tipo_usuario);
         $this->assertNull($donoNovo->empresa_id, 'O Dono cadastrado sem empresa não deve ter empresa_id vinculada automaticamente');
 
+        $this->actingAs($donoNovo)->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Sem Estética')
+            ->assertDontSee('Kraus Detail');
+
+        $this->actingAs($donoNovo)->get(route('configuracoes.index', ['tab' => 'equipe']))
+            ->assertOk()
+            ->assertSee('Dono Sem Empresa Inicial')
+            ->assertSee('dono.novo@krdetail.test')
+            ->assertSee('Sem empresa vinculada')
+            ->assertSee('Nenhuma empresa vinculada')
+            ->assertDontSee('Kraus Detail')
+            ->assertDontSee($dono->email);
+
         // Admin pode cadastrar Dono, Funcionário e Cliente; Dono NÃO pode cadastrar Admin nem outro Dono
         $this->actingAs($dono)->post(route('configuracoes.usuarios.store'), [
             'name' => 'Outro Dono',

@@ -1047,7 +1047,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                     <div class="p-3 rounded-lg bg-secondary/30 border border-border">
                         <p class="text-muted-foreground">Empresa Ativa</p>
-                        <p class="font-bold text-foreground text-sm mt-0.5">{{ $empresaAtual?->nome_fantasia ?? 'Kraus Detail' }}</p>
+                        <p class="font-bold text-foreground text-sm mt-0.5">{{ $empresaAtual?->nome_fantasia ?? ($isAdmin ? 'Visão Geral (Sistema)' : 'Nenhuma empresa vinculada') }}</p>
                     </div>
                     <div class="p-3 rounded-lg bg-secondary/30 border border-border">
                         <p class="text-muted-foreground">Versão da Plataforma</p>
@@ -1311,8 +1311,8 @@
                     Identificação da Oficina
                 </h4>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <x-input id="nova_emp_nome_fantasia" name="nome_fantasia" label="Nome Fantasia" placeholder="Ex: Kraus Detail - Unidade 2" maxlength="100" required />
-                    <x-input id="nova_emp_razao_social" name="razao_social" label="Razão Social" placeholder="Ex: Kraus Estética Automotiva LTDA" maxlength="120" required />
+                    <x-input id="nova_emp_nome_fantasia" name="nome_fantasia" label="Nome Fantasia" placeholder="Ex: Minha Estética Automotiva" maxlength="100" required />
+                    <x-input id="nova_emp_razao_social" name="razao_social" label="Razão Social" placeholder="Ex: Minha Estética Automotiva LTDA" maxlength="120" required />
                     <x-input id="nova_emp_cnpj" name="cnpj" label="CNPJ" placeholder="00.000.000/0000-00" maxlength="18" />
                     <x-input id="nova_emp_inscricao_estadual" name="inscricao_estadual" label="Inscrição Estadual" placeholder="ISENTO" maxlength="20" />
 
@@ -1500,7 +1500,7 @@
             @csrf
             <input type="hidden" name="_modal_target" value="novo-usuario" />
             <x-input id="novo_user_name" name="name" label="Nome Completo" placeholder="Ex: Rodrigo Fonseca" :value="$isModalNovoUser ? old('name') : ''" minlength="3" maxlength="100" required />
-            <x-input id="novo_user_email" type="email" name="email" label="E-mail" placeholder="usuario@krausdetail.com.br" :value="$isModalNovoUser ? old('email') : ''" maxlength="100" required />
+            <x-input id="novo_user_email" type="email" name="email" label="E-mail" placeholder="usuario@empresa.com.br" :value="$isModalNovoUser ? old('email') : ''" maxlength="100" required />
             <x-input id="novo_user_telefone" name="telefone" label="Telefone / WhatsApp" placeholder="(11) 99999-9999" :value="$isModalNovoUser ? old('telefone') : ''" maxlength="15" />
 
             @php $tipoNovoUser = $isModalNovoUser ? old('tipo_usuario', 'funcionario') : 'funcionario'; @endphp
