@@ -29,9 +29,21 @@
         ? ($empresaAtual ? ['perfil', 'oficina'] : ['perfil'])
         : ['empresa', 'equipe', 'perfil', 'preferencias', 'sistema'];
     $tabRequisitada = request()->string('tab')->toString();
+    $modalAlvoOldRaw = (string) old('_modal_target', '');
+    $modalAlvoOldLimpo = str_starts_with($modalAlvoOldRaw, 'modal-')
+        ? substr($modalAlvoOldRaw, 6)
+        : $modalAlvoOldRaw;
+    $tabPorModal = match (true) {
+        $modalAlvoOldLimpo === 'nova-empresa' || str_starts_with($modalAlvoOldLimpo, 'editar-empresa-') => 'empresa',
+        $modalAlvoOldLimpo === 'novo-usuario' || str_starts_with($modalAlvoOldLimpo, 'editar-usuario-') => 'equipe',
+        $modalAlvoOldLimpo === 'editar-meu-perfil' => 'perfil',
+        default => null,
+    };
     $tabPadrao = in_array($tabRequisitada, $tabsValidas, true)
         ? $tabRequisitada
-        : ($isCliente ? 'perfil' : 'empresa');
+        : (($tabPorModal && in_array($tabPorModal, $tabsValidas, true))
+            ? $tabPorModal
+            : ($isCliente ? 'perfil' : 'empresa'));
 @endphp
 
 <div
@@ -40,6 +52,7 @@
     data-tabs-validas="{{ json_encode($tabsValidas) }}"
     data-tab-padrao="{{ $tabPadrao }}"
     data-modal-alvo-erro="{{ (string) old('_modal_target', '') }}"
+    data-tem-erros-modal="{{ ($errors->any() || session()->has('error')) ? '1' : '0' }}"
 >
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1222,11 +1235,13 @@
         </x-modal>
 
         @if($podeEditarEstaEmpresa)
+            @php $isModalEditEmp = old('_modal_target') === 'editar-empresa-' . $empItem->id; @endphp
             <!-- Modal Editar Empresa -->
             <x-modal id="modal-editar-empresa-{{ $empItem->id }}" :title="'Alterar Empresa: ' . $empItem->nome_fantasia" maxWidth="3xl">
                 <form action="{{ route('configuracoes.empresas.update', $empItem->id) }}" method="POST" class="space-y-5">
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="_modal_target" value="editar-empresa-{{ $empItem->id }}" />
 
                     <div class="space-y-3">
                         <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
@@ -1240,10 +1255,11 @@
                             <x-input :id="'edit_emp_' . $empItem->id . '_inscricao_estadual'" name="inscricao_estadual" label="Inscrição Estadual" :value="$empItem->inscricao_estadual" maxlength="20" />
 
                             @if($isAdmin)
+                                @php $donoEmpEditModal = $isModalEditEmp ? old('dono_id', $empItem->dono_id) : $empItem->dono_id; @endphp
                                 <div class="sm:col-span-2">
                                     <x-select :id="'edit_emp_' . $empItem->id . '_dono_id'" name="dono_id" label="Dono da Empresa (Responsável Principal)" placeholder="Selecione o dono responsável">
                                         @foreach($donosDisponiveis as $donoOpcao)
-                                            <option value="{{ $donoOpcao->id }}" {{ (int) $empItem->dono_id === (int) $donoOpcao->id ? 'selected' : '' }}>
+                                            <option value="{{ $donoOpcao->id }}" {{ (int) $donoEmpEditModal === (int) $donoOpcao->id ? 'selected' : '' }}>
                                                 {{ $donoOpcao->name }} ({{ $donoOpcao->email }} - {{ $donoOpcao->role_label }})
                                             </option>
                                         @endforeach
@@ -1300,10 +1316,12 @@
 @endif
 
 @if($podeCriarEmpresa)
+    @php $isModalNovaEmpresa = old('_modal_target') === 'nova-empresa'; @endphp
     <!-- Modal Cadastrar Nova Empresa -->
     <x-modal id="modal-nova-empresa" title="Cadastrar Nova Empresa" maxWidth="3xl">
         <form action="{{ route('configuracoes.empresas.store') }}" method="POST" class="space-y-5">
             @csrf
+            <input type="hidden" name="_modal_target" value="nova-empresa" />
 
             <div class="space-y-3">
                 <h4 class="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5 pb-1 border-b border-border/60">
@@ -1317,10 +1335,11 @@
                     <x-input id="nova_emp_inscricao_estadual" name="inscricao_estadual" label="Inscrição Estadual" placeholder="ISENTO" maxlength="20" />
 
                     @if($isAdmin)
+                        @php $donoNovaEmpModal = $isModalNovaEmpresa ? old('dono_id') : null; @endphp
                         <div class="sm:col-span-2">
                             <x-select id="nova_emp_dono_id" name="dono_id" label="Dono da Empresa (Responsável Principal)" placeholder="Selecione o dono responsável">
                                 @foreach($donosDisponiveis as $donoOpcao)
-                                    <option value="{{ $donoOpcao->id }}">{{ $donoOpcao->name }} ({{ $donoOpcao->email }} - {{ $donoOpcao->role_label }})</option>
+                                    <option value="{{ $donoOpcao->id }}" {{ (string) $donoNovaEmpModal === (string) $donoOpcao->id ? 'selected' : '' }}>{{ $donoOpcao->name }} ({{ $donoOpcao->email }} - {{ $donoOpcao->role_label }})</option>
                                 @endforeach
                             </x-select>
                         </div>
@@ -1577,8 +1596,13 @@ document.addEventListener('DOMContentLoaded', function () {
     switchConfigTab(defaultTab);
 
     const modalAlvoErro = cfg.modalAlvoErro || '';
-    if (modalAlvoErro && typeof window.openModal === 'function') {
-        window.openModal('modal-' + modalAlvoErro);
+    const temErrosModal = cfg.temErrosModal === '1';
+    if (temErrosModal && modalAlvoErro && typeof window.openModal === 'function') {
+        const modalId = modalAlvoErro.startsWith('modal-') ? modalAlvoErro : ('modal-' + modalAlvoErro);
+        const modalEl = document.getElementById(modalId);
+        if (modalEl && modalEl.classList.contains('hidden')) {
+            window.openModal(modalId);
+        }
     }
 });
 </script>

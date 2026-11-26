@@ -171,25 +171,31 @@
     </div>
 
     @if($produto->ativo)
+        @php
+            $isModalMovProd = old('_modal_target') === 'movimentacao';
+            $tipoOldProdMov = $isModalMovProd ? old('tipo_movimentacao', 'saida') : 'saida';
+            $modoOldProdMov = $isModalMovProd ? old('modo_quantidade', 'volume') : 'volume';
+        @endphp
         <!-- Modal Registrar Movimentação -->
         <x-modal id="modal-movimentacao" :title="'Nova Movimentação: ' . $produto->nome">
             <form method="POST" action="{{ route('estoque.movimentar') }}" class="space-y-4">
                 @csrf
+                <input type="hidden" name="_modal_target" value="movimentacao" />
                 <input type="hidden" name="produto_id" value="{{ $produto->id }}" />
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                         <x-select name="tipo_movimentacao" id="show_tipo_movimentacao" label="Tipo de Movimentação" onchange="atualizarMinQuantidadeShow()" required>
-                            <option value="entrada">Entrada (Compra / Reposição)</option>
-                            <option value="saida" selected>Saída (Consumo por Volume)</option>
-                            <option value="ajuste">Ajuste (Inventário Físico)</option>
+                            <option value="entrada" {{ $tipoOldProdMov === 'entrada' ? 'selected' : '' }}>Entrada (Compra / Reposição)</option>
+                            <option value="saida" {{ $tipoOldProdMov === 'saida' ? 'selected' : '' }}>Saída (Consumo por Volume)</option>
+                            <option value="ajuste" {{ $tipoOldProdMov === 'ajuste' ? 'selected' : '' }}>Ajuste (Inventário Físico)</option>
                         </x-select>
                     </div>
 
                     <div>
                         <x-select name="modo_quantidade" label="Informar Quantidade em:" required>
-                            <option value="volume" selected>Volume ({{ $produto->unidade_medida }})</option>
-                            <option value="unidades">Unidades / Embalagens ({{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} cada)</option>
+                            <option value="volume" {{ $modoOldProdMov === 'volume' ? 'selected' : '' }}>Volume ({{ $produto->unidade_medida }})</option>
+                            <option value="unidades" {{ $modoOldProdMov === 'unidades' ? 'selected' : '' }}>Unidades / Embalagens ({{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $produto->unidade_medida }} cada)</option>
                         </x-select>
                     </div>
                 </div>

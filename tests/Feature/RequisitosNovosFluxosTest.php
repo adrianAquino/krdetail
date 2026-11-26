@@ -229,6 +229,39 @@ class RequisitosNovosFluxosTest extends TestCase
             ->assertDontSee('Kraus Detail')
             ->assertDontSee($dono->email);
 
+        // Erro de validação no modal Nova Empresa deve manter o modal aberto com os dados e erro inline
+        $this->actingAs($donoNovo)
+            ->from(route('configuracoes.index'))
+            ->followingRedirects()
+            ->post(route('configuracoes.empresas.store'), [
+                '_modal_target' => 'nova-empresa',
+                'nome_fantasia' => 'Estética Teste Modal',
+                'razao_social' => 'Estética Teste Modal LTDA',
+                'cnpj' => '12345',
+                'whatsapp' => '(11) 98888-7777',
+                'email' => 'contato@testemodal.test',
+            ])
+            ->assertOk()
+            ->assertSee('data-modal-auto-open="true"', false)
+            ->assertSee('O CNPJ informado deve conter 14 caracteres válidos.')
+            ->assertSee('Estética Teste Modal');
+
+        // Erro de validação no modal Editar Empresa deve manter o modal correspondente aberto com erro inline
+        $this->actingAs($dono)
+            ->from(route('configuracoes.index'))
+            ->followingRedirects()
+            ->put(route('configuracoes.empresas.update', $esteticaA->id), [
+                '_modal_target' => 'editar-empresa-' . $esteticaA->id,
+                'nome_fantasia' => $esteticaA->nome_fantasia,
+                'razao_social' => $esteticaA->razao_social,
+                'cnpj' => '12345',
+                'whatsapp' => $esteticaA->whatsapp,
+                'email' => $esteticaA->email,
+            ])
+            ->assertOk()
+            ->assertSee('data-modal-auto-open="true"', false)
+            ->assertSee('O CNPJ informado deve conter 14 caracteres válidos.');
+
         // Admin pode cadastrar Dono, Funcionário e Cliente; Dono NÃO pode cadastrar Admin nem outro Dono
         $this->actingAs($dono)->post(route('configuracoes.usuarios.store'), [
             'name' => 'Outro Dono',

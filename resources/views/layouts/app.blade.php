@@ -133,6 +133,17 @@
             }
         });
 
+        document.addEventListener('DOMContentLoaded', function () {
+            const modalAutoOpen = document.querySelector('[data-modal-auto-open="true"]');
+            if (modalAutoOpen) {
+                document.body.classList.add('overflow-hidden');
+                const modalBody = modalAutoOpen.querySelector('[data-modal-body]');
+                if (modalBody) {
+                    modalBody.scrollTop = 0;
+                }
+            }
+        });
+
         // Proteção global contra duplo envio de formulários POST/PUT/PATCH/DELETE
         document.addEventListener('submit', function (event) {
             const form = event.target;
@@ -142,6 +153,14 @@
             if (form.dataset.submitting === 'true') {
                 event.preventDefault();
                 return;
+            }
+            const modalPai = form.closest('[data-modal]');
+            if (modalPai && modalPai.id && !form.querySelector('input[name="_modal_target"]')) {
+                const hiddenModalInput = document.createElement('input');
+                hiddenModalInput.type = 'hidden';
+                hiddenModalInput.name = '_modal_target';
+                hiddenModalInput.value = modalPai.id;
+                form.appendChild(hiddenModalInput);
             }
             form.dataset.submitting = 'true';
             form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {

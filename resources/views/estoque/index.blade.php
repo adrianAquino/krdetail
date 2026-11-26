@@ -336,9 +336,16 @@
     @endif
 
     <!-- Modal para Nova Movimentação Rápida -->
+    @php
+        $isModalMovEstoque = old('_modal_target') === 'nova-movimentacao';
+        $prodOldMov = $isModalMovEstoque ? old('produto_id') : null;
+        $tipoOldMov = $isModalMovEstoque ? old('tipo_movimentacao', 'entrada') : 'entrada';
+        $modoOldMov = $isModalMovEstoque ? old('modo_quantidade', 'volume') : 'volume';
+    @endphp
     <x-modal id="modal-nova-movimentacao" title="Registrar Movimentação de Estoque">
         <form method="POST" action="{{ route('estoque.movimentar') }}" class="space-y-4">
             @csrf
+            <input type="hidden" name="_modal_target" value="nova-movimentacao" />
 
             <div>
                 <x-select name="produto_id" id="estoque_produto_id" label="Produto" required>
@@ -347,7 +354,7 @@
                             $vEst = rtrim(rtrim(number_format((float) $p->quantidade_estoque, 3, ',', '.'), '0'), ',');
                             $vUnit = rtrim(rtrim(number_format((float) ($p->volume_unitario ?? 1), 3, ',', '.'), '0'), ',');
                         @endphp
-                        <option value="{{ $p->id }}">
+                        <option value="{{ $p->id }}" {{ (string) $prodOldMov === (string) $p->id ? 'selected' : '' }}>
                             {{ $p->nome }} ({{ $p->unidades_estoque }} un. • {{ $vEst }} {{ $p->unidade_medida }} disp. • Emb: {{ $vUnit }} {{ $p->unidade_medida }})@if(($isAdmin ?? false) && empty($empresaFiltroId) && ($p->empresa ?? null)) [{{ $p->empresa->nome_fantasia }}]@endif
                         </option>
                     @endforeach
@@ -357,16 +364,16 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <x-select name="tipo_movimentacao" id="estoque_tipo_movimentacao" label="Tipo de Movimentação" onchange="atualizarMinQuantidadeEstoque()" required>
-                        <option value="entrada" selected>Entrada (Compra / Reposição)</option>
-                        <option value="saida">Saída (Consumo / Baixa)</option>
-                        <option value="ajuste">Ajuste de Inventário</option>
+                        <option value="entrada" {{ $tipoOldMov === 'entrada' ? 'selected' : '' }}>Entrada (Compra / Reposição)</option>
+                        <option value="saida" {{ $tipoOldMov === 'saida' ? 'selected' : '' }}>Saída (Consumo / Baixa)</option>
+                        <option value="ajuste" {{ $tipoOldMov === 'ajuste' ? 'selected' : '' }}>Ajuste de Inventário</option>
                     </x-select>
                 </div>
 
                 <div>
                     <x-select name="modo_quantidade" id="estoque_modo_quantidade" label="Informar Quantidade em:" required>
-                        <option value="volume" selected>Volume (ml, L, g, kg)</option>
-                        <option value="unidades">Unidades / Embalagens</option>
+                        <option value="volume" {{ $modoOldMov === 'volume' ? 'selected' : '' }}>Volume (ml, L, g, kg)</option>
+                        <option value="unidades" {{ $modoOldMov === 'unidades' ? 'selected' : '' }}>Unidades / Embalagens</option>
                     </x-select>
                 </div>
             </div>

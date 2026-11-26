@@ -236,16 +236,21 @@
 
     <!-- Modal para Adicionar Produto Utilizado nesta Tarefa -->
     @if($podeEditarTarefa)
+        @php
+            $isModalProdTarefa = old('_modal_target') === 'produto-tarefa-' . $tarefa->id;
+            $prodOldTarefa = $isModalProdTarefa ? old('produto_id') : null;
+        @endphp
         <x-modal id="modal-produto-tarefa-{{ $tarefa->id }}" :title="'Registrar Produto - ' . $servicoNome">
             <form method="POST" action="{{ route('tarefas.adicionar-produto', $tarefa->id) }}" class="space-y-4">
                 @csrf
+                <input type="hidden" name="_modal_target" value="produto-tarefa-{{ $tarefa->id }}" />
                 <div>
                     <x-select name="produto_id" label="Produto do Estoque" required>
                         @foreach($produtosEstoque as $prod)
                             @php
                                 $volDisp = rtrim(rtrim(number_format((float) $prod->quantidade_estoque, 3, ',', '.'), '0'), ',');
                             @endphp
-                            <option value="{{ $prod->id }}">
+                            <option value="{{ $prod->id }}" {{ (string) $prodOldTarefa === (string) $prod->id ? 'selected' : '' }}>
                                 {{ $prod->nome }} ({{ $prod->unidades_estoque }} un. • {{ $volDisp }} {{ $prod->unidade_medida }} disp.)
                             </option>
                         @endforeach

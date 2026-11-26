@@ -196,9 +196,9 @@ class TarefaController extends Controller
 
             return back()->with('success', 'Consumo de produto registrado e baixado do estoque!');
         } catch (\DomainException|\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
         } catch (QueryException) {
-            return back()->with('error', 'Não foi possível registrar o consumo do produto. Tente novamente.');
+            return back()->withInput()->with('error', 'Não foi possível registrar o consumo do produto. Tente novamente.');
         }
     }
 
