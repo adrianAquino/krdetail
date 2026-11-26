@@ -780,12 +780,16 @@ class RequisitosNovosFluxosTest extends TestCase
             ->assertOk()
             ->assertSee('clientes/buscar-usuario', false)
             ->assertSee('id="busca_usuario_cliente"', false)
-            ->assertSee('id="btn-buscar-usuario-cliente"', false);
+            ->assertSee('id="btn-buscar-usuario-cliente"', false)
+            ->assertSee('Incluir dados no formulário', false)
+            ->assertSee('Não incluir', false);
 
         $this->actingAs($donoAlfa)->get(route('veiculos.create'))
             ->assertOk()
             ->assertSee('clientes/buscar-usuario', false)
             ->assertSee('id="modal_busca_usuario_cliente"', false)
-            ->assertSee('id="btn-modal-buscar-usuario"', false);
+            ->assertSee('id="btn-modal-buscar-usuario"', false)
+            ->assertSee('Incluir dados no formulário', false)
+            ->assertSee('Não incluir', false);
     }
 }

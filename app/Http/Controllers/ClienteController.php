@@ -178,7 +178,7 @@ class ClienteController extends Controller
             return response()->json([
                 'found' => true,
                 'status' => 'vinculado_outra_empresa',
-                'message' => 'Conta de usuário encontrada! Os dados foram preenchidos. Este cliente atualmente possui vínculo em outra estética; ao salvar, o vínculo ativo passará para a sua estética (preservando o histórico anterior, sem precisar criar senha).',
+                'message' => 'Conta de usuário encontrada! Este cliente atualmente possui vínculo em outra estética. Deseja incluir os dados dele no formulário? Ao salvar, o vínculo ativo passará para a sua estética (preservando o histórico anterior, sem precisar criar senha).',
                 'dados' => $dados,
             ]);
         }
@@ -186,7 +186,7 @@ class ClienteController extends Controller
         return response()->json([
             'found' => true,
             'status' => 'disponivel',
-            'message' => 'Conta de usuário encontrada! Os dados foram preenchidos automaticamente. Ao salvar, esta conta será vinculada à sua estética (não é necessário criar senha).',
+            'message' => 'Conta de usuário encontrada! Deseja incluir os dados deste usuário no formulário de cadastro? Ao salvar, a conta será vinculada à sua estética (não é necessário criar senha).',
             'dados' => $dados,
         ]);
     }

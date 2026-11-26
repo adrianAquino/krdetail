@@ -15,7 +15,7 @@
             @csrf
 
             <!-- Busca Rápida de Conta Existente -->
-            <x-card title="Cliente já possui conta?" description="Informe o e-mail completo ou CPF/CNPJ para puxar os dados automaticamente e vincular à sua estética.">
+            <x-card title="Cliente já possui conta?" description="Informe o e-mail completo ou CPF/CNPJ para localizar a conta e decidir se deseja incluir os dados no formulário.">
                 <div class="space-y-3">
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <div class="flex-1">
@@ -236,12 +236,91 @@
             });
         }
 
+        function fecharResultadoBuscaCliente() {
+            const box = document.getElementById('resultado-busca-usuario');
+            if (!box) return;
+            box.replaceChildren();
+            box.classList.add('hidden');
+        }
+
+        function formatarResumoEnderecoBusca(dados) {
+            if (!dados) return '';
+            const partesLinha1 = [dados.logradouro, dados.numero, dados.complemento].filter(Boolean);
+            const partesLinha2 = [dados.bairro, dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : (dados.cidade || dados.estado), dados.cep].filter(Boolean);
+            const resumo = [partesLinha1.join(', '), partesLinha2.join(' • ')].filter(Boolean).join(' — ');
+            return resumo;
+        }
+
+        function criarBlocoPreviewUsuarioBusca(dados) {
+            const cardDados = document.createElement('div');
+            cardDados.className = 'rounded-md border border-border/60 bg-background/80 p-2.5 grid gap-1.5 sm:grid-cols-2 text-[11px] text-foreground';
+
+            const itens = [
+                ['Nome', dados.nome || '-'],
+                ['E-mail', dados.email || '-'],
+                ['CPF/CNPJ', dados.cpf_cnpj || 'Não informado'],
+                ['Telefone', dados.telefone || 'Não informado'],
+            ];
+
+            const enderecoResumo = formatarResumoEnderecoBusca(dados);
+            if (enderecoResumo) {
+                itens.push(['Endereço', enderecoResumo, true]);
+            }
+
+            itens.forEach(function (item) {
+                const wrapper = document.createElement('div');
+                if (item[2]) wrapper.className = 'sm:col-span-2';
+
+                const rotulo = document.createElement('span');
+                rotulo.className = 'text-muted-foreground font-medium';
+                rotulo.textContent = item[0] + ': ';
+
+                const valor = document.createElement('span');
+                valor.className = 'font-semibold';
+                valor.textContent = String(item[1]);
+
+                wrapper.appendChild(rotulo);
+                wrapper.appendChild(valor);
+                cardDados.appendChild(wrapper);
+            });
+
+            return cardDados;
+        }
+
+        function aplicarDadosUsuarioNoFormularioPagina(dados, status) {
+            const form = document.getElementById('form-cadastro-cliente');
+            const chk = document.getElementById('criar_usuario');
+            const aviso = document.getElementById('aviso-conta-ja-existe');
+
+            if (form && dados) {
+                ['nome', 'cpf_cnpj', 'telefone', 'email', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'].forEach(function (campo) {
+                    const el = form.querySelector('[name="' + campo + '"]');
+                    if (el && dados[campo] !== undefined && dados[campo] !== null) {
+                        el.value = String(dados[campo]);
+                    }
+                });
+            }
+
+            if (chk) {
+                chk.checked = false;
+                chk.disabled = true;
+                toggleSenhaCliente(false);
+            }
+            if (aviso) aviso.classList.remove('hidden');
+
+            const mensagemConfirmacao = status === 'vinculado_outra_empresa'
+                ? 'Dados incluídos no formulário! Ao salvar, esta conta passará a ter vínculo ativo com a sua estética (preservando o histórico anterior).'
+                : 'Dados incluídos no formulário! Confira as informações abaixo e clique em Salvar Cliente para vincular esta conta à sua estética.';
+
+            renderResultadoBuscaCliente('sucesso', mensagemConfirmacao, { mostrarLimpar: true });
+        }
+
         function renderResultadoBuscaCliente(tipo, mensagem, opcoes) {
             const box = document.getElementById('resultado-busca-usuario');
             if (!box) return;
 
             box.replaceChildren();
-            box.className = 'rounded-lg border p-3 text-xs space-y-2';
+            box.className = 'rounded-lg border p-3 text-xs space-y-2.5';
 
             if (tipo === 'sucesso') {
                 box.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-700', 'dark:text-emerald-300');
@@ -253,25 +332,69 @@
                 box.classList.add('border-border', 'bg-secondary/40', 'text-muted-foreground');
             }
 
+            const header = document.createElement('div');
+            header.className = 'flex items-start justify-between gap-2';
+
             const p = document.createElement('p');
+            p.className = 'font-medium leading-relaxed';
             p.textContent = String(mensagem || '');
-            box.appendChild(p);
+            header.appendChild(p);
+
+            const btnFecharX = document.createElement('button');
+            btnFecharX.type = 'button';
+            btnFecharX.textContent = '×';
+            btnFecharX.setAttribute('aria-label', 'Fechar');
+            btnFecharX.setAttribute('title', 'Fechar');
+            btnFecharX.className = 'shrink-0 w-6 h-6 -mt-0.5 -mr-0.5 rounded-md inline-flex items-center justify-center text-base leading-none text-current/70 hover:text-current hover:bg-background/40 transition-colors cursor-pointer';
+            btnFecharX.addEventListener('click', fecharResultadoBuscaCliente);
+            header.appendChild(btnFecharX);
+
+            box.appendChild(header);
+
+            if (opcoes && opcoes.previewDados) {
+                box.appendChild(criarBlocoPreviewUsuarioBusca(opcoes.previewDados));
+            }
 
             const acoes = document.createElement('div');
-            acoes.className = 'flex flex-wrap items-center gap-3';
+            acoes.className = 'flex flex-wrap items-center gap-2 pt-0.5';
+
+            if (opcoes && opcoes.confirmarInclusao && opcoes.previewDados) {
+                const btnIncluir = document.createElement('button');
+                btnIncluir.type = 'button';
+                btnIncluir.textContent = 'Incluir dados no formulário';
+                btnIncluir.className = 'px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors cursor-pointer';
+                btnIncluir.addEventListener('click', function () {
+                    aplicarDadosUsuarioNoFormularioPagina(opcoes.previewDados, opcoes.status);
+                });
+                acoes.appendChild(btnIncluir);
+
+                const btnNaoIncluir = document.createElement('button');
+                btnNaoIncluir.type = 'button';
+                btnNaoIncluir.textContent = 'Não incluir';
+                btnNaoIncluir.className = 'px-3 py-1.5 rounded-md border border-border bg-background/80 text-foreground font-medium hover:bg-secondary transition-colors cursor-pointer';
+                btnNaoIncluir.addEventListener('click', fecharResultadoBuscaCliente);
+                acoes.appendChild(btnNaoIncluir);
+            }
 
             if (opcoes && opcoes.clienteUrl) {
                 const link = document.createElement('a');
                 link.href = opcoes.clienteUrl;
                 link.textContent = 'Ver cadastro do cliente';
-                link.className = 'font-semibold underline text-primary hover:text-primary/80';
+                link.className = 'px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors';
                 acoes.appendChild(link);
+
+                const btnFechar = document.createElement('button');
+                btnFechar.type = 'button';
+                btnFechar.textContent = 'Fechar';
+                btnFechar.className = 'px-3 py-1.5 rounded-md border border-border bg-background/80 text-foreground font-medium hover:bg-secondary transition-colors cursor-pointer';
+                btnFechar.addEventListener('click', fecharResultadoBuscaCliente);
+                acoes.appendChild(btnFechar);
             }
 
             if (opcoes && opcoes.mostrarLimpar) {
                 const btnLimpar = document.createElement('button');
                 btnLimpar.type = 'button';
-                btnLimpar.textContent = 'Limpar / Novo cadastro';
+                btnLimpar.textContent = 'Limpar dados preenchidos';
                 btnLimpar.className = 'font-semibold underline text-foreground hover:text-primary cursor-pointer';
                 btnLimpar.addEventListener('click', limparBuscaUsuarioClientePagina);
                 acoes.appendChild(btnLimpar);
@@ -287,15 +410,11 @@
         function limparBuscaUsuarioClientePagina() {
             const form = document.getElementById('form-cadastro-cliente');
             const inputBusca = document.getElementById('busca_usuario_cliente');
-            const box = document.getElementById('resultado-busca-usuario');
             const chk = document.getElementById('criar_usuario');
             const aviso = document.getElementById('aviso-conta-ja-existe');
 
             if (inputBusca) inputBusca.value = '';
-            if (box) {
-                box.replaceChildren();
-                box.classList.add('hidden');
-            }
+            fecharResultadoBuscaCliente();
             if (form) {
                 ['nome', 'cpf_cnpj', 'telefone', 'email', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'].forEach(function (campo) {
                     const el = form.querySelector('[name="' + campo + '"]');
@@ -314,8 +433,6 @@
             const inputBusca = document.getElementById('busca_usuario_cliente');
             const btnBuscar = document.getElementById('btn-buscar-usuario-cliente');
             const form = document.getElementById('form-cadastro-cliente');
-            const chk = document.getElementById('criar_usuario');
-            const aviso = document.getElementById('aviso-conta-ja-existe');
 
             const termo = (inputBusca?.value || '').trim();
             if (!termo) {
@@ -342,46 +459,31 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    if (chk) chk.disabled = false;
-                    if (aviso) aviso.classList.add('hidden');
                     renderResultadoBuscaCliente('erro', data.message || 'Não foi possível realizar a busca.');
                     return;
                 }
 
                 if (!data.found) {
-                    if (chk) chk.disabled = false;
-                    if (aviso) aviso.classList.add('hidden');
                     renderResultadoBuscaCliente('neutro', data.message || 'Nenhuma conta encontrada.');
                     return;
                 }
 
                 if (data.status === 'ja_vinculado_esta_empresa') {
-                    if (chk) chk.disabled = false;
-                    if (aviso) aviso.classList.add('hidden');
-                    renderResultadoBuscaCliente('aviso', data.message, { clienteUrl: data.cliente_url });
+                    renderResultadoBuscaCliente('aviso', data.message, {
+                        previewDados: data.dados,
+                        clienteUrl: data.cliente_url,
+                    });
                     return;
                 }
-
-                if (form && data.dados) {
-                    ['nome', 'cpf_cnpj', 'telefone', 'email', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado'].forEach(function (campo) {
-                        const el = form.querySelector('[name="' + campo + '"]');
-                        if (el && data.dados[campo] !== undefined && data.dados[campo] !== null) {
-                            el.value = String(data.dados[campo]);
-                        }
-                    });
-                }
-
-                if (chk) {
-                    chk.checked = false;
-                    chk.disabled = true;
-                    toggleSenhaCliente(false);
-                }
-                if (aviso) aviso.classList.remove('hidden');
 
                 renderResultadoBuscaCliente(
                     data.status === 'vinculado_outra_empresa' ? 'aviso' : 'sucesso',
                     data.message,
-                    { mostrarLimpar: true }
+                    {
+                        previewDados: data.dados,
+                        confirmarInclusao: true,
+                        status: data.status,
+                    }
                 );
             } catch (e) {
                 renderResultadoBuscaCliente('erro', 'Erro ao consultar conta de usuário. Tente novamente.');

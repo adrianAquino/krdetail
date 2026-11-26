@@ -179,7 +179,7 @@
                 <div class="rounded-lg border border-border bg-secondary/20 p-3.5 space-y-2.5">
                     <div>
                         <h4 class="text-xs font-semibold text-foreground">Cliente já possui conta? (Opcional)</h4>
-                        <p class="text-[11px] text-muted-foreground">Informe o e-mail completo ou CPF/CNPJ para puxar os dados automaticamente.</p>
+                        <p class="text-[11px] text-muted-foreground">Informe o e-mail completo ou CPF/CNPJ para localizar a conta e confirmar se deseja preencher o formulário.</p>
                     </div>
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <div class="flex-1">
@@ -475,12 +475,102 @@
                 if (aviso) aviso.classList.add('hidden');
             }
 
+            function fecharResultadoBuscaUsuarioModal() {
+                const box = document.getElementById('modal-resultado-busca-usuario');
+                if (!box) return;
+                box.replaceChildren();
+                box.classList.add('hidden');
+            }
+
+            function formatarResumoEnderecoModal(dados) {
+                if (!dados) return '';
+                const partesLinha1 = [dados.logradouro, dados.numero, dados.complemento].filter(Boolean);
+                const partesLinha2 = [dados.bairro, dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : (dados.cidade || dados.estado), dados.cep].filter(Boolean);
+                return [partesLinha1.join(', '), partesLinha2.join(' • ')].filter(Boolean).join(' — ');
+            }
+
+            function criarBlocoPreviewUsuarioModal(dados) {
+                const cardDados = document.createElement('div');
+                cardDados.className = 'rounded-md border border-border/60 bg-background/80 p-2.5 grid gap-1.5 sm:grid-cols-2 text-[11px] text-foreground';
+
+                const itens = [
+                    ['Nome', dados.nome || '-'],
+                    ['E-mail', dados.email || '-'],
+                    ['CPF/CNPJ', dados.cpf_cnpj || 'Não informado'],
+                    ['Telefone', dados.telefone || 'Não informado'],
+                ];
+
+                const enderecoResumo = formatarResumoEnderecoModal(dados);
+                if (enderecoResumo) {
+                    itens.push(['Endereço', enderecoResumo, true]);
+                }
+
+                itens.forEach(function (item) {
+                    const wrapper = document.createElement('div');
+                    if (item[2]) wrapper.className = 'sm:col-span-2';
+
+                    const rotulo = document.createElement('span');
+                    rotulo.className = 'text-muted-foreground font-medium';
+                    rotulo.textContent = item[0] + ': ';
+
+                    const valor = document.createElement('span');
+                    valor.className = 'font-semibold';
+                    valor.textContent = String(item[1]);
+
+                    wrapper.appendChild(rotulo);
+                    wrapper.appendChild(valor);
+                    cardDados.appendChild(wrapper);
+                });
+
+                return cardDados;
+            }
+
+            function aplicarDadosUsuarioNoModalVeiculo(dados, status) {
+                const chkModal = document.getElementById('modal_criar_usuario');
+                const aviso = document.getElementById('modal-aviso-conta-ja-existe');
+
+                if (dados) {
+                    const mapaCampos = {
+                        nome: 'modal_cliente_nome',
+                        cpf_cnpj: 'modal_cliente_cpf_cnpj',
+                        telefone: 'modal_cliente_telefone',
+                        email: 'modal_cliente_email',
+                        cep: 'modal_cep',
+                        logradouro: 'modal_rua',
+                        numero: 'modal_numero',
+                        complemento: 'modal_complemento',
+                        bairro: 'modal_bairro',
+                        cidade: 'modal_cidade',
+                        estado: 'modal_uf',
+                    };
+                    Object.entries(mapaCampos).forEach(function ([campo, elementId]) {
+                        const el = document.getElementById(elementId);
+                        if (el && dados[campo] !== undefined && dados[campo] !== null) {
+                            el.value = String(dados[campo]);
+                        }
+                    });
+                }
+
+                if (chkModal) {
+                    chkModal.checked = false;
+                    chkModal.disabled = true;
+                    toggleSenhaModalCliente(false);
+                }
+                if (aviso) aviso.classList.remove('hidden');
+
+                const mensagemConfirmacao = status === 'vinculado_outra_empresa'
+                    ? 'Dados incluídos no formulário! Ao salvar, esta conta passará a ter vínculo ativo com a sua estética (preservando o histórico anterior).'
+                    : 'Dados incluídos no formulário! Confira as informações abaixo e clique em Salvar Cliente para concluir.';
+
+                renderModalResultadoBuscaUsuario('sucesso', mensagemConfirmacao, { mostrarLimpar: true });
+            }
+
             function renderModalResultadoBuscaUsuario(tipo, mensagem, opcoes) {
                 const box = document.getElementById('modal-resultado-busca-usuario');
                 if (!box) return;
 
                 box.replaceChildren();
-                box.className = 'rounded-lg border p-2.5 text-xs space-y-2';
+                box.className = 'rounded-lg border p-3 text-xs space-y-2.5';
 
                 if (tipo === 'sucesso') {
                     box.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-700', 'dark:text-emerald-300');
@@ -492,40 +582,84 @@
                     box.classList.add('border-border', 'bg-secondary/40', 'text-muted-foreground');
                 }
 
+                const header = document.createElement('div');
+                header.className = 'flex items-start justify-between gap-2';
+
                 const p = document.createElement('p');
+                p.className = 'font-medium leading-relaxed';
                 p.textContent = String(mensagem || '');
-                box.appendChild(p);
+                header.appendChild(p);
+
+                const btnFecharX = document.createElement('button');
+                btnFecharX.type = 'button';
+                btnFecharX.textContent = '×';
+                btnFecharX.setAttribute('aria-label', 'Fechar');
+                btnFecharX.setAttribute('title', 'Fechar');
+                btnFecharX.className = 'shrink-0 w-6 h-6 -mt-0.5 -mr-0.5 rounded-md inline-flex items-center justify-center text-base leading-none text-current/70 hover:text-current hover:bg-background/40 transition-colors cursor-pointer';
+                btnFecharX.addEventListener('click', fecharResultadoBuscaUsuarioModal);
+                header.appendChild(btnFecharX);
+
+                box.appendChild(header);
+
+                if (opcoes && opcoes.previewDados) {
+                    box.appendChild(criarBlocoPreviewUsuarioModal(opcoes.previewDados));
+                }
 
                 const acoes = document.createElement('div');
-                acoes.className = 'flex flex-wrap items-center gap-3';
+                acoes.className = 'flex flex-wrap items-center gap-2 pt-0.5';
+
+                if (opcoes && opcoes.confirmarInclusao && opcoes.previewDados) {
+                    const btnIncluir = document.createElement('button');
+                    btnIncluir.type = 'button';
+                    btnIncluir.textContent = 'Incluir dados no formulário';
+                    btnIncluir.className = 'px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors cursor-pointer';
+                    btnIncluir.addEventListener('click', function () {
+                        aplicarDadosUsuarioNoModalVeiculo(opcoes.previewDados, opcoes.status);
+                    });
+                    acoes.appendChild(btnIncluir);
+
+                    const btnNaoIncluir = document.createElement('button');
+                    btnNaoIncluir.type = 'button';
+                    btnNaoIncluir.textContent = 'Não incluir';
+                    btnNaoIncluir.className = 'px-3 py-1.5 rounded-md border border-border bg-background/80 text-foreground font-medium hover:bg-secondary transition-colors cursor-pointer';
+                    btnNaoIncluir.addEventListener('click', fecharResultadoBuscaUsuarioModal);
+                    acoes.appendChild(btnNaoIncluir);
+                }
 
                 if (opcoes && opcoes.clienteId) {
                     const btnSelecionar = document.createElement('button');
                     btnSelecionar.type = 'button';
                     btnSelecionar.textContent = 'Selecionar este cliente';
-                    btnSelecionar.className = 'font-semibold underline text-primary hover:text-primary/80 cursor-pointer';
+                    btnSelecionar.className = 'px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors cursor-pointer';
                     btnSelecionar.addEventListener('click', function () {
                         selecionarClienteNoFormularioVeiculo(
                             opcoes.clienteId,
-                            opcoes.dados?.nome,
-                            opcoes.dados?.cpf_cnpj
+                            opcoes.previewDados?.nome,
+                            opcoes.previewDados?.cpf_cnpj
                         );
                         const alertaCriado = document.getElementById('alerta-cliente-criado');
                         const alertaCriadoTexto = document.getElementById('alerta-cliente-criado-texto');
                         if (alertaCriado && alertaCriadoTexto) {
-                            alertaCriadoTexto.textContent = `Cliente "${opcoes.dados?.nome || 'selecionado'}" encontrado e selecionado automaticamente!`;
+                            alertaCriadoTexto.textContent = `Cliente "${opcoes.previewDados?.nome || 'selecionado'}" encontrado e selecionado automaticamente!`;
                             alertaCriado.classList.remove('hidden');
                         }
                         limparBuscaUsuarioModal();
                         window.closeModal('modal-novo-cliente');
                     });
                     acoes.appendChild(btnSelecionar);
+
+                    const btnFechar = document.createElement('button');
+                    btnFechar.type = 'button';
+                    btnFechar.textContent = 'Fechar';
+                    btnFechar.className = 'px-3 py-1.5 rounded-md border border-border bg-background/80 text-foreground font-medium hover:bg-secondary transition-colors cursor-pointer';
+                    btnFechar.addEventListener('click', fecharResultadoBuscaUsuarioModal);
+                    acoes.appendChild(btnFechar);
                 }
 
                 if (opcoes && opcoes.mostrarLimpar) {
                     const btnLimpar = document.createElement('button');
                     btnLimpar.type = 'button';
-                    btnLimpar.textContent = 'Limpar / Novo cadastro';
+                    btnLimpar.textContent = 'Limpar dados preenchidos';
                     btnLimpar.className = 'font-semibold underline text-foreground hover:text-primary cursor-pointer';
                     btnLimpar.addEventListener('click', limparBuscaUsuarioModal);
                     acoes.appendChild(btnLimpar);
@@ -541,8 +675,6 @@
             async function buscarUsuarioClienteModal() {
                 const inputBusca = document.getElementById('modal_busca_usuario_cliente');
                 const btnBuscar = document.getElementById('btn-modal-buscar-usuario');
-                const chkModal = document.getElementById('modal_criar_usuario');
-                const aviso = document.getElementById('modal-aviso-conta-ja-existe');
                 const empresaSelect = document.getElementById('modal_cliente_empresa_id');
 
                 const termo = (inputBusca?.value || '').trim();
@@ -569,62 +701,31 @@
                     const data = await response.json();
 
                     if (!response.ok) {
-                        if (chkModal) chkModal.disabled = false;
-                        if (aviso) aviso.classList.add('hidden');
                         renderModalResultadoBuscaUsuario('erro', data.message || 'Não foi possível realizar a busca.');
                         return;
                     }
 
                     if (!data.found) {
-                        if (chkModal) chkModal.disabled = false;
-                        if (aviso) aviso.classList.add('hidden');
                         renderModalResultadoBuscaUsuario('neutro', data.message || 'Nenhuma conta encontrada.');
                         return;
                     }
 
                     if (data.status === 'ja_vinculado_esta_empresa') {
-                        if (chkModal) chkModal.disabled = false;
-                        if (aviso) aviso.classList.add('hidden');
                         renderModalResultadoBuscaUsuario('aviso', data.message, {
                             clienteId: data.cliente_id,
-                            dados: data.dados,
+                            previewDados: data.dados,
                         });
                         return;
                     }
 
-                    if (data.dados) {
-                        const mapaCampos = {
-                            nome: 'modal_cliente_nome',
-                            cpf_cnpj: 'modal_cliente_cpf_cnpj',
-                            telefone: 'modal_cliente_telefone',
-                            email: 'modal_cliente_email',
-                            cep: 'modal_cep',
-                            logradouro: 'modal_rua',
-                            numero: 'modal_numero',
-                            complemento: 'modal_complemento',
-                            bairro: 'modal_bairro',
-                            cidade: 'modal_cidade',
-                            estado: 'modal_uf',
-                        };
-                        Object.entries(mapaCampos).forEach(function ([campo, elementId]) {
-                            const el = document.getElementById(elementId);
-                            if (el && data.dados[campo] !== undefined && data.dados[campo] !== null) {
-                                el.value = String(data.dados[campo]);
-                            }
-                        });
-                    }
-
-                    if (chkModal) {
-                        chkModal.checked = false;
-                        chkModal.disabled = true;
-                        toggleSenhaModalCliente(false);
-                    }
-                    if (aviso) aviso.classList.remove('hidden');
-
                     renderModalResultadoBuscaUsuario(
                         data.status === 'vinculado_outra_empresa' ? 'aviso' : 'sucesso',
                         data.message,
-                        { mostrarLimpar: true }
+                        {
+                            previewDados: data.dados,
+                            confirmarInclusao: true,
+                            status: data.status,
+                        }
                     );
                 } catch (e) {
                     renderModalResultadoBuscaUsuario('erro', 'Erro ao consultar conta de usuário. Tente novamente.');
