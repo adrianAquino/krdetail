@@ -1,22 +1,29 @@
+@php
+    $podeGerenciarCatalogo = auth()->user()?->canManageCatalogoEEstoque() ?? false;
+@endphp
 <x-layouts.app title="Estoque">
     <x-header
         title="Gestão de Estoque"
-        subtitle="Monitore níveis de estoque por unidades e volume disponível, controle alertas de reposição e registre movimentações."
+        :subtitle="$podeGerenciarCatalogo
+            ? 'Monitore níveis de estoque por unidades e volume disponível, controle alertas de reposição e registre movimentações.'
+            : 'Monitore níveis de estoque em modo leitura. Para dar baixa em insumos usados em atendimentos, registre o consumo dentro da tarefa na Ordem de Serviço.'"
     >
-        <x-slot:actions>
-            <x-button
-                type="button"
-                onclick="window.openModal('modal-nova-movimentacao')"
-                variant="primary"
-                size="md"
-                icon="arrow-up-circle"
-            >
-                Nova Movimentação
-            </x-button>
-            <x-button href="{{ route('produtos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="secondary" size="md" icon="plus">
-                Novo Produto
-            </x-button>
-        </x-slot:actions>
+        @if($podeGerenciarCatalogo)
+            <x-slot:actions>
+                <x-button
+                    type="button"
+                    onclick="window.openModal('modal-nova-movimentacao')"
+                    variant="primary"
+                    size="md"
+                    icon="arrow-up-circle"
+                >
+                    Nova Movimentação
+                </x-button>
+                <x-button href="{{ route('produtos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="secondary" size="md" icon="plus">
+                    Novo Produto
+                </x-button>
+            </x-slot:actions>
+        @endif
     </x-header>
 
     <x-admin-empresa-filter
@@ -169,9 +176,11 @@
                             <x-button href="{{ route('produtos.show', $prod->id) }}" variant="ghost" size="sm" icon="eye">
                                 Ficha
                             </x-button>
-                            <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="ghost" size="sm" icon="pencil">
-                                Editar
-                            </x-button>
+                            @if($podeGerenciarCatalogo)
+                                <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="ghost" size="sm" icon="pencil">
+                                    Editar
+                                </x-button>
+                            @endif
                         </div>
                     </div>
                 </x-card>
@@ -239,9 +248,11 @@
                             <x-button href="{{ route('produtos.show', $prod->id) }}" variant="ghost" size="sm" icon="eye">
                                 Ficha
                             </x-button>
-                            <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="secondary" size="sm" icon="pencil">
-                                Reativar / Editar
-                            </x-button>
+                            @if($podeGerenciarCatalogo)
+                                <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="secondary" size="sm" icon="pencil">
+                                    Reativar / Editar
+                                </x-button>
+                            @endif
                         </div>
                     </div>
                 </x-card>
@@ -335,6 +346,7 @@
         </x-card>
     @endif
 
+    @if($podeGerenciarCatalogo)
     <!-- Modal para Nova Movimentação Rápida -->
     @php
         $isModalMovEstoque = old('_modal_target') === 'nova-movimentacao';
@@ -437,4 +449,5 @@
         document.addEventListener('DOMContentLoaded', atualizarMinQuantidadeEstoque);
     </script>
     @endpush
+    @endif
 </x-layouts.app>

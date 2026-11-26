@@ -183,7 +183,8 @@ class ProdutoController extends Controller
                     quantidade: $quantidadeEstoque,
                     usuario: Auth::user(),
                     motivo: 'Ajuste direto na edição do produto',
-                    permitirProdutoInativo: true
+                    permitirProdutoInativo: true,
+                    movimentacaoManual: true
                 );
             }
         });

@@ -541,7 +541,7 @@
                         <x-icon name="tool" class="w-4 h-4 text-sky-400" />
                         Funcionário
                     </div>
-                    <p class="text-xs text-muted-foreground">Atua na operação (OS, tarefas e estoque) e visualiza a equipe, sem permissão para alterar outros funcionários ou a empresa.</p>
+                    <p class="text-xs text-muted-foreground">Atua na operação (OS, tarefas e baixa de insumos vinculada à tarefa) e consulta serviços, estoque e equipe em modo leitura, sem permissão para cadastrar/alterar catálogo, estoque manual, outros usuários ou a empresa.</p>
                 </div>
 
                 <div class="p-4 rounded-lg bg-secondary/30 border border-border">

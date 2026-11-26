@@ -215,6 +215,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Verifica se o usuário pode cadastrar/alterar/excluir serviços, produtos do estoque
+     * e registrar movimentações manuais de estoque fora de Ordens de Serviço.
+     * Regra antifraude: restrito a Administrador Geral e Dono da Empresa.
+     */
+    public function canManageCatalogoEEstoque(): bool
+    {
+        return $this->ativo && ($this->isAdministrador() || $this->isDono());
+    }
+
+    /**
      * Indica se o usuário possui atualmente uma estética automotiva vinculada e ativa.
      */
     public function possuiEsteticaVinculada(): bool

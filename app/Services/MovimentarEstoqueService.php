@@ -29,8 +29,19 @@ class MovimentarEstoqueService
         string $motivo = 'Movimentação manual de estoque',
         ?string $observacoes = null,
         ?int $tarefaProdutoId = null,
-        bool $permitirProdutoInativo = false
+        bool $permitirProdutoInativo = false,
+        bool $movimentacaoManual = false
     ): MovimentacaoEstoque {
+        if ($movimentacaoManual) {
+            $usuarioObj = $usuario instanceof User
+                ? $usuario
+                : ($usuario ? User::find((int) $usuario) : Auth::user());
+
+            if ($usuarioObj instanceof User && ! $usuarioObj->canManageCatalogoEEstoque()) {
+                throw new \DomainException('Apenas o Dono da Empresa ou Administrador Geral pode realizar movimentações manuais de estoque fora de Ordens de Serviço.');
+            }
+        }
+
         if (!in_array($tipo, ['entrada', 'saida', 'ajuste'], true)) {
             throw new \InvalidArgumentException("Tipo de movimentação inválido: {$tipo}.");
         }

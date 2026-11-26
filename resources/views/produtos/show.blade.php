@@ -1,17 +1,22 @@
+@php
+    $podeGerenciarCatalogo = auth()->user()?->canManageCatalogoEEstoque() ?? false;
+@endphp
 <x-layouts.app :title="'Produto: ' . ($produto->nome ?? 'Insumo')">
     <x-header :title="$produto->nome ?? 'Produto'"
         subtitle="Ficha técnica do produto, volume disponível, unidades em estoque e histórico de movimentações.">
         <x-slot:actions>
-            @if($produto->ativo)
+            @if($produto->ativo && $podeGerenciarCatalogo)
                 <x-button type="button" onclick="window.openModal('modal-movimentacao')" variant="primary" size="sm"
                     icon="arrow-up-circle">
                     Registrar Movimentação
                 </x-button>
             @endif
-            <x-button href="{{ route('produtos.edit', $produto->id) }}" variant="secondary" size="sm"
-                icon="pencil">
-                Editar
-            </x-button>
+            @if($podeGerenciarCatalogo)
+                <x-button href="{{ route('produtos.edit', $produto->id) }}" variant="secondary" size="sm"
+                    icon="pencil">
+                    Editar
+                </x-button>
+            @endif
             <x-button href="{{ route('produtos.index') }}" variant="ghost" size="sm" icon="chevron-left">
                 Voltar
             </x-button>
@@ -170,7 +175,7 @@
         </div>
     </div>
 
-    @if($produto->ativo)
+    @if($produto->ativo && $podeGerenciarCatalogo)
         @php
             $isModalMovProd = old('_modal_target') === 'movimentacao';
             $tipoOldProdMov = $isModalMovProd ? old('tipo_movimentacao', 'saida') : 'saida';

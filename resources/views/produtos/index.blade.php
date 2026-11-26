@@ -1,3 +1,6 @@
+@php
+    $podeGerenciarCatalogo = auth()->user()?->canManageCatalogoEEstoque() ?? false;
+@endphp
 <x-layouts.app title="Produtos">
     <x-header
         title="Produtos & Insumos"
@@ -7,9 +10,11 @@
             <x-button href="{{ route('estoque.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="outline" size="md" icon="package">
                 Visão de Estoque & Movimentações
             </x-button>
-            <x-button href="{{ route('produtos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
-                Novo Produto
-            </x-button>
+            @if($podeGerenciarCatalogo)
+                <x-button href="{{ route('produtos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
+                    Novo Produto
+                </x-button>
+            @endif
         </x-slot:actions>
     </x-header>
 
@@ -139,9 +144,11 @@
                             <x-button href="{{ route('produtos.show', $prod->id) }}" variant="ghost" size="icon-sm" title="Ver Detalhes">
                                 <x-icon name="eye" class="w-4 h-4" />
                             </x-button>
-                            <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="ghost" size="icon-sm" title="Editar Produto">
-                                <x-icon name="pencil" class="w-4 h-4" />
-                            </x-button>
+                            @if($podeGerenciarCatalogo)
+                                <x-button href="{{ route('produtos.edit', $prod->id) }}" variant="ghost" size="icon-sm" title="Editar Produto">
+                                    <x-icon name="pencil" class="w-4 h-4" />
+                                </x-button>
+                            @endif
                         </div>
                     </td>
                 </tr>

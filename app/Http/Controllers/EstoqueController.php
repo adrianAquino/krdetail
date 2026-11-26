@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MovimentacaoEstoque;
 use App\Models\Produto;
+use App\Models\User;
 use App\Services\MovimentarEstoqueService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -87,13 +88,18 @@ class EstoqueController extends Controller
      */
     public function movimentar(Request $request, MovimentarEstoqueService $service): RedirectResponse
     {
+        /** @var User|null $user */
+        $user = Auth::user();
+        if (! ($user instanceof User) || ! $user->canManageCatalogoEEstoque()) {
+            return back()->with('error', 'Apenas o Dono da Empresa ou Administrador Geral pode realizar movimentações manuais de estoque fora de Ordens de Serviço.');
+        }
+
         $tipoMovimentacao = $this->inputString($request, 'tipo_movimentacao');
         $minQuantidade = $tipoMovimentacao === 'ajuste' ? '0' : '0.001';
 
-        $user = Auth::user();
         $produtoRule = Rule::exists('produtos', 'id');
 
-        if ($user && ($user->isDono() || $user->isFuncionario())) {
+        if ($user->isDono()) {
             $empresaId = $user->getEmpresaAtivaId();
             $produtoRule = $empresaId !== null
                 ? $produtoRule->where('empresa_id', $empresaId)
@@ -137,7 +143,8 @@ class EstoqueController extends Controller
                 quantidade: $quantidadeVolume,
                 usuario: $user,
                 motivo: $validated['motivo'],
-                observacoes: $validated['observacoes'] ?? null
+                observacoes: $validated['observacoes'] ?? null,
+                movimentacaoManual: true
             );
 
             return back()->with('success', 'Movimentação de estoque registrada com sucesso!');

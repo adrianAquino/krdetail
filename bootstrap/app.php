@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureManagerUser;
 use App\Http\Middleware\EnsureStaffUser;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ResetAdminTenantContext;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'staff' => EnsureStaffUser::class,
+            'manager' => EnsureManagerUser::class,
             'active' => EnsureUserIsActive::class,
         ]);
 

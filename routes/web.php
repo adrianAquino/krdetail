@@ -78,21 +78,33 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
         Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy');
 
-        // Serviços
+        // Serviços (leitura para equipe; criação/edição/exclusão restrita a Dono/Administrador)
         Route::get('/servicos', [ServicoController::class, 'index'])->name('servicos.index');
-        Route::get('/servicos/create', [ServicoController::class, 'create'])->name('servicos.create');
-        Route::post('/servicos', [ServicoController::class, 'store'])->name('servicos.store');
-        Route::get('/servicos/{servico}/edit', [ServicoController::class, 'edit'])->name('servicos.edit');
-        Route::put('/servicos/{servico}', [ServicoController::class, 'update'])->name('servicos.update');
-        Route::delete('/servicos/{servico}', [ServicoController::class, 'destroy'])->name('servicos.destroy');
+        Route::middleware('manager')->group(function () {
+            Route::get('/servicos/create', [ServicoController::class, 'create'])->name('servicos.create');
+            Route::post('/servicos', [ServicoController::class, 'store'])->name('servicos.store');
+            Route::get('/servicos/{servico}/edit', [ServicoController::class, 'edit'])->name('servicos.edit');
+            Route::put('/servicos/{servico}', [ServicoController::class, 'update'])->name('servicos.update');
+            Route::delete('/servicos/{servico}', [ServicoController::class, 'destroy'])->name('servicos.destroy');
+        });
 
-        // Insumos & Produtos (Resource)
-        Route::resource('produtos', ProdutoController::class);
+        // Insumos & Produtos (leitura para equipe; criação/edição/exclusão restrita a Dono/Administrador)
+        Route::get('/produtos', [ProdutoController::class, 'index'])->name('produtos.index');
+        Route::middleware('manager')->group(function () {
+            Route::get('/produtos/create', [ProdutoController::class, 'create'])->name('produtos.create');
+            Route::post('/produtos', [ProdutoController::class, 'store'])->name('produtos.store');
+            Route::get('/produtos/{produto}/edit', [ProdutoController::class, 'edit'])->name('produtos.edit');
+            Route::match(['put', 'patch'], '/produtos/{produto}', [ProdutoController::class, 'update'])->name('produtos.update');
+            Route::delete('/produtos/{produto}', [ProdutoController::class, 'destroy'])->name('produtos.destroy');
+        });
+        Route::get('/produtos/{produto}', [ProdutoController::class, 'show'])->name('produtos.show');
 
-        // Controle de Estoque
+        // Controle de Estoque (movimentação manual fora de OS restrita a Dono/Administrador)
         Route::prefix('estoque')->name('estoque.')->group(function () {
             Route::get('/', [EstoqueController::class, 'index'])->name('index');
-            Route::post('/movimentar', [EstoqueController::class, 'movimentar'])->name('movimentar');
+            Route::post('/movimentar', [EstoqueController::class, 'movimentar'])
+                ->middleware('manager')
+                ->name('movimentar');
         });
 
         // Ordens de Serviço

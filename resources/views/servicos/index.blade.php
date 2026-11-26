@@ -1,13 +1,18 @@
+@php
+    $podeGerenciarCatalogo = auth()->user()?->canManageCatalogoEEstoque() ?? false;
+@endphp
 <x-layouts.app title="Serviços">
     <x-header
         title="Catálogo de Serviços"
         subtitle="Gerencie os serviços de estética automotiva, valores base e tempos estimados de execução."
     >
-        <x-slot:actions>
-            <x-button href="{{ route('servicos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
-                Novo Serviço
-            </x-button>
-        </x-slot:actions>
+        @if($podeGerenciarCatalogo)
+            <x-slot:actions>
+                <x-button href="{{ route('servicos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
+                    Novo Serviço
+                </x-button>
+            </x-slot:actions>
+        @endif
     </x-header>
 
     <x-admin-empresa-filter
@@ -143,11 +148,13 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-1">
-                        <x-button href="{{ route('servicos.edit', $servico->id) }}" variant="ghost" size="icon-sm" title="Editar">
-                            <x-icon name="pencil" class="w-4 h-4" />
-                        </x-button>
-                    </div>
+                    @if($podeGerenciarCatalogo)
+                        <div class="flex items-center gap-1">
+                            <x-button href="{{ route('servicos.edit', $servico->id) }}" variant="ghost" size="icon-sm" title="Editar">
+                                <x-icon name="pencil" class="w-4 h-4" />
+                            </x-button>
+                        </div>
+                    @endif
                 </div>
 
                 <p class="text-xs text-muted-foreground line-clamp-3 mb-4 min-h-[3rem] leading-relaxed">
@@ -172,12 +179,16 @@
                     <div class="text-center py-12">
                         <x-icon name="wrench" class="w-10 h-10 mx-auto text-muted-foreground mb-3" />
                         <h4 class="text-base font-semibold text-foreground">Nenhum serviço encontrado</h4>
-                        <p class="text-xs text-muted-foreground mt-1">Cadastre novos serviços para disponibilizá-los em agendamentos.</p>
-                        <div class="mt-4">
-                            <x-button href="{{ route('servicos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus">
-                                Cadastrar Serviço
-                            </x-button>
-                        </div>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            {{ $podeGerenciarCatalogo ? 'Cadastre novos serviços para disponibilizá-los em agendamentos.' : 'Solicite ao dono da empresa ou administrador o cadastro de serviços no catálogo.' }}
+                        </p>
+                        @if($podeGerenciarCatalogo)
+                            <div class="mt-4">
+                                <x-button href="{{ route('servicos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus">
+                                    Cadastrar Serviço
+                                </x-button>
+                            </div>
+                        @endif
                     </div>
                 </x-card>
             </div>

@@ -2,12 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Models\Agendamento;
 use App\Models\Cliente;
 use App\Models\Empresa;
 use App\Models\Funcionario;
+use App\Models\MovimentacaoEstoque;
 use App\Models\Pessoa;
+use App\Models\Produto;
 use App\Models\Servico;
+use App\Models\TarefaProduto;
 use App\Models\User;
+use App\Models\Veiculo;
+use App\Services\AbrirOrdemServicoService;
+use App\Services\MovimentarEstoqueService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -245,5 +253,301 @@ class PermissoesEmpresaTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertSoftDeleted('empresas', ['id' => $empresaLimpa->id]);
+    }
+
+    public function test_funcionario_nao_pode_gerenciar_servicos_produtos_ou_movimentar_estoque_fora_da_os(): void
+    {
+        $dono = User::create([
+            'name' => 'Dono Antifraude',
+            'email' => 'dono.antifraude@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 91111-1010',
+            'tipo_usuario' => 'dono',
+            'ativo' => true,
+        ]);
+
+        $empresa = Empresa::create([
+            'dono_id' => $dono->id,
+            'nome_fantasia' => 'Estética Antifraude',
+            'razao_social' => 'Estética Antifraude LTDA',
+            'whatsapp' => '(11) 91111-1010',
+            'email' => 'antifraude@krdetail.test',
+            'ativo' => true,
+        ]);
+        $dono->update(['empresa_id' => $empresa->id]);
+
+        $admin = User::create([
+            'name' => 'Admin Antifraude',
+            'email' => 'admin.antifraude@krdetail.test',
+            'password' => 'SenhaForte123',
+            'tipo_usuario' => 'administrador',
+            'ativo' => true,
+        ]);
+
+        $funcUser = User::create([
+            'empresa_id' => $empresa->id,
+            'name' => 'Funcionário Operacional',
+            'email' => 'func.antifraude@krdetail.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 92222-2020',
+            'tipo_usuario' => 'funcionario',
+            'ativo' => true,
+        ]);
+
+        $servico = Servico::withoutGlobalScopes()->create([
+            'empresa_id' => $empresa->id,
+            'nome' => 'Lavagem Técnica Base',
+            'preco_base' => 150.00,
+            'tempo_estimado_minutos' => 60,
+            'ativo' => true,
+        ]);
+
+        $produto = Produto::withoutGlobalScopes()->create([
+            'empresa_id' => $empresa->id,
+            'nome' => 'Shampoo Neutro Antifraude',
+            'unidade_medida' => 'ml',
+            'volume_unitario' => 500,
+            'quantidade_estoque' => 1000,
+            'estoque_minimo' => 500,
+            'custo_unitario' => 50.00,
+            'ativo' => true,
+        ]);
+
+        // 1. Funcionário visualiza em modo leitura, sem botões ou modais de alteração/movimentação manual
+        $this->actingAs($funcUser)->get(route('servicos.index'))
+            ->assertOk()
+            ->assertSee('Lavagem Técnica Base')
+            ->assertDontSee('Novo Serviço')
+            ->assertDontSee('Cadastrar Serviço')
+            ->assertDontSee('title="Editar"', false);
+
+        $this->actingAs($funcUser)->get(route('produtos.index'))
+            ->assertOk()
+            ->assertSee('Shampoo Neutro Antifraude')
+            ->assertDontSee('Novo Produto')
+            ->assertDontSee('title="Editar Produto"', false);
+
+        $this->actingAs($funcUser)->get(route('produtos.show', $produto))
+            ->assertOk()
+            ->assertSee('Shampoo Neutro Antifraude')
+            ->assertDontSee('Registrar Movimentação')
+            ->assertDontSee('id="modal-movimentacao"', false)
+            ->assertDontSee(route('produtos.edit', $produto), false);
+
+        $this->actingAs($funcUser)->get(route('estoque.index'))
+            ->assertOk()
+            ->assertSee('Shampoo Neutro Antifraude')
+            ->assertDontSee('Nova Movimentação')
+            ->assertDontSee('Novo Produto')
+            ->assertDontSee('id="modal-nova-movimentacao"', false)
+            ->assertDontSee('Reativar / Editar')
+            ->assertDontSee(route('produtos.edit', $produto), false);
+
+        // 2. Funcionário é bloqueado em todas as rotas de criação/edição/exclusão e movimentação manual (HTML e JSON)
+        $this->actingAs($funcUser)->get(route('servicos.create'))
+            ->assertRedirect(route('servicos.index'))
+            ->assertSessionHas('error');
+        $this->actingAs($funcUser)->getJson(route('servicos.create'))->assertForbidden();
+
+        $this->actingAs($funcUser)->post(route('servicos.store'), [
+            'nome' => 'Serviço Fraudulento',
+            'preco_base' => 1.00,
+            'tempo_estimado_minutos' => 30,
+            'ativo' => true,
+        ])->assertRedirect(route('servicos.index'))->assertSessionHas('error');
+        $this->actingAs($funcUser)->postJson(route('servicos.store'), [
+            'nome' => 'Serviço Fraudulento JSON',
+            'preco_base' => 1.00,
+            'tempo_estimado_minutos' => 30,
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('servicos', ['nome' => 'Serviço Fraudulento']);
+
+        $this->actingAs($funcUser)->get(route('servicos.edit', $servico))
+            ->assertRedirect(route('servicos.index'))
+            ->assertSessionHas('error');
+        $this->actingAs($funcUser)->getJson(route('servicos.edit', $servico))->assertForbidden();
+
+        $this->actingAs($funcUser)->put(route('servicos.update', $servico), [
+            'nome' => 'Preço Alterado Indevidamente',
+            'preco_base' => 1.00,
+            'tempo_estimado_minutos' => 60,
+        ])->assertRedirect(route('servicos.index'))->assertSessionHas('error');
+        $this->actingAs($funcUser)->putJson(route('servicos.update', $servico), [
+            'nome' => 'Preço Alterado JSON',
+            'preco_base' => 1.00,
+            'tempo_estimado_minutos' => 60,
+        ])->assertForbidden();
+        $this->assertSame('Lavagem Técnica Base', $servico->fresh()->nome);
+        $this->assertEquals(150.00, (float) $servico->fresh()->preco_base);
+
+        $this->actingAs($funcUser)->delete(route('servicos.destroy', $servico))
+            ->assertRedirect(route('servicos.index'))
+            ->assertSessionHas('error');
+        $this->actingAs($funcUser)->deleteJson(route('servicos.destroy', $servico))->assertForbidden();
+        $this->assertDatabaseHas('servicos', ['id' => $servico->id]);
+
+        $this->actingAs($funcUser)->get(route('produtos.create'))
+            ->assertRedirect(route('produtos.index'))
+            ->assertSessionHas('error');
+        $this->actingAs($funcUser)->getJson(route('produtos.create'))->assertForbidden();
+
+        $this->actingAs($funcUser)->post(route('produtos.store'), [
+            'nome' => 'Produto Indevido',
+            'unidade_medida' => 'ml',
+            'volume_unitario' => 500,
+            'quantidade_unidades' => 2,
+            'estoque_minimo_unidades' => 1,
+            'custo_unitario' => 10.00,
+        ])->assertRedirect(route('produtos.index'))->assertSessionHas('error');
+        $this->actingAs($funcUser)->postJson(route('produtos.store'), [
+            'nome' => 'Produto Indevido JSON',
+            'unidade_medida' => 'ml',
+            'volume_unitario' => 500,
+            'custo_unitario' => 10.00,
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('produtos', ['nome' => 'Produto Indevido']);
+
+        $this->actingAs($funcUser)->get(route('produtos.edit', $produto))
+            ->assertRedirect(route('produtos.index'))
+            ->assertSessionHas('error');
+        $this->actingAs($funcUser)->getJson(route('produtos.edit', $produto))->assertForbidden();
+
+        $this->actingAs($funcUser)->put(route('produtos.update', $produto), [
+            'nome' => 'Produto Alterado Indevidamente',
+            'unidade_medida' => 'ml',
+            'volume_unitario' => 500,
+            'quantidade_estoque' => 0,
+            'estoque_minimo' => 500,
+            'custo_unitario' => 1.00,
+        ])->assertRedirect(route('produtos.index'))->assertSessionHas('error');
+        $this->actingAs($funcUser)->patchJson(route('produtos.update', $produto), [
+            'nome' => 'Produto Alterado JSON',
+            'unidade_medida' => 'ml',
+            'volume_unitario' => 500,
+            'custo_unitario' => 1.00,
+        ])->assertForbidden();
+        $this->assertSame('Shampoo Neutro Antifraude', $produto->fresh()->nome);
+        $this->assertEquals(1000.000, (float) $produto->fresh()->quantidade_estoque);
+
+        $this->actingAs($funcUser)->delete(route('produtos.destroy', $produto))
+            ->assertRedirect(route('produtos.index'))
+            ->assertSessionHas('error');
+        $this->actingAs($funcUser)->deleteJson(route('produtos.destroy', $produto))->assertForbidden();
+        $this->assertDatabaseHas('produtos', ['id' => $produto->id]);
+
+        foreach (['entrada', 'saida', 'ajuste'] as $tipoMov) {
+            $this->actingAs($funcUser)->post(route('estoque.movimentar'), [
+                'produto_id' => $produto->id,
+                'tipo_movimentacao' => $tipoMov,
+                'modo_quantidade' => 'volume',
+                'quantidade' => 100,
+                'motivo' => 'Movimentação manual indevida',
+            ])->assertRedirect(route('estoque.index'))->assertSessionHas('error');
+
+            $this->actingAs($funcUser)->postJson(route('estoque.movimentar'), [
+                'produto_id' => $produto->id,
+                'tipo_movimentacao' => $tipoMov,
+                'modo_quantidade' => 'volume',
+                'quantidade' => 100,
+                'motivo' => 'Movimentação manual indevida JSON',
+            ])->assertForbidden();
+        }
+        $this->assertEquals(1000.000, (float) $produto->fresh()->quantidade_estoque);
+        $this->assertSame(0, MovimentacaoEstoque::withoutGlobalScopes()->where('produto_id', $produto->id)->count());
+
+        // 3. Trava em profundidade no MovimentarEstoqueService para movimentação manual por Funcionário
+        $lancouExcecaoManual = false;
+        try {
+            app(MovimentarEstoqueService::class)->movimentar(
+                produto: $produto,
+                tipo: 'saida',
+                quantidade: 100,
+                usuario: $funcUser,
+                motivo: 'Tentativa direta via service',
+                movimentacaoManual: true
+            );
+        } catch (\DomainException $e) {
+            $lancouExcecaoManual = true;
+        }
+        $this->assertTrue($lancouExcecaoManual, 'MovimentarEstoqueService deve bloquear movimentação manual de Funcionário');
+        $this->assertEquals(1000.000, (float) $produto->fresh()->quantidade_estoque);
+
+        // 4. Funcionário CONTINUA podendo dar baixa e estornar produtos DENTRO de uma Ordem de Serviço / Tarefa
+        $cliente = Cliente::withoutGlobalScopes()->create([
+            'empresa_id' => $empresa->id,
+            'nome' => 'Cliente OS Antifraude',
+            'telefone' => '(11) 93333-4040',
+        ]);
+
+        $veiculo = Veiculo::withoutGlobalScopes()->create([
+            'cliente_id' => $cliente->id,
+            'placa' => 'SEG1A23',
+            'marca' => 'VW',
+            'modelo' => 'Golf',
+        ]);
+
+        $inicio = Carbon::now()->next(Carbon::WEDNESDAY)->setTime(10, 0);
+        $ag = Agendamento::withoutGlobalScopes()->create([
+            'empresa_id' => $empresa->id,
+            'cliente_id' => $cliente->id,
+            'veiculo_id' => $veiculo->id,
+            'data_inicio' => $inicio,
+            'data_fim' => $inicio->copy()->addMinutes(60),
+            'status' => 'confirmado',
+            'origem' => 'Sistema',
+        ]);
+        $ag->agendamentosServicos()->create([
+            'servico_id' => $servico->id,
+            'valor_servico' => 150.00,
+            'tempo_estimado_minutos' => 60,
+        ]);
+
+        $this->actingAs($dono);
+        $os = app(AbrirOrdemServicoService::class)->abrir($ag->id);
+        $tarefa = $os->tarefas()->firstOrFail();
+
+        $this->actingAs($funcUser)->post(route('tarefas.adicionar-produto', $tarefa), [
+            'produto_id' => $produto->id,
+            'quantidade_utilizada' => 150,
+            'observacoes' => 'Consumo legítimo na OS',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertEquals(850.000, (float) $produto->fresh()->quantidade_estoque);
+        $tarefaProduto = TarefaProduto::withoutGlobalScopes()->where('tarefa_id', $tarefa->id)->firstOrFail();
+
+        $this->actingAs($funcUser)->delete(route('tarefas.remover-produto', [$tarefa, $tarefaProduto]))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->assertEquals(1000.000, (float) $produto->fresh()->quantidade_estoque);
+
+        // 5. Dono da Empresa e Administrador Geral mantêm acesso total
+        $this->actingAs($dono)->post(route('servicos.store'), [
+            'nome' => 'Serviço Criado Pelo Dono',
+            'preco_base' => 250.00,
+            'tempo_estimado_minutos' => 90,
+            'ativo' => true,
+        ])->assertRedirect(route('servicos.index'))->assertSessionHas('success');
+        $this->assertDatabaseHas('servicos', ['nome' => 'Serviço Criado Pelo Dono', 'empresa_id' => $empresa->id]);
+
+        $this->actingAs($dono)->post(route('estoque.movimentar'), [
+            'produto_id' => $produto->id,
+            'tipo_movimentacao' => 'entrada',
+            'modo_quantidade' => 'volume',
+            'quantidade' => 250,
+            'motivo' => 'Reposição autorizada pelo Dono',
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertEquals(1250.000, (float) $produto->fresh()->quantidade_estoque);
+
+        $this->actingAs($admin)->post(route('produtos.store'), [
+            'empresa_id' => $empresa->id,
+            'nome' => 'Produto Criado Pelo Admin',
+            'unidade_medida' => 'ml',
+            'volume_unitario' => 500,
+            'quantidade_unidades' => 1,
+            'estoque_minimo_unidades' => 1,
+            'custo_unitario' => 45.00,
+            'ativo' => true,
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertDatabaseHas('produtos', ['nome' => 'Produto Criado Pelo Admin', 'empresa_id' => $empresa->id]);
     }
 }
