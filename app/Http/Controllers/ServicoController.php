@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Empresa;
 use App\Models\Servico;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ServicoController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Servico::query();
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+        $query = Servico::with('empresa');
 
         $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
@@ -29,33 +33,61 @@ class ServicoController extends Controller
 
         $servicos = $query->orderBy('nome', 'asc')->paginate(12)->withQueryString();
 
-        return view('servicos.index', compact('servicos'));
+        return view('servicos.index', array_merge(compact('servicos'), $filtroAdmin));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return view('servicos.create');
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresas = $isAdmin ? Empresa::orderBy('nome_fantasia')->get() : collect();
+        $empresaSelecionadaId = $isAdmin ? ($request->integer('empresa_id') ?: null) : null;
+
+        return view('servicos.create', compact('isAdmin', 'empresas', 'empresaSelecionadaId'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+
+        $rules = [
             'nome' => 'required|string|max:100',
             'descricao' => 'nullable|string|max:500',
             'preco_base' => 'required|numeric|min:0|max:99999.99',
             'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
             'ativo' => 'sometimes|boolean',
+        ];
+
+        if ($isAdmin) {
+            $rules['empresa_id'] = 'required|integer|exists:empresas,id';
+        }
+
+        $validated = $request->validate($rules, [
+            'empresa_id.required' => 'Selecione a empresa proprietária deste serviço.',
         ]);
+
+        if (! $isAdmin) {
+            unset($validated['empresa_id']);
+        }
 
         $validated['ativo'] = $request->boolean('ativo');
 
         Servico::create($validated);
 
-        return redirect()->route('servicos.index')->with('success', 'Serviço cadastrado com sucesso!');
+        $rotaParams = $isAdmin && ! empty($validated['empresa_id'])
+            ? ['empresa_id' => $validated['empresa_id']]
+            : [];
+
+        return redirect()->route('servicos.index', $rotaParams)->with('success', 'Serviço cadastrado com sucesso!');
     }
 
     public function edit(Servico $servico)
     {
+        $servico->load('empresa');
+
         return view('servicos.edit', compact('servico'));
     }
 

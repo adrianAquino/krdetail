@@ -8,6 +8,7 @@ use App\Models\Funcionario;
 use App\Models\Produto;
 use App\Models\Servico;
 use App\Models\User;
+use App\Support\AdminTenantContext;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -27,13 +28,17 @@ trait BelongsToEmpresa
                 return;
             }
 
-            // Administrador Geral do Sistema tem visão global de todas as empresas
-            if ($user->isAdministrador()) {
-                return;
-            }
-
             $model = $builder->getModel();
             $table = $model->getTable();
+
+            // Administrador Geral enxerga visão global ou apenas a empresa selecionada no módulo atual
+            if ($user->isAdministrador()) {
+                $adminEmpresaId = AdminTenantContext::getEmpresaId();
+                if ($adminEmpresaId !== null) {
+                    $builder->where("{$table}.empresa_id", $adminEmpresaId);
+                }
+                return;
+            }
 
             // Dono da empresa e Funcionário só podem ver e manipular dados relacionados à empresa ativa deles
             if ($user->isDono() || $user->isFuncionario()) {
@@ -86,7 +91,8 @@ trait BelongsToEmpresa
                 }
 
                 if ($user->isAdministrador() && empty($model->empresa_id)) {
-                    $model->empresa_id = Empresa::query()->orderBy('id')->value('id');
+                    $model->empresa_id = AdminTenantContext::getEmpresaId()
+                        ?? Empresa::query()->orderBy('id')->value('id');
                 }
             }
         });

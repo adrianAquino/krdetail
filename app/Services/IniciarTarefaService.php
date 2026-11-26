@@ -38,7 +38,7 @@ class IniciarTarefaService
                 ->findOrFail($tarefaId);
 
             $agendamento = Agendamento::withoutGlobalScopes()
-                ->with('cliente')
+                ->with(['cliente' => fn ($q) => $q->withoutGlobalScopes()])
                 ->lockForUpdate()
                 ->findOrFail($ordemServico->agendamento_id);
 
@@ -54,7 +54,7 @@ class IniciarTarefaService
                 throw new \DomainException('Apenas tarefas com status pendente podem ser iniciadas.');
             }
 
-            $empresaOsId = $agendamento->cliente?->empresa_id;
+            $empresaOsId = $agendamento->empresa_id ?? $agendamento->cliente?->empresa_id;
 
             if ($funcionario !== null) {
                 $funcionarioId = $funcionario instanceof Funcionario ? $funcionario->id : (int) $funcionario;
@@ -70,7 +70,7 @@ class IniciarTarefaService
                     throw new \DomainException('Não é possível iniciar a tarefa com um funcionário inativo.');
                 }
 
-                if ($empresaOsId !== null && (int) $funcModel->empresa_id !== (int) $empresaOsId) {
+                if ($empresaOsId === null || (int) $funcModel->empresa_id !== (int) $empresaOsId) {
                     throw new \DomainException('O funcionário selecionado não pertence à mesma empresa desta Ordem de Serviço.');
                 }
 
@@ -84,7 +84,7 @@ class IniciarTarefaService
                     throw new \DomainException('O funcionário atribuído a esta tarefa está inativo.');
                 }
 
-                if ($funcAtual && $empresaOsId !== null && (int) $funcAtual->empresa_id !== (int) $empresaOsId) {
+                if ($funcAtual && ($empresaOsId === null || (int) $funcAtual->empresa_id !== (int) $empresaOsId)) {
                     throw new \DomainException('O funcionário atribuído não pertence à mesma empresa desta Ordem de Serviço.');
                 }
             } else {

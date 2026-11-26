@@ -17,19 +17,22 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-            @php $tabAtualRel = request('tab', 'financeiro'); @endphp
+            @php
+                $tabAtualRel = request('tab', 'financeiro');
+                $empQueryRel = (($isAdmin ?? false) && !empty($empresaFiltroId)) ? '&empresa_id=' . urlencode((string) $empresaFiltroId) : '';
+            @endphp
             <!-- Seletor de Período Rápido -->
             <div class="inline-flex rounded-lg bg-secondary/50 p-1 border border-border">
-                <a href="?periodo=hoje&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="hoje" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'hoje' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=hoje&tab={{ urlencode($tabAtualRel) }}{{ $empQueryRel }}" data-relatorio-periodo="hoje" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'hoje' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Hoje
                 </a>
-                <a href="?periodo=semana&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="semana" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'semana' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=semana&tab={{ urlencode($tabAtualRel) }}{{ $empQueryRel }}" data-relatorio-periodo="semana" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'semana' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Esta Semana
                 </a>
-                <a href="?periodo=mes&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="mes" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo', 'mes')) === 'mes' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=mes&tab={{ urlencode($tabAtualRel) }}{{ $empQueryRel }}" data-relatorio-periodo="mes" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo', 'mes')) === 'mes' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Este Mês
                 </a>
-                <a href="?periodo=ano&tab={{ urlencode($tabAtualRel) }}" data-relatorio-periodo="ano" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'ano' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
+                <a href="?periodo=ano&tab={{ urlencode($tabAtualRel) }}{{ $empQueryRel }}" data-relatorio-periodo="ano" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ ($periodo ?? request('periodo')) === 'ano' ? 'bg-primary text-primary-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground' }}">
                     Este Ano
                 </a>
             </div>
@@ -41,6 +44,14 @@
             </x-button>
         </div>
     </div>
+
+    <x-admin-empresa-filter
+        :action="route('relatorios.index')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        :preserve="['periodo' => $periodo ?? request('periodo', 'mes'), 'tab' => request('tab', 'financeiro')]"
+        label="Empresa nos Relatórios"
+    />
 
     <!-- Navegação de Abas (Tabs) -->
     <div class="border-b border-border">
@@ -283,7 +294,12 @@
                         @forelse($lancamentos as $item)
                             <tr class="hover:bg-secondary/20 transition-colors">
                                 <td class="px-4 py-3 font-mono text-muted-foreground whitespace-nowrap">{{ $item['data'] }}</td>
-                                <td class="px-4 py-3 font-medium text-foreground">{{ $item['descricao'] }}</td>
+                                <td class="px-4 py-3 font-medium text-foreground">
+                                    {{ $item['descricao'] }}
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && !empty($item['empresa_nome']))
+                                        <span class="ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{{ $item['empresa_nome'] }}</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-muted-foreground">{{ $item['categoria'] }}</td>
                                 <td class="px-4 py-3">
                                     @if($item['tipo'] === 'receita')
@@ -405,6 +421,9 @@
                                         {{ $idx + 1 }}
                                     </span>
                                     <span class="font-semibold text-foreground">{{ $srv['nome'] }}</span>
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && !empty($srv['empresa_nome']))
+                                        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{{ $srv['empresa_nome'] }}</span>
+                                    @endif
                                 </div>
                                 <span class="font-bold text-foreground">
                                     {{ $srv['execucoes'] }} {{ $srv['execucoes'] === 1 ? 'execução' : 'execuções' }}
@@ -446,7 +465,12 @@
                                     {{ $func['iniciais'] }}
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-foreground">{{ $func['nome'] }}</p>
+                                    <p class="text-sm font-semibold text-foreground">
+                                        {{ $func['nome'] }}
+                                        @if(($isAdmin ?? false) && empty($empresaFiltroId) && !empty($func['empresa_nome']))
+                                            <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{{ $func['empresa_nome'] }}</span>
+                                        @endif
+                                    </p>
                                     <p class="text-xs text-muted-foreground">{{ $func['cargo'] }}</p>
                                 </div>
                             </div>
@@ -505,7 +529,13 @@ function switchTab(tab) {
 
     document.querySelectorAll('[data-relatorio-periodo]').forEach(function (link) {
         const p = link.getAttribute('data-relatorio-periodo') || 'mes';
-        link.setAttribute('href', '?periodo=' + encodeURIComponent(p) + '&tab=' + encodeURIComponent(destino));
+        const urlAtual = new URL(window.location.href);
+        const empId = urlAtual.searchParams.get('empresa_id');
+        let qs = '?periodo=' + encodeURIComponent(p) + '&tab=' + encodeURIComponent(destino);
+        if (empId) {
+            qs += '&empresa_id=' + encodeURIComponent(empId);
+        }
+        link.setAttribute('href', qs);
     });
 
     if (window.history && typeof window.history.replaceState === 'function') {

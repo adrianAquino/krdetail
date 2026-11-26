@@ -17,6 +17,8 @@ class RelatorioController extends Controller
 {
     public function index(Request $request): View
     {
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+
         $periodoRaw = $this->inputString($request, 'periodo');
         $periodo = in_array($periodoRaw, ['hoje', 'semana', 'mes', 'ano'], true) ? $periodoRaw : 'mes';
         $agora = Carbon::now();
@@ -49,14 +51,14 @@ class RelatorioController extends Controller
         };
 
         // 1. Lançamentos Financeiros no Período Atual e Anterior
-        $lancamentosPeriodo = LancamentoFinanceiro::with(['tarefa.agendamentoServico.servico', 'tarefa.ordemServico'])
+        $lancamentosPeriodo = LancamentoFinanceiro::with(['empresa', 'tarefa.agendamentoServico.servico', 'tarefa.ordemServico'])
             ->whereBetween('data_lancamento', [$inicioPeriodo->toDateString(), $fimPeriodo->toDateString()])
             ->orderByDesc('data_lancamento')
             ->orderByDesc('id')
             ->get();
 
         // 1.1 Custos de Produtos/Insumos Consumidos nas Tarefas (exclui OS canceladas)
-        $consumosTarefasPeriodo = TarefaProduto::with(['produto', 'tarefa.ordemServico', 'tarefa.agendamentoServico.servico'])
+        $consumosTarefasPeriodo = TarefaProduto::with(['produto.empresa', 'tarefa.ordemServico', 'tarefa.agendamentoServico.servico'])
             ->whereBetween('created_at', [$inicioPeriodo, $fimPeriodo])
             ->whereHas('tarefa.ordemServico', fn ($q) => $q->where('status', '!=', 'cancelada'))
             ->orderByDesc('created_at')
@@ -182,6 +184,7 @@ class RelatorioController extends Controller
                 'categoria' => $item->categoria,
                 'tipo' => $item->tipo,
                 'valor' => (float) $item->valor,
+                'empresa_nome' => $item->empresa?->nome_fantasia,
             ];
         });
 
@@ -200,6 +203,7 @@ class RelatorioController extends Controller
                 'categoria' => 'Insumos (Tarefas)',
                 'tipo' => 'despesa',
                 'valor' => $tp->custo_total,
+                'empresa_nome' => $tp->produto?->empresa?->nome_fantasia,
             ];
         });
 
@@ -252,7 +256,7 @@ class RelatorioController extends Controller
         }
 
         // 7. Ranking de Serviços Mais Realizados (apenas agendamentos concluídos no período)
-        $itensServicosPeriodo = AgendamentoServico::with(['servico', 'agendamento'])
+        $itensServicosPeriodo = AgendamentoServico::with(['servico.empresa', 'agendamento.empresa'])
             ->whereHas('agendamento', function ($q) use ($inicioPeriodo, $fimPeriodo) {
                 $q->where('status', 'concluido')
                     ->where(function ($dq) use ($inicioPeriodo, $fimPeriodo) {
@@ -279,6 +283,7 @@ class RelatorioController extends Controller
 
                 return [
                     'nome' => $servico?->nome ?? 'Serviço',
+                    'empresa_nome' => $grupo->first()?->agendamento?->empresa?->nome_fantasia ?? $servico?->empresa?->nome_fantasia,
                     'execucoes' => $execucoes,
                     'tempo_total_formatado' => $tempoStr,
                     'valor_gerado' => (float) $grupo->sum('valor_servico'),
@@ -302,7 +307,7 @@ class RelatorioController extends Controller
         $idsComAtividade = $tarefasEquipe->pluck('funcionario_id')->unique()->filter()->all();
         $tarefasPorFuncionario = $tarefasEquipe->groupBy('funcionario_id');
 
-        $funcionarios = Funcionario::with('user')
+        $funcionarios = Funcionario::with(['user', 'empresa'])
             ->where(function ($q) use ($idsComAtividade) {
                 $q->where('ativo', true);
                 if (!empty($idsComAtividade)) {
@@ -342,6 +347,7 @@ class RelatorioController extends Controller
                     'nome' => $nome,
                     'iniciais' => $iniciais,
                     'cargo' => $func->cargo ?: 'Técnico em Estética Automotiva',
+                    'empresa_nome' => $func->empresa?->nome_fantasia,
                     'tarefas_concluidas' => $concluidas,
                     'tarefas_atribuidas' => $totalAtribuidas,
                     'taxa_conclusao' => $taxa,
@@ -374,7 +380,7 @@ class RelatorioController extends Controller
             'media_tarefas_equipe' => $mediaTarefasEquipe,
         ];
 
-        return view('relatorios.index', compact(
+        return view('relatorios.index', array_merge(compact(
             'kpis',
             'lancamentos',
             'receitasPorServico',
@@ -383,6 +389,6 @@ class RelatorioController extends Controller
             'maxExecucoesServico',
             'funcionarios',
             'periodo'
-        ));
+        ), $filtroAdmin));
     }
 }

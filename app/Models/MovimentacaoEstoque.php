@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AdminTenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,8 +24,13 @@ class MovimentacaoEstoque extends Model
             if (!($user instanceof User)) {
                 return;
             }
-            if ($user->isDono() || $user->isFuncionario()) {
-                $empresaId = $user->getEmpresaAtivaId();
+            if ($user->isDono() || $user->isFuncionario() || $user->isAdministrador()) {
+                $empresaId = $user->isAdministrador()
+                    ? AdminTenantContext::getEmpresaId()
+                    : $user->getEmpresaAtivaId();
+                if ($user->isAdministrador() && $empresaId === null) {
+                    return;
+                }
                 if ($empresaId === null) {
                     $builder->whereRaw('1 = 0');
                     return;

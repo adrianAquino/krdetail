@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Empresa;
 use App\Models\User;
 use App\Models\Veiculo;
 use Illuminate\Database\QueryException;
@@ -19,11 +20,18 @@ class VeiculoController extends Controller
 
         if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
-            $query = Veiculo::with('cliente')
+            $query = Veiculo::with(['cliente.empresa'])
                 ->withCount(['agendamentos' => fn ($q) => $q->where('cliente_id', $cliente->id)])
                 ->where('cliente_id', $cliente->id);
+            $filtroAdmin = [
+                'isAdmin' => false,
+                'empresasFiltro' => collect(),
+                'empresaFiltroId' => null,
+                'empresaFiltroAtual' => null,
+            ];
         } else {
-            $query = Veiculo::with('cliente')->withCount('agendamentos');
+            $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+            $query = Veiculo::with(['cliente.empresa'])->withCount('agendamentos');
         }
 
         $busca = trim($this->inputString($request, 'busca'));
@@ -41,24 +49,37 @@ class VeiculoController extends Controller
 
         $veiculos = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
-        return view('veiculos.index', compact('veiculos'));
+        return view('veiculos.index', array_merge(compact('veiculos'), $filtroAdmin));
     }
 
     public function create(Request $request)
     {
         /** @var User|null $user */
         $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresas = collect();
+        $empresaSelecionadaId = null;
 
         if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
             $clientes = collect([$cliente]);
             $selectedClienteId = $cliente->id;
         } else {
-            $clientes = Cliente::orderBy('nome')->get();
+            if ($isAdmin) {
+                $empresas = Empresa::orderBy('nome_fantasia')->get();
+                $empReq = $request->integer('empresa_id') ?: null;
+                $empresaSelecionadaId = ($empReq && $empresas->contains('id', $empReq)) ? $empReq : null;
+            }
+
+            $clientesQuery = Cliente::with('empresa')->orderBy('nome');
+            if ($isAdmin && $empresaSelecionadaId) {
+                $clientesQuery->where('empresa_id', $empresaSelecionadaId);
+            }
+            $clientes = $clientesQuery->get();
             $selectedClienteId = $request->query('cliente_id');
         }
 
-        return view('veiculos.create', compact('clientes', 'selectedClienteId'));
+        return view('veiculos.create', compact('clientes', 'selectedClienteId', 'isAdmin', 'empresas', 'empresaSelecionadaId'));
     }
 
     public function store(Request $request)
@@ -152,7 +173,7 @@ class VeiculoController extends Controller
             }
 
             $veiculo->load([
-                'cliente',
+                'cliente.empresa',
                 'agendamentos' => function ($q) use ($cliente) {
                     $q->where('cliente_id', $cliente->id)
                         ->with(['servicos', 'ordemServico.tarefas'])
@@ -160,7 +181,7 @@ class VeiculoController extends Controller
                 },
             ]);
         } else {
-            $veiculo->load(['cliente', 'agendamentos.servicos', 'agendamentos.ordemServico.tarefas']);
+            $veiculo->load(['cliente.empresa', 'agendamentos.servicos', 'agendamentos.ordemServico.tarefas']);
         }
 
         return view('veiculos.show', compact('veiculo'));
@@ -170,6 +191,7 @@ class VeiculoController extends Controller
     {
         /** @var User|null $user */
         $user = Auth::user();
+        $veiculo->load('cliente.empresa');
 
         if ($user instanceof User && $user->isCliente()) {
             $cliente = $user->ensureClienteProfile();
@@ -178,7 +200,11 @@ class VeiculoController extends Controller
             }
             $clientes = collect([$cliente]);
         } else {
-            $clientes = Cliente::orderBy('nome')->get();
+            $clientesQuery = Cliente::with('empresa')->orderBy('nome');
+            if ($user instanceof User && $user->isAdministrador() && $veiculo->cliente?->empresa_id) {
+                $clientesQuery->where('empresa_id', $veiculo->cliente->empresa_id);
+            }
+            $clientes = $clientesQuery->get();
         }
 
         return view('veiculos.edit', compact('veiculo', 'clientes'));

@@ -25,11 +25,14 @@
     $nomeUsuario = $usuarioLogado?->name ?? 'Usuário';
     $emailUsuario = $usuarioLogado?->email ?? '';
     $papelUsuario = $usuarioLogado?->role_label ?? '';
-    $empresaAtivaId = $usuarioLogado?->getEmpresaAtivaId();
+    $isAdminSidebar = $usuarioLogado && $usuarioLogado->isAdministrador();
+    $empresaAtivaId = $isAdminSidebar ? null : $usuarioLogado?->getEmpresaAtivaId();
     $empresaAtivaObj = $empresaAtivaId ? \App\Models\Empresa::find($empresaAtivaId) : null;
-    $nomeEmpresa = $isCliente
-        ? ($empresaAtivaObj?->nome_fantasia ?? 'Sem Estética Vinculada')
-        : ($empresaAtivaObj?->nome_fantasia ?? 'Kraus Detail');
+    $nomeEmpresa = $isAdminSidebar
+        ? 'KR Detail'
+        : ($isCliente
+            ? ($empresaAtivaObj?->nome_fantasia ?? 'Sem Estética Vinculada')
+            : ($empresaAtivaObj?->nome_fantasia ?? 'Kraus Detail'));
     $minhasEmpresasSidebar = ($usuarioLogado && $usuarioLogado->isDono())
         ? \App\Models\Empresa::where(function ($q) use ($usuarioLogado) {
             $q->where('dono_id', $usuarioLogado->id);

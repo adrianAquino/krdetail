@@ -13,11 +13,19 @@
             >
                 Nova Movimentação
             </x-button>
-            <x-button href="{{ route('produtos.create') }}" variant="secondary" size="md" icon="plus">
+            <x-button href="{{ route('produtos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="secondary" size="md" icon="plus">
                 Novo Produto
             </x-button>
         </x-slot:actions>
     </x-header>
+
+    <x-admin-empresa-filter
+        :action="route('estoque.index')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        :preserve="['tab' => $tabAtiva, 'busca' => request('busca')]"
+        label="Empresa no Estoque"
+    />
 
     <!-- KPIs de Estoque -->
     <div class="grid gap-4 sm:grid-cols-3 mb-8">
@@ -66,24 +74,25 @@
     </div>
 
     <!-- Tabs Navigation -->
+    @php $empParamEstoque = ($isAdmin ?? false) && !empty($empresaFiltroId) ? $empresaFiltroId : null; @endphp
     <div class="border-b border-border mb-6">
         <nav class="flex flex-wrap gap-6 text-sm font-medium">
             <a
-                href="{{ route('estoque.index', array_filter(['tab' => 'produtos', 'busca' => request('busca')])) }}"
+                href="{{ route('estoque.index', array_filter(['tab' => 'produtos', 'busca' => request('busca'), 'empresa_id' => $empParamEstoque])) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'produtos' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="package" class="w-4 h-4" />
                 Produtos Disponíveis em Estoque ({{ $kpis['itens_ativos'] }})
             </a>
             <a
-                href="{{ route('estoque.index', array_filter(['tab' => 'inativos', 'busca' => request('busca')])) }}"
+                href="{{ route('estoque.index', array_filter(['tab' => 'inativos', 'busca' => request('busca'), 'empresa_id' => $empParamEstoque])) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'inativos' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="ban" class="w-4 h-4" />
                 Produtos Inativos ({{ $kpis['itens_inativos'] }})
             </a>
             <a
-                href="{{ route('estoque.index', array_filter(['tab' => 'movimentacoes', 'busca' => request('busca')])) }}"
+                href="{{ route('estoque.index', array_filter(['tab' => 'movimentacoes', 'busca' => request('busca'), 'empresa_id' => $empParamEstoque])) }}"
                 class="pb-3 border-b-2 flex items-center gap-2 {{ $tabAtiva === 'movimentacoes' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground' }}"
             >
                 <x-icon name="arrow-up-circle" class="w-4 h-4" />
@@ -110,6 +119,11 @@
                             <a href="{{ route('produtos.show', $prod->id) }}" class="font-bold text-base text-foreground hover:text-primary transition-colors block">
                                 {{ $prod->nome }}
                             </a>
+                            @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($prod->empresa ?? null))
+                                <span class="inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                    {{ $prod->empresa->nome_fantasia }}
+                                </span>
+                            @endif
                             <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                                 Embalagem: {{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }} / un.
                             </p>
@@ -188,6 +202,11 @@
                             <a href="{{ route('produtos.show', $prod->id) }}" class="font-bold text-base text-foreground hover:text-primary transition-colors block">
                                 {{ $prod->nome }}
                             </a>
+                            @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($prod->empresa ?? null))
+                                <span class="inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                    {{ $prod->empresa->nome_fantasia }}
+                                </span>
+                            @endif
                             <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                                 Embalagem: {{ rtrim(rtrim(number_format($volUnit, 3, ',', '.'), '0'), ',') }} {{ $prod->unidade_medida }} / un.
                             </p>
@@ -262,6 +281,11 @@
 
                         <td class="py-3.5 px-4 font-semibold text-foreground text-sm">
                             {{ $mov->produto->nome }}
+                            @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($mov->produto?->empresa ?? null))
+                                <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                    {{ $mov->produto->empresa->nome_fantasia }}
+                                </span>
+                            @endif
                         </td>
 
                         <td class="py-3.5 px-4 text-center">
@@ -324,7 +348,7 @@
                             $vUnit = rtrim(rtrim(number_format((float) ($p->volume_unitario ?? 1), 3, ',', '.'), '0'), ',');
                         @endphp
                         <option value="{{ $p->id }}">
-                            {{ $p->nome }} ({{ $p->unidades_estoque }} un. • {{ $vEst }} {{ $p->unidade_medida }} disp. • Emb: {{ $vUnit }} {{ $p->unidade_medida }})
+                            {{ $p->nome }} ({{ $p->unidades_estoque }} un. • {{ $vEst }} {{ $p->unidade_medida }} disp. • Emb: {{ $vUnit }} {{ $p->unidade_medida }})@if(($isAdmin ?? false) && empty($empresaFiltroId) && ($p->empresa ?? null)) [{{ $p->empresa->nome_fantasia }}]@endif
                         </option>
                     @endforeach
                 </x-select>

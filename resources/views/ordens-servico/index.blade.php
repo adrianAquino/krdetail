@@ -4,9 +4,20 @@
         subtitle="Acompanhamento operacional da oficina, progresso de tarefas por serviço e execução pelos funcionários."
     />
 
+    <x-admin-empresa-filter
+        :action="route('ordens-servico.index')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        :preserve="['busca' => request('busca'), 'status' => request('status')]"
+        label="Empresa nas Ordens de Serviço"
+    />
+
     <!-- Filters Bar -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('ordens-servico.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(($isAdmin ?? false) && !empty($empresaFiltroId))
+                <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
+            @endif
             @if(request('status'))
                 <input type="hidden" name="status" value="{{ request('status') }}" />
             @endif
@@ -18,7 +29,7 @@
                 icon="search"
             />
             @if(request('busca') || request('status'))
-                <x-button href="{{ route('ordens-servico.index') }}" variant="ghost" size="sm">
+                <x-button href="{{ route('ordens-servico.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
             @endif
@@ -71,6 +82,11 @@
                             <x-icon name="clipboard-list" class="w-4 h-4 text-primary" />
                             {{ $os->numero }}
                         </a>
+                        @if(($isAdmin ?? false) && empty($empresaFiltroId) && $os->agendamento?->empresa)
+                            <span class="inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                {{ $os->agendamento->empresa->nome_fantasia }}
+                            </span>
+                        @endif
                         <p class="text-[11px] text-muted-foreground mt-0.5">
                             Aberta em: {{ \Carbon\Carbon::parse($os->data_inicio)->format('d/m/Y H:i') }}
                         </p>

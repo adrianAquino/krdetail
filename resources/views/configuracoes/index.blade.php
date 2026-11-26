@@ -560,6 +560,16 @@
                     @endif
                 </div>
 
+                @if($isAdmin)
+                    <x-admin-empresa-filter
+                        :action="route('configuracoes.index')"
+                        :empresas="$empresasFiltro ?? collect()"
+                        :empresaSelecionadaId="$empresaFiltroEquipeId ?? null"
+                        :preserve="['tab' => 'equipe']"
+                        label="Filtrar Equipe por Empresa"
+                    />
+                @endif
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-secondary/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">

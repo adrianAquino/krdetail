@@ -46,7 +46,10 @@ class ConcluirTarefaService
                 ->findOrFail($tarefaId);
 
             $agendamento = Agendamento::withoutGlobalScopes()
-                ->with(['cliente', 'veiculo'])
+                ->with([
+                    'cliente' => fn ($q) => $q->withoutGlobalScopes(),
+                    'veiculo' => fn ($q) => $q->withoutGlobalScopes(),
+                ])
                 ->lockForUpdate()
                 ->findOrFail($ordemServico->agendamento_id);
 
@@ -62,7 +65,7 @@ class ConcluirTarefaService
                 throw new \DomainException('Apenas tarefas em andamento podem ser concluídas.');
             }
 
-            $empresaOsId = $agendamento->cliente?->empresa_id;
+            $empresaOsId = $agendamento->empresa_id ?? $agendamento->cliente?->empresa_id;
 
             if ($funcionario !== null) {
                 $funcionarioId = $funcionario instanceof Funcionario ? $funcionario->id : (int) $funcionario;
@@ -78,7 +81,7 @@ class ConcluirTarefaService
                     throw new \DomainException('Não é possível atribuir um funcionário inativo na conclusão da tarefa.');
                 }
 
-                if ($empresaOsId !== null && (int) $funcModel->empresa_id !== (int) $empresaOsId) {
+                if ($empresaOsId === null || (int) $funcModel->empresa_id !== (int) $empresaOsId) {
                     throw new \DomainException('O funcionário selecionado não pertence à mesma empresa desta Ordem de Serviço.');
                 }
 

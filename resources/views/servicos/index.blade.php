@@ -4,15 +4,26 @@
         subtitle="Gerencie os serviços de estética automotiva, valores base e tempos estimados de execução."
     >
         <x-slot:actions>
-            <x-button href="{{ route('servicos.create') }}" icon="plus" size="md">
+            <x-button href="{{ route('servicos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                 Novo Serviço
             </x-button>
         </x-slot:actions>
     </x-header>
 
+    <x-admin-empresa-filter
+        :action="route('servicos.index')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        :preserve="['busca' => request('busca'), 'status' => request('status')]"
+        label="Empresa nos Serviços"
+    />
+
     <!-- Search & Status Filter -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('servicos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(($isAdmin ?? false) && !empty($empresaFiltroId))
+                <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
+            @endif
             @if(request('status'))
                 <input type="hidden" name="status" value="{{ request('status') }}" />
             @endif
@@ -24,27 +35,28 @@
                 icon="search"
             />
             @if(request('busca') || request('status'))
-                <x-button href="{{ route('servicos.index') }}" variant="ghost" size="sm">
+                <x-button href="{{ route('servicos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
             @endif
         </form>
 
         <div class="flex items-center gap-2">
+            @php $empParamServ = ($isAdmin ?? false) && !empty($empresaFiltroId) ? $empresaFiltroId : null; @endphp
             <a
-                href="{{ route('servicos.index', array_filter(['busca' => request('busca')])) }}"
+                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'empresa_id' => $empParamServ])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ !request('status') ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Todos
             </a>
             <a
-                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'status' => 'ativo'])) }}"
+                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'status' => 'ativo', 'empresa_id' => $empParamServ])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('status') === 'ativo' ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Ativos
             </a>
             <a
-                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'status' => 'inativo'])) }}"
+                href="{{ route('servicos.index', array_filter(['busca' => request('busca'), 'status' => 'inativo', 'empresa_id' => $empParamServ])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('status') === 'inativo' ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Inativos
@@ -120,8 +132,13 @@
                         </div>
                         <div>
                             <h3 class="font-bold text-base text-foreground leading-tight">{{ $servico->nome }}</h3>
-                            <div class="mt-1">
+                            <div class="mt-1 flex flex-wrap items-center gap-1.5">
                                 <x-badge-status :status="$servico->ativo ? 'ativo' : 'inativo'" />
+                                @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($servico->empresa ?? null))
+                                    <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                        {{ $servico->empresa->nome_fantasia }}
+                                    </span>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -157,7 +174,7 @@
                         <h4 class="text-base font-semibold text-foreground">Nenhum serviço encontrado</h4>
                         <p class="text-xs text-muted-foreground mt-1">Cadastre novos serviços para disponibilizá-los em agendamentos.</p>
                         <div class="mt-4">
-                            <x-button href="{{ route('servicos.create') }}" icon="plus">
+                            <x-button href="{{ route('servicos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus">
                                 Cadastrar Serviço
                             </x-button>
                         </div>

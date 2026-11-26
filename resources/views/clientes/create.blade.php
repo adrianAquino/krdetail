@@ -17,6 +17,19 @@
             <!-- Dados Principais -->
             <x-card title="Dados Pessoais / Comerciais" description="Informações de identificação e contato direto">
                 <div class="grid gap-4 sm:grid-cols-2">
+                    @if($isAdmin ?? false)
+                        <div class="sm:col-span-2">
+                            <x-select name="empresa_id" label="Empresa Proprietária" required>
+                                <option value="">Selecione a empresa</option>
+                                @foreach($empresas ?? [] as $emp)
+                                    <option value="{{ $emp->id }}" {{ (string) old('empresa_id', $empresaSelecionadaId ?? '') === (string) $emp->id ? 'selected' : '' }}>
+                                        {{ $emp->nome_fantasia }}
+                                    </option>
+                                @endforeach
+                            </x-select>
+                        </div>
+                    @endif
+
                     <div class="sm:col-span-2">
                         <x-input
                             name="nome"

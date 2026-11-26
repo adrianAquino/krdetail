@@ -8,15 +8,28 @@
         :subtitle="$isCliente ? 'Gerencie seus veículos cadastrados e consulte o histórico completo de estética e manutenção.' : 'Controle de veículos cadastrados na oficina, histórico de cuidados e clientes proprietários.'"
     >
         <x-slot:actions>
-            <x-button href="{{ route('veiculos.create') }}" icon="plus" size="md">
+            <x-button href="{{ route('veiculos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                 Novo Veículo
             </x-button>
         </x-slot:actions>
     </x-header>
 
+    @if(!$isCliente)
+        <x-admin-empresa-filter
+            :action="route('veiculos.index')"
+            :empresas="$empresasFiltro ?? collect()"
+            :empresaSelecionadaId="$empresaFiltroId ?? null"
+            :preserve="['busca' => request('busca')]"
+            label="Empresa nos Veículos"
+        />
+    @endif
+
     <!-- Filters & Search -->
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('veiculos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(($isAdmin ?? false) && !empty($empresaFiltroId))
+                <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
+            @endif
             <x-input
                 name="busca"
                 value="{{ request('busca') }}"
@@ -25,7 +38,7 @@
                 icon="search"
             />
             @if(request('busca'))
-                <x-button href="{{ route('veiculos.index') }}" variant="ghost" size="sm">
+                <x-button href="{{ route('veiculos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
             @endif
@@ -76,7 +89,14 @@
                                     <x-icon name="user" class="w-3.5 h-3.5 text-muted-foreground" />
                                     {{ $veiculo->cliente->nome }}
                                 </a>
-                                <p class="text-xs text-muted-foreground ml-5">{{ $veiculo->cliente->telefone }}</p>
+                                <p class="text-xs text-muted-foreground ml-5">
+                                    {{ $veiculo->cliente->telefone }}
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($veiculo->cliente->empresa ?? null))
+                                        <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                            {{ $veiculo->cliente->empresa->nome_fantasia }}
+                                        </span>
+                                    @endif
+                                </p>
                             @else
                                 <span class="text-xs text-muted-foreground">Não vinculado</span>
                             @endif

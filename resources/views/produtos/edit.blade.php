@@ -20,6 +20,13 @@
 
             <x-card title="Identificação e Embalagem do Produto">
                 <div class="space-y-4">
+                    @if(auth()->check() && auth()->user()->isAdministrador() && $produto?->empresa)
+                        <div class="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                            <x-icon name="briefcase" class="w-3.5 h-3.5 text-primary" />
+                            <span>Empresa vinculada: <strong class="text-foreground">{{ $produto->empresa->nome_fantasia }}</strong></span>
+                        </div>
+                    @endif
+
                     <div>
                         <x-input
                             name="nome"

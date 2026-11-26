@@ -35,7 +35,7 @@
                             >
                                 @foreach($clientes as $cliente)
                                     <option value="{{ $cliente->id }}" {{ old('cliente_id', $veiculo->cliente_id ?? 1) == $cliente->id ? 'selected' : '' }}>
-                                        {{ $cliente->nome }} ({{ $cliente->cpf_cnpj ?? 'Sem documento' }})
+                                        {{ $cliente->nome }} ({{ $cliente->cpf_cnpj ?? 'Sem documento' }})@if(auth()->check() && auth()->user()->isAdministrador() && ($cliente->empresa ?? null)) — [{{ $cliente->empresa->nome_fantasia }}]@endif
                                     </option>
                                 @endforeach
                             </x-select>

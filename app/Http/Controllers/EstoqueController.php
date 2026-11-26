@@ -19,6 +19,8 @@ class EstoqueController extends Controller
      */
     public function index(Request $request): View
     {
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+
         $tabRaw = $this->inputString($request, 'tab');
         $tabAtiva = in_array($tabRaw, ['produtos', 'inativos', 'movimentacoes'], true)
             ? $tabRaw
@@ -26,8 +28,8 @@ class EstoqueController extends Controller
 
         $busca = trim($this->inputString($request, 'busca'));
 
-        $produtosAtivosBase = Produto::where('ativo', true);
-        $produtosInativosBase = Produto::where('ativo', false);
+        $produtosAtivosBase = Produto::with('empresa')->where('ativo', true);
+        $produtosInativosBase = Produto::with('empresa')->where('ativo', false);
 
         $produtosAtivos = (clone $produtosAtivosBase)
             ->when($busca !== '', fn ($q) => $q->where('nome', 'like', "%{$busca}%"))
@@ -39,7 +41,7 @@ class EstoqueController extends Controller
             ->orderBy('nome')
             ->get();
 
-        $movimentacoes = MovimentacaoEstoque::with(['produto', 'usuario'])
+        $movimentacoes = MovimentacaoEstoque::with(['produto.empresa', 'usuario'])
             ->when($busca !== '', function ($q) use ($busca) {
                 $q->where(function ($sub) use ($busca) {
                     $sub->where('motivo', 'like', "%{$busca}%")
@@ -70,14 +72,14 @@ class EstoqueController extends Controller
             'valor_total_estoque' => $valorTotalEstoque,
         ];
 
-        return view('estoque.index', compact(
+        return view('estoque.index', array_merge(compact(
             'produtosAtivos',
             'produtosInativos',
             'movimentacoes',
             'kpis',
             'tabAtiva',
             'busca'
-        ));
+        ), $filtroAdmin));
     }
 
     /**

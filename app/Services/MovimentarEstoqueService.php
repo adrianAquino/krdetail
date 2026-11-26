@@ -176,7 +176,7 @@ class MovimentarEstoqueService
                 ->findOrFail($tarefaId);
 
             $agendamento = Agendamento::withoutGlobalScopes()
-                ->with('cliente')
+                ->with(['cliente' => fn ($q) => $q->withoutGlobalScopes()])
                 ->find($ordemServico->agendamento_id);
 
             if (in_array($ordemServico->status, ['cancelada', 'concluida'], true)) {
@@ -191,8 +191,8 @@ class MovimentarEstoqueService
                 ->lockForUpdate()
                 ->findOrFail($produtoId);
 
-            $empresaOsId = $agendamento?->cliente?->empresa_id;
-            if ($empresaOsId !== null && $produtoTravado->empresa_id !== null && (int) $produtoTravado->empresa_id !== (int) $empresaOsId) {
+            $empresaOsId = $agendamento?->empresa_id ?? $agendamento?->cliente?->empresa_id;
+            if ($empresaOsId === null || $produtoTravado->empresa_id === null || (int) $produtoTravado->empresa_id !== (int) $empresaOsId) {
                 throw new \DomainException('O produto selecionado não pertence à empresa desta Ordem de Serviço.');
             }
 

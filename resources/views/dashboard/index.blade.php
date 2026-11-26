@@ -5,11 +5,18 @@
         :subtitle="now()->translatedFormat('l, d \d\e F \d\e Y')"
     >
         <x-slot:actions>
-            <x-button href="{{ route('agendamentos.create') }}" icon="plus" size="md">
+            <x-button href="{{ route('agendamentos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                 Novo Agendamento
             </x-button>
         </x-slot:actions>
     </x-header>
+
+    <x-admin-empresa-filter
+        :action="route('dashboard')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        label="Empresa no Dashboard"
+    />
 
     <!-- Top KPI Cards Grid -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -96,7 +103,7 @@
                         </div>
                         <h3 class="text-base font-semibold text-foreground">Próximos Agendamentos</h3>
                     </div>
-                    <x-button href="{{ route('agendamentos.index') }}" variant="ghost" size="sm" icon="chevron-right">
+                    <x-button href="{{ route('agendamentos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm" icon="chevron-right">
                         Ver todos
                     </x-button>
                 </div>
@@ -115,9 +122,12 @@
                                 {{ $horario }}
                             </div>
                             <div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <p class="font-semibold text-sm text-foreground">{{ $ag->cliente?->nome ?? 'Cliente' }}</p>
                                     <x-badge-status :status="$ag->status" />
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && $ag->empresa)
+                                        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{{ $ag->empresa->nome_fantasia }}</span>
+                                    @endif
                                 </div>
                                 <p class="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
                                     <span class="font-mono text-foreground/80 bg-secondary px-1.5 py-0.2 rounded text-[11px]">{{ $ag->veiculo?->placa ?? '-' }}</span>
@@ -150,7 +160,7 @@
                         </div>
                         <h3 class="text-base font-semibold text-foreground">Alertas de Estoque</h3>
                     </div>
-                    <x-button href="{{ route('estoque.index') }}" variant="ghost" size="sm" icon="chevron-right">
+                    <x-button href="{{ route('estoque.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm" icon="chevron-right">
                         Gerenciar Estoque
                     </x-button>
                 </div>
@@ -172,7 +182,12 @@
                                 <x-icon name="package" class="h-4 w-4" />
                             </div>
                             <div>
-                                <p class="font-semibold text-sm text-foreground">{{ $prod->nome }}</p>
+                                <p class="font-semibold text-sm text-foreground">
+                                    {{ $prod->nome }}
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && $prod->empresa)
+                                        <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{{ $prod->empresa->nome_fantasia }}</span>
+                                    @endif
+                                </p>
                                 <p class="text-xs text-muted-foreground mt-0.5">
                                     Mínimo: <span class="font-medium text-foreground">{{ $prod->unidades_minimas }} un. ({{ $volMin }} {{ $prod->unidade_medida }})</span>
                                 </p>
@@ -210,7 +225,7 @@
                             </div>
                             <h3 class="text-base font-semibold text-foreground">Serviços Mais Realizados</h3>
                         </div>
-                        <x-button href="{{ route('servicos.index') }}" variant="ghost" size="sm" icon="chevron-right">
+                        <x-button href="{{ route('servicos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm" icon="chevron-right">
                             Ver Catálogo
                         </x-button>
                     </div>
@@ -238,7 +253,12 @@
                                         {{ $index + 1 }}
                                     </span>
                                     <div>
-                                        <p class="font-semibold text-sm text-foreground">{{ $servico->nome }}</p>
+                                        <p class="font-semibold text-sm text-foreground">
+                                            {{ $servico->nome }}
+                                            @if(($isAdmin ?? false) && empty($empresaFiltroId) && $servico->empresa)
+                                                <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">{{ $servico->empresa->nome_fantasia }}</span>
+                                            @endif
+                                        </p>
                                         <div class="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                                             <span>R$ {{ number_format((float) $servico->preco_base, 2, ',', '.') }}</span>
                                             <span>•</span>
@@ -301,7 +321,7 @@
                     </div>
 
                     <div class="pt-2">
-                        <x-button href="{{ route('ordens-servico.index') }}" variant="secondary" size="md" class="w-full" icon="clipboard-list">
+                        <x-button href="{{ route('ordens-servico.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="secondary" size="md" class="w-full" icon="clipboard-list">
                             Acompanhar Operação
                         </x-button>
                     </div>

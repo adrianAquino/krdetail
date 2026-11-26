@@ -26,27 +26,36 @@ class TarefaController extends Controller
     public function show(Tarefa $tarefa): View
     {
         $tarefa->load([
-            'ordemServico.agendamento.cliente.pessoa',
-            'ordemServico.agendamento.veiculo',
+            'ordemServico.agendamento.empresa',
+            'ordemServico.agendamento.cliente' => fn ($q) => $q->withoutGlobalScopes()->with('pessoa'),
+            'ordemServico.agendamento.veiculo' => fn ($q) => $q->withoutGlobalScopes(),
             'agendamentoServico.servico',
             'funcionario.user',
             'tarefasProdutos.produto',
             'lancamentoFinanceiro',
         ]);
 
-        $empresaTarefaId = $tarefa->ordemServico?->agendamento?->cliente?->empresa_id;
+        $empresaTarefaId = $tarefa->ordemServico?->agendamento?->empresa_id
+            ?? $tarefa->ordemServico?->agendamento?->cliente?->empresa_id;
 
-        $funcionarios = Funcionario::with('user')
-            ->where('ativo', true)
-            ->when($empresaTarefaId, fn ($q) => $q->where('empresa_id', $empresaTarefaId))
-            ->get()
-            ->sortBy(fn ($f) => mb_strtolower($f->nome))
-            ->values();
+        if ($empresaTarefaId === null) {
+            $funcionarios = collect();
+            $produtos = collect();
+        } else {
+            $funcionarios = Funcionario::withoutGlobalScopes()
+                ->with('user')
+                ->where('ativo', true)
+                ->where('empresa_id', $empresaTarefaId)
+                ->get()
+                ->sortBy(fn ($f) => mb_strtolower($f->nome))
+                ->values();
 
-        $produtos = Produto::where('ativo', true)
-            ->when($empresaTarefaId, fn ($q) => $q->where('empresa_id', $empresaTarefaId))
-            ->orderBy('nome')
-            ->get();
+            $produtos = Produto::withoutGlobalScopes()
+                ->where('ativo', true)
+                ->where('empresa_id', $empresaTarefaId)
+                ->orderBy('nome')
+                ->get();
+        }
 
         return view('tarefas.show', compact('tarefa', 'funcionarios', 'produtos'));
     }
@@ -56,8 +65,17 @@ class TarefaController extends Controller
      */
     public function iniciar(Request $request, Tarefa $tarefa, IniciarTarefaService $service): RedirectResponse
     {
+        $empresaTarefaId = $this->resolverEmpresaTarefaId($tarefa);
+
         $validated = $request->validate([
-            'funcionario_id' => ['nullable', 'integer', 'exists:funcionarios,id'],
+            'funcionario_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('funcionarios', 'id')->where(function ($query) use ($empresaTarefaId) {
+                    $query->where('ativo', true)
+                        ->where('empresa_id', $empresaTarefaId ?? -1);
+                }),
+            ],
         ]);
 
         try {
@@ -76,8 +94,17 @@ class TarefaController extends Controller
      */
     public function concluir(Request $request, Tarefa $tarefa, ConcluirTarefaService $service): RedirectResponse
     {
+        $empresaTarefaId = $this->resolverEmpresaTarefaId($tarefa);
+
         $validated = $request->validate([
-            'funcionario_id' => ['nullable', 'integer', 'exists:funcionarios,id'],
+            'funcionario_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('funcionarios', 'id')->where(function ($query) use ($empresaTarefaId) {
+                    $query->where('ativo', true)
+                        ->where('empresa_id', $empresaTarefaId ?? -1);
+                }),
+            ],
         ]);
 
         try {
@@ -96,18 +123,15 @@ class TarefaController extends Controller
      */
     public function atribuir(Request $request, Tarefa $tarefa): RedirectResponse
     {
-        $tarefa->loadMissing('ordemServico.agendamento.cliente');
-        $empresaTarefaId = $tarefa->ordemServico?->agendamento?->cliente?->empresa_id;
+        $empresaTarefaId = $this->resolverEmpresaTarefaId($tarefa);
 
         $validated = $request->validate([
             'funcionario_id' => [
                 'required',
                 'integer',
                 Rule::exists('funcionarios', 'id')->where(function ($query) use ($empresaTarefaId) {
-                    $query->where('ativo', true);
-                    if ($empresaTarefaId !== null) {
-                        $query->where('empresa_id', $empresaTarefaId);
-                    }
+                    $query->where('ativo', true)
+                        ->where('empresa_id', $empresaTarefaId ?? -1);
                 }),
             ],
         ]);
@@ -147,17 +171,15 @@ class TarefaController extends Controller
         Tarefa $tarefa,
         MovimentarEstoqueService $service
     ): RedirectResponse {
-        $tarefa->loadMissing('ordemServico.agendamento.cliente');
-        $empresaTarefaId = $tarefa->ordemServico?->agendamento?->cliente?->empresa_id;
+        $empresaTarefaId = $this->resolverEmpresaTarefaId($tarefa);
 
         $validated = $request->validate([
             'produto_id' => [
                 'required',
                 'integer',
-                Rule::exists('produtos', 'id')->when(
-                    $empresaTarefaId !== null,
-                    fn ($rule) => $rule->where('empresa_id', $empresaTarefaId)
-                ),
+                Rule::exists('produtos', 'id')->where(function ($rule) use ($empresaTarefaId) {
+                    $rule->where('empresa_id', $empresaTarefaId ?? -1);
+                }),
             ],
             'quantidade_utilizada' => ['required', 'numeric', 'min:0.001', 'max:999999999.999'],
             'observacoes' => ['nullable', 'string', 'max:300'],
@@ -236,5 +258,19 @@ class TarefaController extends Controller
         } catch (QueryException) {
             return back()->with('error', 'Não foi possível estornar o produto no momento.');
         }
+    }
+
+    private function resolverEmpresaTarefaId(Tarefa $tarefa): ?int
+    {
+        $tarefa->loadMissing([
+            'ordemServico' => fn ($oq) => $oq->withoutGlobalScopes(),
+            'ordemServico.agendamento' => fn ($aq) => $aq->withoutGlobalScopes(),
+            'ordemServico.agendamento.cliente' => fn ($cq) => $cq->withoutGlobalScopes(),
+        ]);
+
+        $empresaId = $tarefa->ordemServico?->agendamento?->empresa_id
+            ?? $tarefa->ordemServico?->agendamento?->cliente?->empresa_id;
+
+        return $empresaId ? (int) $empresaId : null;
     }
 }

@@ -8,13 +8,22 @@
         :subtitle="$isCliente ? 'Informe os dados do seu veículo para agendar serviços e acompanhar o histórico.' : 'Associe um novo veículo ao cliente correspondente e registre suas especificações.'"
     >
         <x-slot:actions>
-            <x-button href="{{ route('veiculos.index') }}" variant="outline" size="sm" icon="chevron-left">
+            <x-button href="{{ route('veiculos.index', ($isAdmin ?? false) && !empty($empresaSelecionadaId) ? ['empresa_id' => $empresaSelecionadaId] : []) }}" variant="outline" size="sm" icon="chevron-left">
                 Voltar
             </x-button>
         </x-slot:actions>
     </x-header>
 
     <div class="max-w-2xl">
+        @if($isAdmin ?? false)
+            <x-admin-empresa-filter
+                :action="route('veiculos.create')"
+                :empresas="$empresas ?? collect()"
+                :empresaSelecionadaId="$empresaSelecionadaId ?? null"
+                label="Filtrar Clientes por Empresa"
+            />
+        @endif
+
         <!-- Alerta dinâmico quando um cliente é cadastrado pelo modal -->
         <div id="alerta-cliente-criado" class="mb-6 hidden">
             <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400 flex items-center justify-between gap-3">
@@ -45,7 +54,7 @@
                             >
                                 @foreach($clientes as $cliente)
                                     <option value="{{ $cliente->id }}" {{ old('cliente_id', $selectedClienteId) == $cliente->id ? 'selected' : '' }}>
-                                        {{ $cliente->nome }} ({{ $cliente->cpf_cnpj ?? 'Sem documento' }})
+                                        {{ $cliente->nome }} ({{ $cliente->cpf_cnpj ?? 'Sem documento' }})@if(($isAdmin ?? false) && ($cliente->empresa ?? null)) — [{{ $cliente->empresa->nome_fantasia }}]@endif
                                     </option>
                                 @endforeach
                             </x-select>
@@ -172,6 +181,19 @@
                         Dados Pessoais / Comerciais
                     </h4>
                     <div class="grid gap-3.5 sm:grid-cols-2">
+                        @if($isAdmin ?? false)
+                            <div class="sm:col-span-2">
+                                <x-select name="empresa_id" id="modal_cliente_empresa_id" label="Empresa Proprietária" required>
+                                    <option value="">Selecione a empresa</option>
+                                    @foreach($empresas ?? [] as $empModal)
+                                        <option value="{{ $empModal->id }}" {{ (string) ($empresaSelecionadaId ?? '') === (string) $empModal->id ? 'selected' : '' }}>
+                                            {{ $empModal->nome_fantasia }}
+                                        </option>
+                                    @endforeach
+                                </x-select>
+                            </div>
+                        @endif
+
                         <div class="sm:col-span-2">
                             <x-input
                                 name="nome"

@@ -105,6 +105,13 @@
         </div>
     @endif
 
+    @if(auth()->check() && auth()->user()->isAdministrador() && ($agendamentoObj?->empresa ?? null))
+        <div class="mb-5 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-xs text-muted-foreground flex items-center gap-2">
+            <x-icon name="briefcase" class="w-4 h-4 text-primary shrink-0" />
+            <span>Agendamento pertencente à empresa: <strong class="text-foreground">{{ $agendamentoObj->empresa->nome_fantasia }}</strong></span>
+        </div>
+    @endif
+
     <!-- Alerta dinâmico quando um veículo é cadastrado pelo modal -->
     <div id="alerta-veiculo-criado" class="mb-6 hidden">
         <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400 flex items-center justify-between gap-3">

@@ -4,18 +4,29 @@
         subtitle="Controle de produtos utilizados nas tarefas e insumos para os serviços de estética."
     >
         <x-slot:actions>
-            <x-button href="{{ route('estoque.index') }}" variant="outline" size="md" icon="package">
+            <x-button href="{{ route('estoque.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="outline" size="md" icon="package">
                 Visão de Estoque & Movimentações
             </x-button>
-            <x-button href="{{ route('produtos.create') }}" icon="plus" size="md">
+            <x-button href="{{ route('produtos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                 Novo Produto
             </x-button>
         </x-slot:actions>
     </x-header>
 
+    <x-admin-empresa-filter
+        :action="route('produtos.index')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        :preserve="['busca' => request('busca'), 'alerta' => request('alerta')]"
+        label="Empresa nos Produtos"
+    />
+
     <!-- Search & Filters -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('produtos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(($isAdmin ?? false) && !empty($empresaFiltroId))
+                <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
+            @endif
             @if(request('alerta'))
                 <input type="hidden" name="alerta" value="{{ request('alerta') }}" />
             @endif
@@ -27,21 +38,22 @@
                 icon="search"
             />
             @if(request('busca') || request('alerta'))
-                <x-button href="{{ route('produtos.index') }}" variant="ghost" size="sm">
+                <x-button href="{{ route('produtos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
             @endif
         </form>
 
         <div class="flex items-center gap-2">
+            @php $empParamProd = ($isAdmin ?? false) && !empty($empresaFiltroId) ? $empresaFiltroId : null; @endphp
             <a
-                href="{{ route('produtos.index', array_filter(['busca' => request('busca')])) }}"
+                href="{{ route('produtos.index', array_filter(['busca' => request('busca'), 'empresa_id' => $empParamProd])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ !request('alerta') ? 'bg-primary/15 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Todos
             </a>
             <a
-                href="{{ route('produtos.index', array_filter(['busca' => request('busca'), 'alerta' => 'baixo'])) }}"
+                href="{{ route('produtos.index', array_filter(['busca' => request('busca'), 'alerta' => 'baixo', 'empresa_id' => $empParamProd])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('alerta') === 'baixo' ? 'bg-warning/15 border-warning text-warning font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Estoque Baixo
@@ -77,7 +89,14 @@
                                 <x-icon name="package" class="w-5 h-5" />
                             </div>
                             <div>
-                                <p class="font-semibold text-foreground group-hover:text-primary transition-colors">{{ $prod->nome }}</p>
+                                <p class="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                    {{ $prod->nome }}
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($prod->empresa ?? null))
+                                        <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                            {{ $prod->empresa->nome_fantasia }}
+                                        </span>
+                                    @endif
+                                </p>
                                 <p class="text-xs text-muted-foreground truncate max-w-xs">{{ $prod->descricao }}</p>
                             </div>
                         </a>

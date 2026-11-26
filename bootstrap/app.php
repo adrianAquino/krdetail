@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureStaffUser;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\ResetAdminTenantContext;
 use App\Http\Middleware\SanitizeScalarQueryParams;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(prepend: [
             SanitizeScalarQueryParams::class,
+            ResetAdminTenantContext::class,
         ]);
 
         $middleware->alias([

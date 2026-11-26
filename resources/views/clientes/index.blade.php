@@ -4,15 +4,26 @@
         subtitle="Gerencie sua carteira de clientes, veículos associados e situação de acesso ao sistema."
     >
         <x-slot:actions>
-            <x-button href="{{ route('clientes.create') }}" icon="plus" size="md">
+            <x-button href="{{ route('clientes.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                 Novo Cliente
             </x-button>
         </x-slot:actions>
     </x-header>
 
+    <x-admin-empresa-filter
+        :action="route('clientes.index')"
+        :empresas="$empresasFiltro ?? collect()"
+        :empresaSelecionadaId="$empresaFiltroId ?? null"
+        :preserve="['busca' => request('busca'), 'acesso' => request('acesso')]"
+        label="Empresa nos Clientes"
+    />
+
     <!-- Filters & Search Bar -->
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('clientes.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(($isAdmin ?? false) && !empty($empresaFiltroId))
+                <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
+            @endif
             @if(request('acesso'))
                 <input type="hidden" name="acesso" value="{{ request('acesso') }}" />
             @endif
@@ -24,27 +35,28 @@
                 icon="search"
             />
             @if(request('busca') || request('acesso'))
-                <x-button href="{{ route('clientes.index') }}" variant="ghost" size="sm">
+                <x-button href="{{ route('clientes.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
             @endif
         </form>
 
         <div class="flex items-center gap-2">
+            @php $empParamCli = ($isAdmin ?? false) && !empty($empresaFiltroId) ? $empresaFiltroId : null; @endphp
             <a
-                href="{{ route('clientes.index', array_filter(['busca' => request('busca')])) }}"
+                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'empresa_id' => $empParamCli])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ !request('acesso') ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Todos
             </a>
             <a
-                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'acesso' => 'ativo'])) }}"
+                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'acesso' => 'ativo', 'empresa_id' => $empParamCli])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ request('acesso') === 'ativo' ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Acesso Ativo
             </a>
             <a
-                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'acesso' => 'sem_acesso'])) }}"
+                href="{{ route('clientes.index', array_filter(['busca' => request('busca'), 'acesso' => 'sem_acesso', 'empresa_id' => $empParamCli])) }}"
                 class="px-3 py-1.5 rounded-lg text-xs font-medium border {{ in_array(request('acesso'), ['sem_acesso', 'inativo'], true) ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
             >
                 Sem Acesso / Inativo
@@ -74,7 +86,14 @@
                                 {{ mb_strtoupper(mb_substr($cliente->nome, 0, 2, 'UTF-8'), 'UTF-8') }}
                             </div>
                             <div>
-                                <p class="font-semibold text-foreground group-hover:text-primary transition-colors">{{ $cliente->nome }}</p>
+                                <p class="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                    {{ $cliente->nome }}
+                                    @if(($isAdmin ?? false) && empty($empresaFiltroId) && ($cliente->empresa ?? null))
+                                        <span class="ml-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                                            {{ $cliente->empresa->nome_fantasia }}
+                                        </span>
+                                    @endif
+                                </p>
                                 <p class="text-xs text-muted-foreground">{{ $cliente->cpf_cnpj ?? 'CPF/CNPJ não informado' }}</p>
                             </div>
                         </a>

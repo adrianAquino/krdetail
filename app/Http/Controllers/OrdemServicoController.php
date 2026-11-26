@@ -18,9 +18,12 @@ class OrdemServicoController extends Controller
 {
     public function index(Request $request)
     {
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+
         $query = OrdemServico::with([
-            'agendamento.cliente',
-            'agendamento.veiculo',
+            'agendamento.empresa',
+            'agendamento.cliente' => fn ($q) => $q->withoutGlobalScopes(),
+            'agendamento.veiculo' => fn ($q) => $q->withoutGlobalScopes(),
             'tarefas.agendamentoServico.servico',
             'tarefas.funcionario.user',
         ]);
@@ -35,18 +38,20 @@ class OrdemServicoController extends Controller
             $query->where(function ($q) use ($busca) {
                 $q->where('numero', 'like', "%{$busca}%")
                     ->orWhereHas('agendamento.cliente', function ($qc) use ($busca) {
-                        $qc->where('nome', 'like', "%{$busca}%");
+                        $qc->withoutGlobalScopes()->where('nome', 'like', "%{$busca}%");
                     })
                     ->orWhereHas('agendamento.veiculo', function ($qv) use ($busca) {
-                        $qv->where('placa', 'like', "%{$busca}%")
-                            ->orWhere('modelo', 'like', "%{$busca}%");
+                        $qv->withoutGlobalScopes()->where(function ($vq) use ($busca) {
+                            $vq->where('placa', 'like', "%{$busca}%")
+                                ->orWhere('modelo', 'like', "%{$busca}%");
+                        });
                     });
             });
         }
 
         $ordensServico = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
 
-        return view('ordens-servico.index', compact('ordensServico'));
+        return view('ordens-servico.index', array_merge(compact('ordensServico'), $filtroAdmin));
     }
 
     public function store(Request $request, AbrirOrdemServicoService $service)
@@ -85,8 +90,9 @@ class OrdemServicoController extends Controller
     public function show(OrdemServico $ordemServico)
     {
         $ordemServico->load([
-            'agendamento.cliente',
-            'agendamento.veiculo',
+            'agendamento.empresa',
+            'agendamento.cliente' => fn ($q) => $q->withoutGlobalScopes(),
+            'agendamento.veiculo' => fn ($q) => $q->withoutGlobalScopes(),
             'agendamento.agendamentosServicos',
             'tarefas.agendamentoServico.servico',
             'tarefas.funcionario.user',
@@ -94,17 +100,25 @@ class OrdemServicoController extends Controller
             'tarefas.lancamentoFinanceiro',
         ]);
 
-        $empresaOsId = $ordemServico->agendamento?->cliente?->empresa_id;
+        $empresaOsId = $ordemServico->agendamento?->empresa_id
+            ?? $ordemServico->agendamento?->cliente?->empresa_id;
 
-        $funcionarios = Funcionario::with('user')
-            ->where('ativo', true)
-            ->when($empresaOsId, fn ($q) => $q->where('empresa_id', $empresaOsId))
-            ->get();
+        if ($empresaOsId === null) {
+            $funcionarios = collect();
+            $produtos = collect();
+        } else {
+            $funcionarios = Funcionario::withoutGlobalScopes()
+                ->with('user')
+                ->where('ativo', true)
+                ->where('empresa_id', $empresaOsId)
+                ->get();
 
-        $produtos = Produto::where('ativo', true)
-            ->where('quantidade_estoque', '>', 0)
-            ->when($empresaOsId, fn ($q) => $q->where('empresa_id', $empresaOsId))
-            ->get();
+            $produtos = Produto::withoutGlobalScopes()
+                ->where('ativo', true)
+                ->where('quantidade_estoque', '>', 0)
+                ->where('empresa_id', $empresaOsId)
+                ->get();
+        }
 
         return view('ordens-servico.show', compact('ordemServico', 'funcionarios', 'produtos'));
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Agendamento;
 use App\Models\Cliente;
 use App\Models\ClienteEmpresaHistorico;
+use App\Models\Empresa;
 use App\Models\Pessoa;
 use App\Models\User;
 use App\Rules\CpfCnpj;
@@ -25,7 +26,8 @@ class ClienteController extends Controller
 
     public function index(Request $request)
     {
-        $query = Cliente::with('user')->withCount('veiculos');
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+        $query = Cliente::with(['user', 'empresa'])->withCount('veiculos');
 
         $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
@@ -50,12 +52,18 @@ class ClienteController extends Controller
 
         $clientes = $query->orderBy('nome', 'asc')->paginate(10)->withQueryString();
 
-        return view('clientes.index', compact('clientes'));
+        return view('clientes.index', array_merge(compact('clientes'), $filtroAdmin));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return view('clientes.create');
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresas = $isAdmin ? Empresa::orderBy('nome_fantasia')->get() : collect();
+        $empresaSelecionadaId = $isAdmin ? ($request->integer('empresa_id') ?: null) : null;
+
+        return view('clientes.create', compact('isAdmin', 'empresas', 'empresaSelecionadaId'));
     }
 
     public function store(Request $request)
@@ -77,7 +85,10 @@ class ClienteController extends Controller
 
         /** @var User|null $usuarioAtual */
         $usuarioAtual = Auth::user();
-        $empresaAtivaId = $usuarioAtual?->getEmpresaAtivaId();
+        $isAdmin = $usuarioAtual instanceof User && $usuarioAtual->isAdministrador();
+        $empresaAtivaId = $isAdmin
+            ? ($request->integer('empresa_id') ?: null)
+            : $usuarioAtual?->getEmpresaAtivaId();
 
         $emailInput = $request->input('email');
         $cpfInput = $request->input('cpf_cnpj');
@@ -183,7 +194,17 @@ class ClienteController extends Controller
             $rules['password'] = 'required|string|min:8|max:64|confirmed';
         }
 
-        $validated = $request->validate($rules);
+        if ($isAdmin) {
+            $rules['empresa_id'] = 'required|integer|exists:empresas,id';
+        }
+
+        $validated = $request->validate($rules, [
+            'empresa_id.required' => 'Selecione a empresa proprietária deste cliente.',
+        ]);
+
+        if ($isAdmin) {
+            $empresaAtivaId = (int) $validated['empresa_id'];
+        }
 
         $vinculouContaExistente = false;
 
@@ -363,6 +384,7 @@ class ClienteController extends Controller
     public function show(Cliente $cliente)
     {
         $cliente->load([
+            'empresa',
             'user',
             'veiculos',
             'agendamentos' => function ($q) {
@@ -375,7 +397,7 @@ class ClienteController extends Controller
 
     public function edit(Cliente $cliente)
     {
-        $cliente->load('user');
+        $cliente->load(['empresa', 'user']);
 
         return view('clientes.edit', compact('cliente'));
     }

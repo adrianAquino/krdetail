@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Empresa;
 use App\Models\Produto;
+use App\Models\User;
 use App\Services\MovimentarEstoqueService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -14,7 +16,8 @@ class ProdutoController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Produto::query();
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+        $query = Produto::with('empresa');
 
         $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
@@ -34,17 +37,27 @@ class ProdutoController extends Controller
 
         $produtos = $query->orderBy('nome', 'asc')->paginate(12)->withQueryString();
 
-        return view('produtos.index', compact('produtos'));
+        return view('produtos.index', array_merge(compact('produtos'), $filtroAdmin));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return view('produtos.create');
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresas = $isAdmin ? Empresa::orderBy('nome_fantasia')->get() : collect();
+        $empresaSelecionadaId = $isAdmin ? ($request->integer('empresa_id') ?: null) : null;
+
+        return view('produtos.create', compact('isAdmin', 'empresas', 'empresaSelecionadaId'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+
+        $rules = [
             'nome' => 'required|string|max:100',
             'descricao' => 'nullable|string|max:500',
             'unidade_medida' => 'required|string|max:10',
@@ -55,6 +68,14 @@ class ProdutoController extends Controller
             'estoque_minimo' => 'nullable|numeric|min:0|max:999999999',
             'custo_unitario' => 'required|numeric|min:0|max:999999.99',
             'ativo' => 'sometimes|boolean',
+        ];
+
+        if ($isAdmin) {
+            $rules['empresa_id'] = 'required|integer|exists:empresas,id';
+        }
+
+        $validated = $request->validate($rules, [
+            'empresa_id.required' => 'Selecione a empresa proprietária deste produto.',
         ]);
 
         $volumeUnitario = round((float) $validated['volume_unitario'], 3);
@@ -69,7 +90,7 @@ class ProdutoController extends Controller
 
         $this->validarLimitesDecimais($quantidadeEstoque, $estoqueMinimo, (float) $validated['custo_unitario'], $volumeUnitario);
 
-        $produto = Produto::create([
+        $dadosCreate = [
             'nome' => $validated['nome'],
             'descricao' => $validated['descricao'] ?? null,
             'unidade_medida' => $validated['unidade_medida'],
@@ -78,20 +99,28 @@ class ProdutoController extends Controller
             'estoque_minimo' => $estoqueMinimo,
             'custo_unitario' => round((float) $validated['custo_unitario'], 4),
             'ativo' => $request->boolean('ativo'),
-        ]);
+        ];
+
+        if ($isAdmin) {
+            $dadosCreate['empresa_id'] = (int) $validated['empresa_id'];
+        }
+
+        $produto = Produto::create($dadosCreate);
 
         return redirect()->route('produtos.show', $produto)->with('success', 'Produto cadastrado com sucesso!');
     }
 
     public function show(Produto $produto)
     {
-        $produto->load(['movimentacoes' => fn ($q) => $q->with('usuario')->orderByDesc('created_at')]);
+        $produto->load(['empresa', 'movimentacoes' => fn ($q) => $q->with('usuario')->orderByDesc('created_at')]);
 
         return view('produtos.show', compact('produto'));
     }
 
     public function edit(Produto $produto)
     {
+        $produto->load('empresa');
+
         return view('produtos.edit', compact('produto'));
     }
 

@@ -11,12 +11,13 @@ use App\Models\Servico;
 use App\Models\Tarefa;
 use App\Models\Veiculo;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $user = Auth::user();
         $agora = Carbon::now();
@@ -67,6 +68,8 @@ class DashboardController extends Controller
             ));
         }
 
+        $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
+
         $inicioHoje = $agora->copy()->startOfDay();
         $fimHoje = $agora->copy()->endOfDay();
         $inicioMesAtual = $agora->copy()->startOfMonth();
@@ -114,7 +117,7 @@ class DashboardController extends Controller
             : ($receitaMes > 0 ? 100.0 : 0.0);
 
         // Próximos agendamentos (inclui em_andamento mesmo iniciados em dias anteriores)
-        $proximosAgendamentos = Agendamento::with(['cliente.pessoa', 'veiculo', 'servicos'])
+        $proximosAgendamentos = Agendamento::with(['empresa', 'cliente.pessoa', 'veiculo', 'servicos'])
             ->whereNotIn('status', ['concluido', 'cancelado'])
             ->where(function ($q) use ($inicioHoje) {
                 $q->where('data_inicio', '>=', $inicioHoje)
@@ -125,7 +128,8 @@ class DashboardController extends Controller
             ->get();
 
         // Alertas de estoque baixo
-        $produtosEstoqueBaixo = Produto::where('ativo', true)
+        $produtosEstoqueBaixo = Produto::with('empresa')
+            ->where('ativo', true)
             ->where('estoque_minimo', '>', 0)
             ->whereColumn('quantidade_estoque', '<=', 'estoque_minimo')
             ->orderByRaw('(quantidade_estoque / CASE WHEN estoque_minimo > 0 THEN estoque_minimo ELSE 1 END) ASC')
@@ -133,7 +137,8 @@ class DashboardController extends Controller
             ->get();
 
         // Serviços mais realizados (exclui agendamentos cancelados)
-        $servicosPopulares = Servico::where('ativo', true)
+        $servicosPopulares = Servico::with('empresa')
+            ->where('ativo', true)
             ->withCount([
                 'agendamentosServicos' => fn ($q) => $q->whereHas('agendamento', fn ($aq) => $aq->where('status', '!=', 'cancelado')),
             ])
@@ -153,7 +158,7 @@ class DashboardController extends Controller
             ->whereHas('ordemServico', fn ($q) => $q->whereNotIn('status', ['cancelada', 'concluida']))
             ->count();
 
-        return view('dashboard.index', compact(
+        return view('dashboard.index', array_merge(compact(
             'totalClientes',
             'variacaoClientesPercent',
             'totalVeiculos',
@@ -168,6 +173,6 @@ class DashboardController extends Controller
             'osEmAndamento',
             'tarefasConcluidasHoje',
             'tarefasPendentes'
-        ));
+        ), $filtroAdmin));
     }
 }

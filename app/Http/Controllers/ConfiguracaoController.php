@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Models\ClienteEmpresaHistorico;
 use App\Models\Empresa;
 use App\Models\Funcionario;
+use App\Models\LancamentoFinanceiro;
 use App\Models\Pessoa;
 use App\Models\Produto;
 use App\Models\Servico;
@@ -54,6 +55,8 @@ class ConfiguracaoController extends Controller
                 'empresaAtual' => $empresaAtual,
                 'historicoEmpresas' => $historicoEmpresas,
                 'empresas' => collect($empresaAtual ? [$empresaAtual] : []),
+                'empresasFiltro' => collect(),
+                'empresaFiltroEquipeId' => null,
                 'usuarios' => collect(),
                 'donosDisponiveis' => collect(),
             ]);
@@ -100,9 +103,13 @@ class ConfiguracaoController extends Controller
 
         $empresaSelecionadaId = $request->query('empresa_id');
         $empresaAtual = null;
+        $empresaFiltroEquipeId = null;
 
         if ($empresaSelecionadaId && is_scalar($empresaSelecionadaId)) {
             $empresaAtual = $empresas->firstWhere('id', (int) $empresaSelecionadaId);
+            if ($usuarioLogado->isAdministrador() && $empresaAtual) {
+                $empresaFiltroEquipeId = (int) $empresaAtual->id;
+            }
         }
 
         if (! $empresaAtual && $empresaAtivaId) {
@@ -115,12 +122,14 @@ class ConfiguracaoController extends Controller
 
         $queryUsuarios = User::with(['empresa', 'funcionario'])->orderBy('name', 'asc');
 
-        if (! $usuarioLogado->isAdministrador()) {
-            if ($empresaAtivaId) {
-                $queryUsuarios->where('empresa_id', $empresaAtivaId);
-            } else {
-                $queryUsuarios->whereRaw('1 = 0');
+        if ($usuarioLogado->isAdministrador()) {
+            if ($empresaFiltroEquipeId !== null) {
+                $queryUsuarios->where('empresa_id', $empresaFiltroEquipeId);
             }
+        } elseif ($empresaAtivaId) {
+            $queryUsuarios->where('empresa_id', $empresaAtivaId);
+        } else {
+            $queryUsuarios->whereRaw('1 = 0');
         }
 
         $usuarios = $queryUsuarios->get()->map(function (User $u) {
@@ -151,6 +160,8 @@ class ConfiguracaoController extends Controller
             'empresaAtual' => $empresaAtual,
             'historicoEmpresas' => collect(),
             'empresas' => $empresas,
+            'empresasFiltro' => $usuarioLogado->isAdministrador() ? $empresas : collect(),
+            'empresaFiltroEquipeId' => $empresaFiltroEquipeId,
             'usuarios' => $usuarios,
             'donosDisponiveis' => $donosDisponiveis,
         ]);
@@ -540,6 +551,12 @@ class ConfiguracaoController extends Controller
         if (Produto::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()) {
             $vinculos[] = 'produtos em estoque';
         }
+        if (Agendamento::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()) {
+            $vinculos[] = 'agendamentos';
+        }
+        if (LancamentoFinanceiro::withoutGlobalScopes()->where('empresa_id', $empresa->id)->exists()) {
+            $vinculos[] = 'lançamentos financeiros';
+        }
 
         if (! empty($vinculos)) {
             return redirect()
@@ -568,7 +585,7 @@ class ConfiguracaoController extends Controller
     }
 
     /**
-     * Alterna a estética ativa operada pelo Dono da Empresa (ou Administrador),
+     * Alterna a estética ativa operada pelo Dono da Empresa,
      * isolando imediatamente todas as listagens e operações para a unidade escolhida.
      */
     public function selecionarEmpresa(Request $request, Empresa $empresa)
@@ -576,8 +593,12 @@ class ConfiguracaoController extends Controller
         /** @var User $usuarioLogado */
         $usuarioLogado = Auth::user();
 
-        if (! $usuarioLogado->isDono() && ! $usuarioLogado->isAdministrador()) {
-            return back()->with('error', 'Apenas o Dono da Empresa ou Administrador Geral pode alternar a estética ativa.');
+        if ($usuarioLogado->isAdministrador()) {
+            return back()->with('info', 'O Administrador Geral pode alternar a empresa diretamente no filtro de cada módulo.');
+        }
+
+        if (! $usuarioLogado->isDono()) {
+            return back()->with('error', 'Apenas o Dono da Empresa pode alternar a estética ativa.');
         }
 
         if (! $usuarioLogado->canManageEmpresa($empresa)) {

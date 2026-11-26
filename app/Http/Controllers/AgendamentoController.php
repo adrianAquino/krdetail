@@ -31,9 +31,20 @@ class AgendamentoController extends Controller
     {
         /** @var User|null $user */
         $user = Auth::user();
+        $isCliente = $user instanceof User && $user->isCliente();
+
+        $filtroAdmin = $isCliente
+            ? [
+                'isAdmin' => false,
+                'empresasFiltro' => collect(),
+                'empresaFiltroId' => null,
+                'empresaFiltroAtual' => null,
+            ]
+            : $this->resolverFiltroEmpresaAdmin($request);
+
         $query = Agendamento::with(['empresa', 'cliente', 'veiculo', 'servicos', 'agendamentosServicos.servico', 'ordemServico.tarefas']);
 
-        if ($user instanceof User && $user->isCliente()) {
+        if ($isCliente) {
             $cliente = $user->ensureClienteProfile();
             $query->where('cliente_id', $cliente->id);
         }
@@ -45,12 +56,12 @@ class AgendamentoController extends Controller
 
         $busca = trim($this->inputString($request, 'busca'));
         if ($busca !== '') {
-            $query->where(function ($q) use ($busca, $user) {
+            $query->where(function ($q) use ($busca, $isCliente) {
                 $q->whereHas('veiculo', fn ($vq) => $vq->where('placa', 'like', "%{$busca}%")
                     ->orWhere('modelo', 'like', "%{$busca}%")
                     ->orWhere('marca', 'like', "%{$busca}%"));
 
-                if (! ($user instanceof User) || ! $user->isCliente()) {
+                if (! $isCliente) {
                     $q->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
                 }
             });
@@ -58,13 +69,16 @@ class AgendamentoController extends Controller
 
         $agendamentos = $query->orderByDesc('data_inicio')->paginate(15)->withQueryString();
 
-        return view('agendamentos.index', compact('agendamentos'));
+        return view('agendamentos.index', array_merge(compact('agendamentos'), $filtroAdmin));
     }
 
     public function create(Request $request)
     {
         /** @var User|null $user */
         $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresas = collect();
+        $empresaSelecionadaId = null;
 
         if ($user instanceof User && $user->isCliente()) {
             if (! $user->possuiEsteticaVinculada()) {
@@ -75,13 +89,33 @@ class AgendamentoController extends Controller
 
             $cliente = $user->ensureClienteProfile();
             $clientes = Cliente::with('veiculos')->where('id', $cliente->id)->get();
+            $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
+        } elseif ($isAdmin) {
+            $empresas = Empresa::orderBy('nome_fantasia')->get();
+            $empReq = $request->integer('empresa_id') ?: null;
+            $empresaSelecionadaId = ($empReq && $empresas->contains('id', $empReq))
+                ? $empReq
+                : ($empresas->first()?->id ? (int) $empresas->first()->id : null);
+
+            if ($empresaSelecionadaId) {
+                $clientes = Cliente::with('veiculos')
+                    ->where('empresa_id', $empresaSelecionadaId)
+                    ->orderBy('nome')
+                    ->get();
+                $servicos = Servico::where('ativo', true)
+                    ->where('empresa_id', $empresaSelecionadaId)
+                    ->orderBy('nome')
+                    ->get();
+            } else {
+                $clientes = collect();
+                $servicos = collect();
+            }
         } else {
             $clientes = Cliente::with('veiculos')->orderBy('nome')->get();
+            $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
         }
 
-        $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
-
-        return view('agendamentos.create', compact('clientes', 'servicos'));
+        return view('agendamentos.create', compact('clientes', 'servicos', 'isAdmin', 'empresas', 'empresaSelecionadaId'));
     }
 
     public function store(Request $request)
@@ -146,7 +180,16 @@ class AgendamentoController extends Controller
         }
 
         $clienteModel = Cliente::findOrFail($validated['cliente_id']);
-        $empresaId = $clienteModel->empresa_id ? (int) $clienteModel->empresa_id : $user?->getEmpresaAtivaId();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresaId = $clienteModel->empresa_id
+            ? (int) $clienteModel->empresa_id
+            : ($isAdmin ? null : $user?->getEmpresaAtivaId());
+
+        if ($isAdmin && ! $empresaId) {
+            throw ValidationException::withMessages([
+                'cliente_id' => 'Este cliente não está vinculado a nenhuma empresa ativa.',
+            ]);
+        }
 
         $veiculo = Veiculo::findOrFail($validated['veiculo_id']);
         if ((int) $veiculo->cliente_id !== (int) $validated['cliente_id']) {
@@ -244,17 +287,33 @@ class AgendamentoController extends Controller
                 ->with('error', 'Não é possível editar um agendamento que já foi concluído ou cancelado.');
         }
 
-        $agendamento->load(['agendamentosServicos', 'ordemServico', 'cliente', 'veiculo']);
-        $clientes = Cliente::with('veiculos')->orderBy('nome')->get();
+        $agendamento->load(['empresa', 'agendamentosServicos', 'ordemServico', 'cliente', 'veiculo']);
+        $empresaAgId = $agendamento->empresa_id ?? $agendamento->cliente?->empresa_id;
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+
+        $clientesQuery = Cliente::with('veiculos')->orderBy('nome');
+        if ($isAdmin && $empresaAgId) {
+            $clientesQuery->where('empresa_id', $empresaAgId);
+        }
+        $clientes = $clientesQuery->get();
 
         // Inclui serviços já contratados no agendamento mesmo que tenham sido desativados posteriormente
         $servicosVinculadosIds = $agendamento->agendamentosServicos->pluck('servico_id')->filter()->unique();
-        $servicos = Servico::where(function ($q) use ($servicosVinculadosIds) {
+        $servicosQuery = Servico::where(function ($q) use ($servicosVinculadosIds) {
             $q->where('ativo', true);
             if ($servicosVinculadosIds->isNotEmpty()) {
                 $q->orWhereIn('id', $servicosVinculadosIds);
             }
-        })->orderBy('nome')->get();
+        });
+        if ($isAdmin && $empresaAgId) {
+            $servicosQuery->where(function ($q) use ($empresaAgId, $servicosVinculadosIds) {
+                $q->where('empresa_id', $empresaAgId);
+                if ($servicosVinculadosIds->isNotEmpty()) {
+                    $q->orWhereIn('id', $servicosVinculadosIds);
+                }
+            });
+        }
+        $servicos = $servicosQuery->orderBy('nome')->get();
 
         return view('agendamentos.edit', compact('agendamento', 'clientes', 'servicos'));
     }
@@ -311,7 +370,16 @@ class AgendamentoController extends Controller
         ]);
 
         $clienteModel = Cliente::findOrFail($validated['cliente_id']);
-        $empresaId = $clienteModel->empresa_id ? (int) $clienteModel->empresa_id : $user?->getEmpresaAtivaId();
+        $isAdmin = $user instanceof User && $user->isAdministrador();
+        $empresaId = $clienteModel->empresa_id
+            ? (int) $clienteModel->empresa_id
+            : ($isAdmin ? null : $user?->getEmpresaAtivaId());
+
+        if ($isAdmin && ! $empresaId) {
+            throw ValidationException::withMessages([
+                'cliente_id' => 'Este cliente não está vinculado a nenhuma empresa ativa.',
+            ]);
+        }
 
         $veiculo = Veiculo::findOrFail($validated['veiculo_id']);
         if ((int) $veiculo->cliente_id !== (int) $validated['cliente_id']) {

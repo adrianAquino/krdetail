@@ -21,11 +21,21 @@
         :subtitle="$isCliente ? 'Escolha um dos seus veículos, a data desejada e os serviços de estética automotiva.' : 'Selecione o cliente, o veículo correspondente e os serviços a serem contratados.'"
     >
         <x-slot:actions>
-            <x-button href="{{ route('agendamentos.index') }}" variant="outline" size="sm" icon="chevron-left">
+            <x-button href="{{ route('agendamentos.index', ($isAdmin ?? false) && !empty($empresaSelecionadaId) ? ['empresa_id' => $empresaSelecionadaId] : []) }}" variant="outline" size="sm" icon="chevron-left">
                 Voltar
             </x-button>
         </x-slot:actions>
     </x-header>
+
+    @if($isAdmin ?? false)
+        <x-admin-empresa-filter
+            :action="route('agendamentos.create')"
+            :empresas="$empresas ?? collect()"
+            :empresaSelecionadaId="$empresaSelecionadaId ?? null"
+            :permitirTodas="false"
+            label="Empresa do Agendamento"
+        />
+    @endif
 
     <!-- Alerta dinâmico quando um veículo é cadastrado pelo modal -->
     <div id="alerta-veiculo-criado" class="mb-6 hidden">

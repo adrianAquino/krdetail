@@ -16,6 +16,19 @@
 
             <x-card title="Identificação e Embalagem do Produto">
                 <div class="space-y-4">
+                    @if($isAdmin ?? false)
+                        <div>
+                            <x-select name="empresa_id" label="Empresa Proprietária" required>
+                                <option value="">Selecione a empresa</option>
+                                @foreach($empresas ?? [] as $emp)
+                                    <option value="{{ $emp->id }}" {{ (string) old('empresa_id', $empresaSelecionadaId ?? '') === (string) $emp->id ? 'selected' : '' }}>
+                                        {{ $emp->nome_fantasia }}
+                                    </option>
+                                @endforeach
+                            </x-select>
+                        </div>
+                    @endif
+
                     <div>
                         <x-input
                             name="nome"

@@ -11,12 +11,22 @@
     >
         <x-slot:actions>
             @if(!$isCliente || $possuiEsteticaVinculada)
-                <x-button href="{{ route('agendamentos.create') }}" icon="plus" size="md">
+                <x-button href="{{ route('agendamentos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                     Novo Agendamento
                 </x-button>
             @endif
         </x-slot:actions>
     </x-header>
+
+    @if(!$isCliente)
+        <x-admin-empresa-filter
+            :action="route('agendamentos.index')"
+            :empresas="$empresasFiltro ?? collect()"
+            :empresaSelecionadaId="$empresaFiltroId ?? null"
+            :preserve="['busca' => request('busca'), 'status' => request('status')]"
+            label="Empresa nos Agendamentos"
+        />
+    @endif
 
     @if($isCliente && !$possuiEsteticaVinculada)
         <div class="mb-6">
@@ -29,6 +39,9 @@
     <!-- Filters Bar -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('agendamentos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            @if(($isAdmin ?? false) && !empty($empresaFiltroId))
+                <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
+            @endif
             @if(request('status'))
                 <input type="hidden" name="status" value="{{ request('status') }}" />
             @endif
@@ -40,7 +53,7 @@
                 icon="search"
             />
             @if(request('busca') || request('status'))
-                <x-button href="{{ route('agendamentos.index') }}" variant="ghost" size="sm">
+                <x-button href="{{ route('agendamentos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
                     Limpar
                 </x-button>
             @endif
@@ -109,7 +122,7 @@
                                     </span>
                                 @endif
                                 <x-badge-status :status="$ag->status" />
-                                @if($isCliente && $ag->empresa)
+                                @if(($isCliente || (($isAdmin ?? false) && empty($empresaFiltroId))) && $ag->empresa)
                                     <span class="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">
                                         {{ $ag->empresa->nome_fantasia }}
                                     </span>
@@ -220,7 +233,7 @@
                     <p class="text-xs text-muted-foreground mt-1">Nenhum agendamento corresponde aos filtros selecionados.</p>
                     @if(!$isCliente || $possuiEsteticaVinculada)
                         <div class="mt-4">
-                            <x-button href="{{ route('agendamentos.create') }}" icon="plus">
+                            <x-button href="{{ route('agendamentos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus">
                                 Novo Agendamento
                             </x-button>
                         </div>
