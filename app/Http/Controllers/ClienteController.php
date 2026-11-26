@@ -198,6 +198,9 @@ class ClienteController extends Controller
         $mergeCli = [
             'cpf_cnpj' => CpfCnpj::normalizar($request->input('cpf_cnpj')),
         ];
+        if (is_scalar($request->input('nome'))) {
+            $mergeCli['nome'] = preg_replace('/\s+/', ' ', trim((string) $request->input('nome'))) ?? '';
+        }
         if (is_scalar($request->input('email'))) {
             $emailRaw = mb_strtolower(trim((string) $request->input('email')));
             $mergeCli['email'] = $emailRaw !== '' ? $emailRaw : null;
@@ -291,12 +294,24 @@ class ClienteController extends Controller
             ? ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($ignoreUserId)]
             : ($podeVincularMatch && $usuarioClienteMatch
                 ? ['nullable', 'email', 'max:100', Rule::unique('users', 'email')->ignore($ignoreUserId)]
-                : 'nullable|email|max:100');
+                : ['nullable', 'email', 'max:100']);
+
+        if (! $podeVincularMatch && $empresaAtivaId) {
+            $emailRule[] = $this->regraEmailUnicoClientePorEmpresa((int) $empresaAtivaId);
+        }
+
+        $telefoneRules = ['required', 'string', 'min:10', 'max:15'];
+        if (! $podeVincularMatch && $empresaAtivaId) {
+            $telefoneRules[] = $this->regraNomeETelefoneUnicosClientePorEmpresa(
+                (int) $empresaAtivaId,
+                is_scalar($request->input('nome')) ? (string) $request->input('nome') : ''
+            );
+        }
 
         $rules = [
             'nome' => 'required|string|min:3|max:100',
             'email' => $emailRule,
-            'telefone' => 'required|string|min:10|max:15',
+            'telefone' => $telefoneRules,
             'cpf_cnpj' => [
                 'nullable',
                 'bail',
@@ -534,6 +549,9 @@ class ClienteController extends Controller
         $mergeCli = [
             'cpf_cnpj' => CpfCnpj::normalizar($request->input('cpf_cnpj')),
         ];
+        if (is_scalar($request->input('nome'))) {
+            $mergeCli['nome'] = preg_replace('/\s+/', ' ', trim((string) $request->input('nome'))) ?? '';
+        }
         if (is_scalar($request->input('email'))) {
             $emailRaw = mb_strtolower(trim((string) $request->input('email')));
             $mergeCli['email'] = $emailRaw !== '' ? $emailRaw : null;
@@ -551,10 +569,23 @@ class ClienteController extends Controller
             $emailRules = ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($cliente->user_id)];
         }
 
+        if ($cliente->empresa_id !== null) {
+            $emailRules[] = $this->regraEmailUnicoClientePorEmpresa((int) $cliente->empresa_id, $cliente->id);
+        }
+
+        $telefoneRules = ['required', 'string', 'min:10', 'max:15'];
+        if ($cliente->empresa_id !== null) {
+            $telefoneRules[] = $this->regraNomeETelefoneUnicosClientePorEmpresa(
+                (int) $cliente->empresa_id,
+                is_scalar($request->input('nome')) ? (string) $request->input('nome') : '',
+                $cliente->id
+            );
+        }
+
         $rules = [
             'nome' => 'required|string|min:3|max:100',
             'email' => $emailRules,
-            'telefone' => 'required|string|min:10|max:15',
+            'telefone' => $telefoneRules,
             'cpf_cnpj' => [
                 'nullable',
                 'bail',
@@ -708,5 +739,52 @@ class ClienteController extends Controller
         }
 
         return redirect()->route('clientes.index')->with('success', 'Cliente removido com sucesso!');
+    }
+
+    private function regraEmailUnicoClientePorEmpresa(int $empresaId, ?int $ignorarId = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($empresaId, $ignorarId): void {
+            if (! is_string($value) || trim($value) === '') {
+                return;
+            }
+
+            $jaExiste = Cliente::withoutGlobalScopes()
+                ->where('empresa_id', $empresaId)
+                ->when($ignorarId !== null, fn ($q) => $q->where('id', '!=', $ignorarId))
+                ->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($value), 'UTF-8')])
+                ->exists();
+
+            if ($jaExiste) {
+                $fail('Já existe um cliente cadastrado com este e-mail nesta empresa.');
+            }
+        };
+    }
+
+    private function regraNomeETelefoneUnicosClientePorEmpresa(int $empresaId, string $nomeNormalizado, ?int $ignorarId = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($empresaId, $nomeNormalizado, $ignorarId): void {
+            if ($nomeNormalizado === '' || ! is_string($value)) {
+                return;
+            }
+
+            $digitosTelefone = preg_replace('/\D/', '', $value) ?? '';
+            if ($digitosTelefone === '') {
+                return;
+            }
+
+            $candidatos = Cliente::withoutGlobalScopes()
+                ->where('empresa_id', $empresaId)
+                ->when($ignorarId !== null, fn ($q) => $q->where('id', '!=', $ignorarId))
+                ->whereRaw('LOWER(nome) = ?', [mb_strtolower($nomeNormalizado, 'UTF-8')])
+                ->get(['id', 'telefone']);
+
+            foreach ($candidatos as $cand) {
+                $candDigitos = preg_replace('/\D/', '', (string) $cand->telefone) ?? '';
+                if ($candDigitos !== '' && $candDigitos === $digitosTelefone) {
+                    $fail('Já existe um cliente cadastrado com este nome e telefone nesta empresa.');
+                    return;
+                }
+            }
+        };
     }
 }

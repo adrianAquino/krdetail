@@ -57,8 +57,18 @@ class ProdutoController extends Controller
         $user = Auth::user();
         $isAdmin = $user instanceof User && $user->isAdministrador();
 
+        $this->normalizarNome($request);
+        $empresaAlvoId = $isAdmin
+            ? ($request->integer('empresa_id') ?: null)
+            : $user?->getEmpresaAtivaId();
+
         $rules = [
-            'nome' => 'required|string|max:100',
+            'nome' => [
+                'required',
+                'string',
+                'max:100',
+                $this->regraNomeUnicoPorEmpresa($empresaAlvoId),
+            ],
             'descricao' => 'nullable|string|max:500',
             'unidade_medida' => 'required|string|max:10',
             'volume_unitario' => 'required|numeric|min:0.001|max:999999',
@@ -105,7 +115,13 @@ class ProdutoController extends Controller
             $dadosCreate['empresa_id'] = (int) $validated['empresa_id'];
         }
 
-        $produto = Produto::create($dadosCreate);
+        try {
+            $produto = Produto::create($dadosCreate);
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['nome' => 'Já existe um produto cadastrado com este nome nesta empresa (verifique também a aba de produtos inativos).']);
+        }
 
         return redirect()->route('produtos.show', $produto)->with('success', 'Produto cadastrado com sucesso!');
     }
@@ -126,8 +142,15 @@ class ProdutoController extends Controller
 
     public function update(Request $request, Produto $produto, MovimentarEstoqueService $estoqueService)
     {
+        $this->normalizarNome($request);
+
         $validated = $request->validate([
-            'nome' => 'required|string|max:100',
+            'nome' => [
+                'required',
+                'string',
+                'max:100',
+                $this->regraNomeUnicoPorEmpresa($produto->empresa_id, $produto->id),
+            ],
             'descricao' => 'nullable|string|max:500',
             'unidade_medida' => 'required|string|max:10',
             'volume_unitario' => 'required|numeric|min:0.001|max:999999',
@@ -161,33 +184,39 @@ class ProdutoController extends Controller
 
         $ativo = $request->boolean('ativo');
 
-        DB::transaction(function () use ($produto, $validated, $volumeUnitario, $quantidadeEstoque, $estoqueMinimo, $ativo, $estoqueService) {
-            $produtoTravado = Produto::lockForUpdate()->findOrFail($produto->id);
-            $saldoAnterior = round((float) $produtoTravado->quantidade_estoque, 3);
-            $mudouEstoque = (int) round($quantidadeEstoque * 1000) !== (int) round($saldoAnterior * 1000);
+        try {
+            DB::transaction(function () use ($produto, $validated, $volumeUnitario, $quantidadeEstoque, $estoqueMinimo, $ativo, $estoqueService) {
+                $produtoTravado = Produto::lockForUpdate()->findOrFail($produto->id);
+                $saldoAnterior = round((float) $produtoTravado->quantidade_estoque, 3);
+                $mudouEstoque = (int) round($quantidadeEstoque * 1000) !== (int) round($saldoAnterior * 1000);
 
-            $produtoTravado->update([
-                'nome' => $validated['nome'],
-                'descricao' => $validated['descricao'] ?? null,
-                'unidade_medida' => $validated['unidade_medida'],
-                'volume_unitario' => $volumeUnitario,
-                'estoque_minimo' => $estoqueMinimo,
-                'custo_unitario' => round((float) $validated['custo_unitario'], 4),
-                'ativo' => $ativo,
-            ]);
+                $produtoTravado->update([
+                    'nome' => $validated['nome'],
+                    'descricao' => $validated['descricao'] ?? null,
+                    'unidade_medida' => $validated['unidade_medida'],
+                    'volume_unitario' => $volumeUnitario,
+                    'estoque_minimo' => $estoqueMinimo,
+                    'custo_unitario' => round((float) $validated['custo_unitario'], 4),
+                    'ativo' => $ativo,
+                ]);
 
-            if ($mudouEstoque) {
-                $estoqueService->movimentar(
-                    produto: $produtoTravado,
-                    tipo: 'ajuste',
-                    quantidade: $quantidadeEstoque,
-                    usuario: Auth::user(),
-                    motivo: 'Ajuste direto na edição do produto',
-                    permitirProdutoInativo: true,
-                    movimentacaoManual: true
-                );
-            }
-        });
+                if ($mudouEstoque) {
+                    $estoqueService->movimentar(
+                        produto: $produtoTravado,
+                        tipo: 'ajuste',
+                        quantidade: $quantidadeEstoque,
+                        usuario: Auth::user(),
+                        motivo: 'Ajuste direto na edição do produto',
+                        permitirProdutoInativo: true,
+                        movimentacaoManual: true
+                    );
+                }
+            });
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['nome' => 'Já existe um produto cadastrado com este nome nesta empresa (verifique também a aba de produtos inativos).']);
+        }
 
         return redirect()->route('produtos.show', $produto)->with('success', 'Produto atualizado com sucesso!');
     }
@@ -237,5 +266,32 @@ class ProdutoController extends Controller
                 'custo_unitario' => 'A relação entre custo unitário e volume unitário ultrapassa o limite máximo suportado.',
             ]);
         }
+    }
+
+    private function normalizarNome(Request $request): void
+    {
+        if (is_scalar($request->input('nome'))) {
+            $nomeNormalizado = preg_replace('/\s+/', ' ', trim((string) $request->input('nome'))) ?? '';
+            $request->merge(['nome' => $nomeNormalizado]);
+        }
+    }
+
+    private function regraNomeUnicoPorEmpresa(?int $empresaId, ?int $ignorarId = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($empresaId, $ignorarId): void {
+            if ($empresaId === null || ! is_string($value) || $value === '') {
+                return;
+            }
+
+            $jaExiste = Produto::withoutGlobalScopes()
+                ->where('empresa_id', $empresaId)
+                ->when($ignorarId !== null, fn ($q) => $q->where('id', '!=', $ignorarId))
+                ->whereRaw('LOWER(nome) = ?', [mb_strtolower($value, 'UTF-8')])
+                ->exists();
+
+            if ($jaExiste) {
+                $fail('Já existe um produto cadastrado com este nome nesta empresa (verifique também a aba de produtos inativos).');
+            }
+        };
     }
 }

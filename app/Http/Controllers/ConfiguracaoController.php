@@ -327,6 +327,12 @@ class ConfiguracaoController extends Controller
         $mergeStoreEmp = [
             'cnpj' => CpfCnpj::normalizar($request->input('cnpj')),
         ];
+        if (is_scalar($request->input('nome_fantasia'))) {
+            $mergeStoreEmp['nome_fantasia'] = preg_replace('/\s+/', ' ', trim((string) $request->input('nome_fantasia'))) ?? '';
+        }
+        if (is_scalar($request->input('razao_social'))) {
+            $mergeStoreEmp['razao_social'] = preg_replace('/\s+/', ' ', trim((string) $request->input('razao_social'))) ?? '';
+        }
         if (is_scalar($request->input('email'))) {
             $mergeStoreEmp['email'] = mb_strtolower(trim((string) $request->input('email')));
         }
@@ -337,7 +343,12 @@ class ConfiguracaoController extends Controller
         $request->merge($mergeStoreEmp);
 
         $validated = $request->validate([
-            'nome_fantasia' => 'required|string|max:100',
+            'nome_fantasia' => [
+                'required',
+                'string',
+                'max:100',
+                $this->regraNomeFantasiaEmpresaUnico(),
+            ],
             'razao_social' => 'required|string|max:120',
             'cnpj' => [
                 'nullable',
@@ -434,6 +445,12 @@ class ConfiguracaoController extends Controller
         $mergeStoreEmp = [
             'cnpj' => CpfCnpj::normalizar($request->input('cnpj')),
         ];
+        if (is_scalar($request->input('nome_fantasia'))) {
+            $mergeStoreEmp['nome_fantasia'] = preg_replace('/\s+/', ' ', trim((string) $request->input('nome_fantasia'))) ?? '';
+        }
+        if (is_scalar($request->input('razao_social'))) {
+            $mergeStoreEmp['razao_social'] = preg_replace('/\s+/', ' ', trim((string) $request->input('razao_social'))) ?? '';
+        }
         if (is_scalar($request->input('email'))) {
             $mergeStoreEmp['email'] = mb_strtolower(trim((string) $request->input('email')));
         }
@@ -444,7 +461,12 @@ class ConfiguracaoController extends Controller
         $request->merge($mergeStoreEmp);
 
         $validated = $request->validate([
-            'nome_fantasia' => 'required|string|max:100',
+            'nome_fantasia' => [
+                'required',
+                'string',
+                'max:100',
+                $this->regraNomeFantasiaEmpresaUnico($empresa->id),
+            ],
             'razao_social' => 'required|string|max:120',
             'cnpj' => [
                 'nullable',
@@ -960,5 +982,23 @@ class ConfiguracaoController extends Controller
         return redirect()
             ->route('configuracoes.index', ['tab' => 'equipe'])
             ->with('success', "Usuário {$nome} removido com sucesso!");
+    }
+
+    private function regraNomeFantasiaEmpresaUnico(?int $ignorarId = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($ignorarId): void {
+            if (! is_string($value) || trim($value) === '') {
+                return;
+            }
+
+            $jaExiste = Empresa::whereNull('deleted_at')
+                ->when($ignorarId !== null, fn ($q) => $q->where('id', '!=', $ignorarId))
+                ->whereRaw('LOWER(nome_fantasia) = ?', [mb_strtolower(trim($value), 'UTF-8')])
+                ->exists();
+
+            if ($jaExiste) {
+                $fail('Já existe uma empresa cadastrada com este nome fantasia.');
+            }
+        };
     }
 }

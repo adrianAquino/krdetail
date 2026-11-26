@@ -53,8 +53,18 @@ class ServicoController extends Controller
         $user = Auth::user();
         $isAdmin = $user instanceof User && $user->isAdministrador();
 
+        $this->normalizarNome($request);
+        $empresaAlvoId = $isAdmin
+            ? ($request->integer('empresa_id') ?: null)
+            : $user?->getEmpresaAtivaId();
+
         $rules = [
-            'nome' => 'required|string|max:100',
+            'nome' => [
+                'required',
+                'string',
+                'max:100',
+                $this->regraNomeUnicoPorEmpresa($empresaAlvoId),
+            ],
             'descricao' => 'nullable|string|max:500',
             'preco_base' => 'required|numeric|min:0|max:99999.99',
             'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
@@ -75,7 +85,13 @@ class ServicoController extends Controller
 
         $validated['ativo'] = $request->boolean('ativo');
 
-        Servico::create($validated);
+        try {
+            Servico::create($validated);
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['nome' => 'Já existe um serviço cadastrado com este nome nesta empresa (verifique também os serviços inativos).']);
+        }
 
         $rotaParams = $isAdmin && ! empty($validated['empresa_id'])
             ? ['empresa_id' => $validated['empresa_id']]
@@ -93,8 +109,15 @@ class ServicoController extends Controller
 
     public function update(Request $request, Servico $servico)
     {
+        $this->normalizarNome($request);
+
         $validated = $request->validate([
-            'nome' => 'required|string|max:100',
+            'nome' => [
+                'required',
+                'string',
+                'max:100',
+                $this->regraNomeUnicoPorEmpresa($servico->empresa_id, $servico->id),
+            ],
             'descricao' => 'nullable|string|max:500',
             'preco_base' => 'required|numeric|min:0|max:99999.99',
             'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
@@ -103,7 +126,13 @@ class ServicoController extends Controller
 
         $validated['ativo'] = $request->boolean('ativo');
 
-        $servico->update($validated);
+        try {
+            $servico->update($validated);
+        } catch (QueryException $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['nome' => 'Já existe um serviço cadastrado com este nome nesta empresa (verifique também os serviços inativos).']);
+        }
 
         return redirect()->route('servicos.index')->with('success', 'Serviço atualizado com sucesso!');
     }
@@ -129,5 +158,32 @@ class ServicoController extends Controller
         }
 
         return redirect()->route('servicos.index')->with('success', 'Serviço excluído com sucesso!');
+    }
+
+    private function normalizarNome(Request $request): void
+    {
+        if (is_scalar($request->input('nome'))) {
+            $nomeNormalizado = preg_replace('/\s+/', ' ', trim((string) $request->input('nome'))) ?? '';
+            $request->merge(['nome' => $nomeNormalizado]);
+        }
+    }
+
+    private function regraNomeUnicoPorEmpresa(?int $empresaId, ?int $ignorarId = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($empresaId, $ignorarId): void {
+            if ($empresaId === null || ! is_string($value) || $value === '') {
+                return;
+            }
+
+            $jaExiste = Servico::withoutGlobalScopes()
+                ->where('empresa_id', $empresaId)
+                ->when($ignorarId !== null, fn ($q) => $q->where('id', '!=', $ignorarId))
+                ->whereRaw('LOWER(nome) = ?', [mb_strtolower($value, 'UTF-8')])
+                ->exists();
+
+            if ($jaExiste) {
+                $fail('Já existe um serviço cadastrado com este nome nesta empresa (verifique também os serviços inativos).');
+            }
+        };
     }
 }
