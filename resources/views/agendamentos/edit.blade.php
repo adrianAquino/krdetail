@@ -125,8 +125,6 @@
         data-clientes-veiculos="{{ json_encode($clientesVeiculosMap) }}"
         data-target-veiculo-pre="{{ (string) old('veiculo_id', (string) ($agendamentoObj->veiculo_id ?? '')) }}"
         data-valor-original-inicio="{{ $valorOriginalInicio }}"
-        data-rota-disponibilidade="{{ route('agendamentos.disponibilidade') }}"
-        data-ignorar-agendamento-id="{{ $agendamentoObj?->id ?? '' }}"
         data-duracao-os-fixa="{{ $possuiOS ? (int) ($agendamentoObj->minutos_totais_com_gargalo ?? 90) : 0 }}"
     >
         @csrf
@@ -180,23 +178,11 @@
                 <x-card title="Programação & Status">
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                                <label for="data_inicio" class="block text-xs font-medium text-foreground">
-                                    Data e Horário de Início <span class="text-destructive">*</span>
-                                </label>
-                                <button
-                                    type="button"
-                                    onclick="window.abrirCalendarioAgenda()"
-                                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
-                                >
-                                    <x-icon name="calendar" class="w-3.5 h-3.5" />
-                                    Consultar Calendário Disponível
-                                </button>
-                            </div>
                             <x-input
                                 type="datetime-local"
                                 name="data_inicio"
                                 id="data_inicio"
+                                label="Data e Horário de Início"
                                 min="{{ $minDataInicio }}"
                                 :value="old('data_inicio', $valorOriginalInicio)"
                                 hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00."
@@ -242,12 +228,6 @@
                                     <span class="text-muted-foreground">Marque esta opção quando a duração dos serviços ultrapassar as 18:00 do dia selecionado; a execução continua às 08:00 do próximo dia útil.</span>
                                 </div>
                             </label>
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <x-button type="button" variant="outline" size="md" class="w-full" icon="calendar" onclick="window.abrirCalendarioAgenda()">
-                                Abrir Calendário de Horários Disponíveis (por Serviços e Boxes)
-                            </x-button>
                         </div>
 
                         <div>
@@ -397,6 +377,5 @@
 
     @include('agendamentos.partials._modais_e_script', [
         'podeCadastrarVeiculo' => !$possuiOS,
-        'ignorarAgendamentoId' => $agendamentoObj?->id ?? null,
     ])
 </x-layouts.app>

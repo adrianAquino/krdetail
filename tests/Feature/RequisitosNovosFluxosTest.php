@@ -269,7 +269,7 @@ class RequisitosNovosFluxosTest extends TestCase
         ]);
     }
 
-    public function test_modal_cadastro_veiculo_ajax_colisao_veiculo_e_calendario_com_pernoite(): void
+    public function test_modal_cadastro_veiculo_ajax_colisao_veiculo_boxes_e_pernoite(): void
     {
         $dono = User::create([
             'name' => 'Dono Agenda',
@@ -304,11 +304,17 @@ class RequisitosNovosFluxosTest extends TestCase
             'ativo' => true,
         ]);
 
-        // View de criação exibe aviso claro sobre atribuição do veículo ao cliente selecionado
+        // View de criação exibe campo datetime-local limpo (sem modal de calendário) e aviso do modal de veículo
         $this->actingAs($dono)->get(route('agendamentos.create'))
             ->assertOk()
+            ->assertSee('type="datetime-local"', false)
+            ->assertDontSee('modal-calendario-agenda', false)
+            ->assertDontSee('abrirCalendarioAgenda', false)
             ->assertSee('Este veículo será cadastrado e atribuído diretamente ao cliente selecionado')
             ->assertSee('Deixar o veículo na estética');
+
+        // Endpoint exclusivo do calendário foi removido
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('agendamentos.disponibilidade'));
 
         // Cadastro rápido de veículo via AJAX (JSON 201)
         $respVeiculo = $this->actingAs($dono)->postJson(route('veiculos.store'), [
@@ -349,6 +355,13 @@ class RequisitosNovosFluxosTest extends TestCase
         $this->assertTrue($ag1->deixar_veiculo);
         $this->assertSame($sabado1030->format('Y-m-d H:i'), $ag1->data_fim->format('Y-m-d H:i'));
 
+        // View de edição também exibe apenas o campo datetime-local sem modal de calendário
+        $this->actingAs($dono)->get(route('agendamentos.edit', $ag1))
+            ->assertOk()
+            ->assertSee('type="datetime-local"', false)
+            ->assertDontSee('modal-calendario-agenda', false)
+            ->assertDontSee('abrirCalendarioAgenda', false);
+
         // Segundo agendamento no mesmo veículo sobreposto no sábado 09:00 -> deve bloquear no store e no update
         $sabado09 = $sabado1030->copy()->setTime(9, 0, 0);
         $terca10 = Carbon::now()->next(Carbon::TUESDAY)->setTime(10, 0, 0);
@@ -377,24 +390,7 @@ class RequisitosNovosFluxosTest extends TestCase
             'servicos' => [['servico_id' => $servico240->id]],
         ])->assertSessionHasErrors('data_inicio');
 
-        // Endpoint de disponibilidade mensal sinaliza conflito do veículo e slots com pernoite
-        $respDisp = $this->actingAs($dono)->getJson(route('agendamentos.disponibilidade', [
-            'mes' => $sexta16->format('Y-m'),
-            'duracao_minutos' => 270,
-            'deixar_veiculo' => 1,
-            'veiculo_id' => $veiculoId,
-        ]));
-        $respDisp->assertOk();
-
-        $diaSexta = $respDisp->json('dias.' . $sexta16->toDateString());
-        $this->assertNotNull($diaSexta);
-        $slot16 = collect($diaSexta['slots'])->firstWhere('hora', '16:00');
-        $this->assertNotNull($slot16);
-        $this->assertTrue($slot16['conflito_veiculo']);
-        $this->assertFalse($slot16['disponivel']);
-        $this->assertTrue($slot16['requer_pernoite']);
-
-        // Lotando os 4 boxes em um horário de quarta-feira (10:00 -> 11:30), disponibilidade retorna boxes_livres = 0
+        // Lotando os 4 boxes em um horário de quarta-feira (10:00 -> 14:30), o 5º agendamento no mesmo horário deve ser bloqueado
         $quarta10 = Carbon::now()->next(Carbon::WEDNESDAY)->setTime(10, 0, 0);
         for ($i = 1; $i <= 4; $i++) {
             $vBox = Veiculo::create([
@@ -408,22 +404,25 @@ class RequisitosNovosFluxosTest extends TestCase
                 'cliente_id' => $cliente->id,
                 'veiculo_id' => $vBox->id,
                 'data_inicio' => $quarta10,
-                'data_fim' => $quarta10->copy()->addMinutes(90),
+                'data_fim' => $quarta10->copy()->addMinutes(270),
                 'status' => 'confirmado',
                 'origem' => 'WhatsApp',
             ]);
         }
 
-        $respLotado = $this->actingAs($dono)->getJson(route('agendamentos.disponibilidade', [
-            'mes' => $quarta10->format('Y-m'),
-            'duracao_minutos' => 90,
-            'deixar_veiculo' => 0,
-        ]));
-        $respLotado->assertOk();
-        $slotQuarta10 = collect($respLotado->json('dias.' . $quarta10->toDateString() . '.slots'))->firstWhere('hora', '10:00');
-        $this->assertNotNull($slotQuarta10);
-        $this->assertSame(0, $slotQuarta10['boxes_livres']);
-        $this->assertFalse($slotQuarta10['disponivel']);
+        $veiculoQuintoBox = Veiculo::create([
+            'cliente_id' => $cliente->id,
+            'placa' => 'CAL0005',
+            'marca' => 'Audi',
+            'modelo' => 'A5',
+        ]);
+
+        $this->actingAs($dono)->post(route('agendamentos.store'), [
+            'cliente_id' => $cliente->id,
+            'veiculo_id' => $veiculoQuintoBox->id,
+            'data_inicio' => $quarta10->format('Y-m-d\TH:i'),
+            'servicos' => [['servico_id' => $servico240->id]],
+        ])->assertSessionHasErrors('data_inicio');
     }
 
     public function test_todos_formularios_com_endereco_renderizam_consulta_viacep(): void

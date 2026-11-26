@@ -47,7 +47,6 @@
         data-clientes-veiculos="{{ json_encode($clientesVeiculosMap) }}"
         data-target-veiculo-pre="{{ (string) old('veiculo_id', (string) request('veiculo_id', '')) }}"
         data-rota-veiculos-create="{{ route('veiculos.create') }}"
-        data-rota-disponibilidade="{{ route('agendamentos.disponibilidade') }}"
     >
         @csrf
 
@@ -109,23 +108,11 @@
                     @endphp
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                                <label for="data_inicio" class="block text-xs font-medium text-foreground">
-                                    Data e Horário Desejados <span class="text-destructive">*</span>
-                                </label>
-                                <button
-                                    type="button"
-                                    onclick="window.abrirCalendarioAgenda()"
-                                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
-                                >
-                                    <x-icon name="calendar" class="w-3.5 h-3.5" />
-                                    Consultar Calendário Disponível
-                                </button>
-                            </div>
                             <x-input
                                 type="datetime-local"
                                 name="data_inicio"
                                 id="data_inicio"
+                                label="Data e Horário Desejados"
                                 min="{{ now()->format('Y-m-d\TH:i') }}"
                                 :value="old('data_inicio', $padraoInicio->format('Y-m-d\TH:i'))"
                                 hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00 (4 boxes simultâneos)."
@@ -170,12 +157,6 @@
                                     <span class="text-muted-foreground">Marque esta opção quando a duração total dos serviços ultrapassar as 18:00 do dia selecionado; a execução retoma às 08:00 do próximo dia útil respeitando os boxes da estética.</span>
                                 </div>
                             </label>
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <x-button type="button" variant="outline" size="md" class="w-full" icon="calendar" onclick="window.abrirCalendarioAgenda()">
-                                Abrir Calendário de Horários Disponíveis (por Serviços e Boxes)
-                            </x-button>
                         </div>
 
                         @if(!$isCliente)
