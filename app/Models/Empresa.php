@@ -10,6 +10,8 @@ class Empresa extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const CAPACIDADE_MAXIMA_BOXES = 4;
+
     protected $table = 'empresas';
 
     protected $fillable = [
@@ -101,5 +103,55 @@ class Empresa extends Model
     public function produtos()
     {
         return $this->hasMany(Produto::class, 'empresa_id');
+    }
+
+    /**
+     * Conta profissionais operacionais ativos vinculados à empresa (funcionários ativos + dono ativo),
+     * sem duplicar o proprietário nem depender da empresa ativa selecionada na sessão.
+     */
+    public function contarEquipeOperacionalAtiva(): int
+    {
+        $empresaId = (int) $this->id;
+        $donoId = $this->dono_id ? (int) $this->dono_id : null;
+
+        return User::query()
+            ->where('ativo', true)
+            ->whereIn('tipo_usuario', ['dono', 'funcionario'])
+            ->whereDoesntHave('funcionario', fn ($fq) => $fq->withoutGlobalScopes()->where('ativo', false))
+            ->where(function ($q) use ($empresaId, $donoId) {
+                $q->where('empresa_id', $empresaId)
+                    ->orWhereHas('funcionario', fn ($fq) => $fq->withoutGlobalScopes()
+                        ->where('empresa_id', $empresaId)
+                        ->where('ativo', true));
+
+                if ($donoId) {
+                    $q->orWhere('id', $donoId);
+                }
+            })
+            ->count();
+    }
+
+    /**
+     * Capacidade simultânea efetiva: mínimo entre os boxes físicos (4) e a equipe operacional ativa.
+     */
+    public function calcularCapacidadeSimultanea(): int
+    {
+        return min(self::CAPACIDADE_MAXIMA_BOXES, $this->contarEquipeOperacionalAtiva());
+    }
+
+    /**
+     * Resolve a capacidade simultânea para o ID de empresa informado (fallback 4 se nulo/inexistente).
+     */
+    public static function capacidadeSimultaneaPara(?int $empresaId): int
+    {
+        if ($empresaId === null) {
+            return self::CAPACIDADE_MAXIMA_BOXES;
+        }
+
+        $empresa = self::whereKey($empresaId)->first(['id', 'dono_id']);
+
+        return $empresa
+            ? $empresa->calcularCapacidadeSimultanea()
+            : self::CAPACIDADE_MAXIMA_BOXES;
     }
 }

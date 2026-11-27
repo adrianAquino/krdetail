@@ -453,7 +453,18 @@ class RequisitosNovosFluxosTest extends TestCase
             'servicos' => [['servico_id' => $servico240->id]],
         ])->assertSessionHasErrors('data_inicio');
 
-        // Lotando os 4 boxes em um horário de quarta-feira (10:00 -> 14:30), o 5º agendamento no mesmo horário deve ser bloqueado
+        // Lotando os 4 boxes (dono + 3 funcionários ativos) em quarta às 10:00 -> 14:30, o 5º agendamento é bloqueado
+        for ($f = 1; $f <= 3; $f++) {
+            User::create([
+                'empresa_id' => $empresa->id,
+                'name' => "Especialista Agenda {$f}",
+                'email' => "func.agenda{$f}@krdetail.test",
+                'password' => 'SenhaForte123',
+                'telefone' => "(11) 90000-110{$f}",
+                'tipo_usuario' => 'funcionario',
+                'ativo' => true,
+            ]);
+        }
         $quarta10 = Carbon::now()->next(Carbon::WEDNESDAY)->setTime(10, 0, 0);
         for ($i = 1; $i <= 4; $i++) {
             $vBox = Veiculo::create([

@@ -250,6 +250,10 @@ class AgendamentoController extends Controller
                 ->get()
             : collect();
 
+        $empresaObj = Empresa::whereKey($empresaId)->first(['id', 'dono_id']);
+        $equipeAtiva = $empresaObj ? $empresaObj->contarEquipeOperacionalAtiva() : 0;
+        $capacidadeSimultanea = $empresaObj ? min(self::CAPACIDADE_BOXES, $equipeAtiva) : self::CAPACIDADE_BOXES;
+
         $resultadoDias = [];
         for ($i = 0; $i < $diasQtd; $i++) {
             $dia = $dataBase->copy()->addDays($i)->startOfDay();
@@ -259,13 +263,14 @@ class AgendamentoController extends Controller
                 deixarVeiculo: $deixarVeiculo,
                 isCliente: $isCliente,
                 agendamentosEmpresa: $agendamentosEmpresa,
-                agendamentosVeiculo: $agendamentosVeiculo
+                agendamentosVeiculo: $agendamentosVeiculo,
+                capacidadeSimultanea: $capacidadeSimultanea
             );
         }
 
         $capacidadeDiariaMinutos = (self::HORA_FECHAMENTO - self::HORA_ABERTURA) * 60;
 
-        return response()->json([
+        $payload = [
             'sem_estetica' => false,
             'data_base' => $dataBase->format('Y-m-d'),
             'dias_qtd' => $diasQtd,
@@ -277,7 +282,17 @@ class AgendamentoController extends Controller
             'ultrapassa_um_dia_util' => $duracaoTotal > $capacidadeDiariaMinutos,
             'deixar_veiculo' => $deixarVeiculo,
             'dias' => $resultadoDias,
-        ]);
+        ];
+
+        if ($isCliente) {
+            $payload['sem_profissionais'] = $capacidadeSimultanea <= 0;
+        } else {
+            $payload['capacidade_simultanea'] = $capacidadeSimultanea;
+            $payload['capacidade_boxes'] = self::CAPACIDADE_BOXES;
+            $payload['equipe_ativa'] = $equipeAtiva;
+        }
+
+        return response()->json($payload);
     }
 
     public function create(Request $request)
@@ -287,6 +302,7 @@ class AgendamentoController extends Controller
         $isAdmin = $user instanceof User && $user->isAdministrador();
         $empresas = collect();
         $empresaSelecionadaId = null;
+        $empresaCapacidadeId = null;
 
         if ($user instanceof User && $user->isCliente()) {
             if (! $user->possuiEsteticaVinculada()) {
@@ -296,6 +312,9 @@ class AgendamentoController extends Controller
             }
 
             $cliente = $user->ensureClienteProfile();
+            $empresaCapacidadeId = $cliente->empresa_id
+                ? (int) $cliente->empresa_id
+                : $user->getEmpresaAtivaId();
             $clientes = Cliente::with('veiculos')->where('id', $cliente->id)->get();
             $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
         } elseif ($isAdmin) {
@@ -304,6 +323,7 @@ class AgendamentoController extends Controller
             $empresaSelecionadaId = ($empReq && $empresas->contains('id', $empReq))
                 ? $empReq
                 : ($empresas->first()?->id ? (int) $empresas->first()->id : null);
+            $empresaCapacidadeId = $empresaSelecionadaId;
 
             if ($empresaSelecionadaId) {
                 $clientes = Cliente::with('veiculos')
@@ -319,11 +339,28 @@ class AgendamentoController extends Controller
                 $servicos = collect();
             }
         } else {
+            $empresaCapacidadeId = $user?->getEmpresaAtivaId();
             $clientes = Cliente::with('veiculos')->orderBy('nome')->get();
             $servicos = Servico::where('ativo', true)->orderBy('nome')->get();
         }
 
-        return view('agendamentos.create', compact('clientes', 'servicos', 'isAdmin', 'empresas', 'empresaSelecionadaId'));
+        $empresaCapacidade = $empresaCapacidadeId
+            ? Empresa::whereKey($empresaCapacidadeId)->first(['id', 'dono_id'])
+            : null;
+        $equipeAtiva = $empresaCapacidade ? $empresaCapacidade->contarEquipeOperacionalAtiva() : 0;
+        $capacidadeSimultanea = $empresaCapacidade
+            ? min(self::CAPACIDADE_BOXES, $equipeAtiva)
+            : self::CAPACIDADE_BOXES;
+
+        return view('agendamentos.create', compact(
+            'clientes',
+            'servicos',
+            'isAdmin',
+            'empresas',
+            'empresaSelecionadaId',
+            'capacidadeSimultanea',
+            'equipeAtiva'
+        ));
     }
 
     public function store(Request $request)
@@ -1127,11 +1164,23 @@ class AgendamentoController extends Controller
             ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $dataInicio, $dataFimEstimada))
             ->get();
 
+        $capacidadeSimultanea = Empresa::capacidadeSimultaneaPara($empresaId);
+
+        if ($capacidadeSimultanea <= 0) {
+            throw ValidationException::withMessages([
+                'data_inicio' => 'Esta estética não possui profissionais ativos (dono ou funcionários) disponíveis para realizar atendimentos nesta faixa de horário.',
+            ]);
+        }
+
         $picoSimultaneo = $this->calcularPicoBoxes($sobrepostos, $dataInicio, $dataFimEstimada);
 
-        if ($picoSimultaneo >= self::CAPACIDADE_BOXES) {
+        if ($picoSimultaneo >= $capacidadeSimultanea) {
+            $mensagem = $capacidadeSimultanea < self::CAPACIDADE_BOXES
+                ? "Todas as {$capacidadeSimultanea} vagas simultâneas (equipe ativa de {$capacidadeSimultanea} " . ($capacidadeSimultanea === 1 ? 'profissional' : 'profissionais') . ', máx. ' . self::CAPACIDADE_BOXES . ' boxes) estão ocupadas nesta faixa de horário. Escolha outra data ou horário.'
+                : 'Todos os ' . self::CAPACIDADE_BOXES . ' boxes de atendimento simultâneo estão ocupados nesta faixa de horário. Escolha outra data ou horário.';
+
             throw ValidationException::withMessages([
-                'data_inicio' => 'Todos os ' . self::CAPACIDADE_BOXES . ' boxes de atendimento simultâneo estão ocupados nesta faixa de horário. Escolha outra data ou horário.',
+                'data_inicio' => $mensagem,
             ]);
         }
     }
@@ -1341,12 +1390,14 @@ class AgendamentoController extends Controller
     }
 
     /**
-     * Gera eventos de fundo anônimos apenas para faixas de 30 min com todos os 4 boxes ocupados (visão do cliente).
+     * Gera eventos de fundo anônimos para faixas de 30 min com a capacidade simultânea esgotada (visão do cliente).
      *
      * @return array<int, array<string, mixed>>
      */
     private function gerarEventosLotacaoAnonimos(int $empresaId, Carbon $inicioRange, Carbon $fimRange): array
     {
+        $capacidadeSimultanea = Empresa::capacidadeSimultaneaPara($empresaId);
+
         $ocupacaoEmpresa = Agendamento::withoutGlobalScopes()
             ->select(['data_inicio', 'data_fim'])
             ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
@@ -1360,7 +1411,7 @@ class AgendamentoController extends Controller
             ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $inicioRange, $fimRange))
             ->get();
 
-        if ($ocupacaoEmpresa->isEmpty()) {
+        if ($ocupacaoEmpresa->isEmpty() && $capacidadeSimultanea > 0) {
             return [];
         }
 
@@ -1382,7 +1433,7 @@ class AgendamentoController extends Controller
                     return $ag->data_inicio->lt($fechamento) && $agFim->gt($abertura);
                 })->values();
 
-                if ($agDoDia->isNotEmpty()) {
+                if ($capacidadeSimultanea <= 0 || $agDoDia->isNotEmpty()) {
                     $blocoInicio = null;
                     $blocoFim = null;
 
@@ -1391,7 +1442,7 @@ class AgendamentoController extends Controller
                         $slotFim = $slotIni->copy()->addMinutes(self::INTERVALO_SLOT_MINUTOS);
                         $ocupados = $this->calcularPicoBoxes($agDoDia, $slotIni, $slotFim);
 
-                        if ($ocupados >= self::CAPACIDADE_BOXES) {
+                        if ($capacidadeSimultanea <= 0 || $ocupados >= $capacidadeSimultanea) {
                             $blocoInicio ??= $slotIni;
                             $blocoFim = $slotFim;
                         } elseif ($blocoInicio !== null && $blocoFim !== null) {
@@ -1442,7 +1493,8 @@ class AgendamentoController extends Controller
         bool $deixarVeiculo,
         bool $isCliente,
         Collection $agendamentosEmpresa,
-        Collection $agendamentosVeiculo
+        Collection $agendamentosVeiculo,
+        int $capacidadeSimultanea = self::CAPACIDADE_BOXES
     ): array {
         $diasSemanaCurto = [0 => 'Dom', 1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb'];
         $base = [
@@ -1480,8 +1532,8 @@ class AgendamentoController extends Controller
             });
 
             $ocupados = $this->calcularPicoBoxes($agendamentosEmpresa, $slotInicio, $slotFim);
-            $boxesLivres = max(0, self::CAPACIDADE_BOXES - $ocupados);
-            $lotado = $ocupados >= self::CAPACIDADE_BOXES;
+            $vagasLivres = max(0, $capacidadeSimultanea - $ocupados);
+            $lotado = $capacidadeSimultanea <= 0 || $ocupados >= $capacidadeSimultanea;
 
             if (! $noPassado) {
                 $slotsFuturosNoDia++;
@@ -1510,10 +1562,10 @@ class AgendamentoController extends Controller
             } else {
                 $disponivel = true;
                 $motivo = null;
-                $nivel = $boxesLivres === 1 ? 'ultimas_vagas' : 'disponivel';
+                $nivel = $vagasLivres === 1 ? 'ultimas_vagas' : 'disponivel';
                 $vagasLabel = $isCliente
-                    ? ($boxesLivres === 1 ? 'Última vaga' : 'Disponível')
-                    : "{$boxesLivres}/" . self::CAPACIDADE_BOXES . ' boxes';
+                    ? ($vagasLivres === 1 ? 'Última vaga' : 'Disponível')
+                    : "{$vagasLivres}/{$capacidadeSimultanea} " . ($capacidadeSimultanea === 1 ? 'vaga' : 'vagas');
                 $livresNoDia++;
             }
 
@@ -1531,8 +1583,8 @@ class AgendamentoController extends Controller
             ];
 
             if (! $isCliente) {
-                $slotData['boxes_livres'] = $disponivel ? $boxesLivres : 0;
-                $slotData['boxes_total'] = self::CAPACIDADE_BOXES;
+                $slotData['boxes_livres'] = $disponivel ? $vagasLivres : 0;
+                $slotData['boxes_total'] = $capacidadeSimultanea;
             }
 
             $slots[] = $slotData;

@@ -100,6 +100,27 @@ class CalendarioJanelasAgendamentoTest extends TestCase
         );
     }
 
+    /**
+     * @return array<int, User>
+     */
+    private function adicionarFuncionariosAtivos(int $empresaId, int $quantidade, string $prefixo): array
+    {
+        $criados = [];
+        for ($i = 1; $i <= $quantidade; $i++) {
+            $criados[] = User::create([
+                'empresa_id' => $empresaId,
+                'name' => "Equipe {$prefixo} {$i}",
+                'email' => strtolower("equipe.{$prefixo}.{$i}@agenda.test"),
+                'password' => 'SenhaForte123',
+                'telefone' => "(11) 96666-000{$i}",
+                'tipo_usuario' => 'funcionario',
+                'ativo' => true,
+            ]);
+        }
+
+        return $criados;
+    }
+
     public function test_servicos_exigem_multiplos_de_30_minutos_na_criacao_e_edicao(): void
     {
         $ctx = $this->criarEsteticaCompleta('Srv30');
@@ -201,6 +222,7 @@ class CalendarioJanelasAgendamentoTest extends TestCase
     public function test_feed_eventos_para_cliente_oculta_terceiros_e_sinaliza_lotacao_anonima(): void
     {
         $ctx = $this->criarEsteticaCompleta('Cli');
+        $this->adicionarFuncionariosAtivos($ctx['empresa']->id, 3, 'cli4b');
         $quinta = Carbon::now()->next(Carbon::THURSDAY)->setTime(10, 0);
 
         $meuAg = Agendamento::withoutGlobalScopes()->create([
@@ -262,6 +284,7 @@ class CalendarioJanelasAgendamentoTest extends TestCase
     public function test_janelas_disponiveis_respeita_domingo_lotacao_veiculo_pernoite_e_privacidade(): void
     {
         $ctx = $this->criarEsteticaCompleta('Jan');
+        $this->adicionarFuncionariosAtivos($ctx['empresa']->id, 3, 'jan4b');
         $proximaSegunda = Carbon::now()->next(Carbon::MONDAY)->startOfDay();
         $domingoSeguinte = $proximaSegunda->copy()->addDays(6); // Domingo
 
@@ -490,5 +513,142 @@ class CalendarioJanelasAgendamentoTest extends TestCase
             ->assertSessionHas('error');
 
         $this->assertSame('cancelado', $agCancelado->fresh()->status);
+    }
+
+    public function test_capacidade_simultanea_limita_pela_equipe_ativa_incluindo_dono_ate_teto_de_4_boxes(): void
+    {
+        $alfa = $this->criarEsteticaCompleta('CpA');
+        $beta = $this->criarEsteticaCompleta('CpB');
+        $terca09 = Carbon::now()->next(Carbon::TUESDAY)->setTime(9, 0);
+
+        $veiculos = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $veiculos[$i] = Veiculo::withoutGlobalScopes()->create([
+                'cliente_id' => $alfa['cliente']->id,
+                'placa' => "EQP000{$i}",
+                'marca' => 'Honda',
+                'modelo' => "Civic {$i}",
+                'ano' => 2024,
+            ]);
+        }
+
+        // 1. Apenas dono ativo (0 funcionários): capacidade = 1
+        $respAntes = $this->actingAs($alfa['dono'])->getJson(route('agendamentos.janelas-disponiveis', [
+            'data_base' => $terca09->format('Y-m-d'),
+            'dias' => 1,
+            'servicos' => [$alfa['servicoRapido']->id],
+        ]));
+        $respAntes->assertOk()
+            ->assertJsonPath('equipe_ativa', 1)
+            ->assertJsonPath('capacidade_simultanea', 1);
+        $slot09Antes = collect($respAntes->json('dias.0.slots'))->firstWhere('hora', '09:00');
+        $this->assertTrue($slot09Antes['disponivel']);
+        $this->assertSame('1/1 vaga', $slot09Antes['vagas_label']);
+
+        $this->actingAs($alfa['dono'])->post(route('agendamentos.store'), [
+            'cliente_id' => $alfa['cliente']->id,
+            'veiculo_id' => $veiculos[1]->id,
+            'data_inicio' => $terca09->format('Y-m-d\TH:i'),
+            'servicos' => [['servico_id' => $alfa['servicoRapido']->id]],
+        ])->assertRedirect();
+
+        $respDepois1 = $this->actingAs($alfa['dono'])->getJson(route('agendamentos.janelas-disponiveis', [
+            'data_base' => $terca09->format('Y-m-d'),
+            'dias' => 1,
+            'servicos' => [$alfa['servicoRapido']->id],
+        ]));
+        $slot09Depois1 = collect($respDepois1->json('dias.0.slots'))->firstWhere('hora', '09:00');
+        $this->assertFalse($slot09Depois1['disponivel']);
+        $this->assertSame('lotado', $slot09Depois1['motivo']);
+
+        $this->actingAs($alfa['dono'])->post(route('agendamentos.store'), [
+            'cliente_id' => $alfa['cliente']->id,
+            'veiculo_id' => $veiculos[2]->id,
+            'data_inicio' => $terca09->format('Y-m-d\TH:i'),
+            'servicos' => [['servico_id' => $alfa['servicoRapido']->id]],
+        ])->assertSessionHasErrors('data_inicio');
+
+        // 2. Dono + 2 funcionários ativos + 1 inativo => equipe ativa = 3 (permite 3, bloqueia 4º)
+        $this->adicionarFuncionariosAtivos($alfa['empresa']->id, 2, 'capa3');
+        User::create([
+            'empresa_id' => $alfa['empresa']->id,
+            'name' => 'Inativo CapA',
+            'email' => 'inativo.capa@agenda.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 96666-9999',
+            'tipo_usuario' => 'funcionario',
+            'ativo' => false,
+        ]);
+
+        foreach ([2, 3] as $idx) {
+            $this->actingAs($alfa['dono'])->post(route('agendamentos.store'), [
+                'cliente_id' => $alfa['cliente']->id,
+                'veiculo_id' => $veiculos[$idx]->id,
+                'data_inicio' => $terca09->format('Y-m-d\TH:i'),
+                'servicos' => [['servico_id' => $alfa['servicoRapido']->id]],
+            ])->assertRedirect();
+        }
+
+        $this->actingAs($alfa['dono'])->post(route('agendamentos.store'), [
+            'cliente_id' => $alfa['cliente']->id,
+            'veiculo_id' => $veiculos[4]->id,
+            'data_inicio' => $terca09->format('Y-m-d\TH:i'),
+            'servicos' => [['servico_id' => $alfa['servicoRapido']->id]],
+        ])->assertSessionHasErrors('data_inicio');
+
+        // Cliente vê fundo "Horário lotado" com 3/3 ocupados e janelas não vazam equipe_ativa/boxes_livres
+        $respEventosCli = $this->actingAs($alfa['clienteUser'])->getJson(route('agendamentos.eventos', [
+            'start' => $terca09->copy()->startOfDay()->format('Y-m-d\TH:i:s'),
+            'end' => $terca09->copy()->endOfDay()->format('Y-m-d\TH:i:s'),
+        ]));
+        $respEventosCli->assertOk();
+        $fundoLotado = collect($respEventosCli->json())->first(fn ($ev) => ($ev['display'] ?? null) === 'background');
+        $this->assertNotNull($fundoLotado);
+        $this->assertSame('Horário lotado', $fundoLotado['title']);
+
+        $respJanelasCli = $this->actingAs($alfa['clienteUser'])->getJson(route('agendamentos.janelas-disponiveis', [
+            'data_base' => $terca09->format('Y-m-d'),
+            'dias' => 1,
+            'servicos' => [$alfa['servicoRapido']->id],
+        ]));
+        $respJanelasCli->assertOk()
+            ->assertJsonMissingPath('equipe_ativa')
+            ->assertJsonMissingPath('capacidade_simultanea');
+        $slot09Cli = collect($respJanelasCli->json('dias.0.slots'))->firstWhere('hora', '09:00');
+        $this->assertFalse($slot09Cli['disponivel']);
+        $this->assertSame('lotado', $slot09Cli['motivo']);
+        $this->assertArrayNotHasKey('boxes_livres', $slot09Cli);
+
+        // 3. Dono + 5 funcionários ativos (6 pessoas) => teto físico de 4 boxes (permite 4º, bloqueia 5º)
+        $this->adicionarFuncionariosAtivos($alfa['empresa']->id, 3, 'capa6');
+
+        $respComSeis = $this->actingAs($alfa['dono'])->getJson(route('agendamentos.janelas-disponiveis', [
+            'data_base' => $terca09->format('Y-m-d'),
+            'dias' => 1,
+            'servicos' => [$alfa['servicoRapido']->id],
+        ]));
+        $respComSeis->assertOk()
+            ->assertJsonPath('equipe_ativa', 6)
+            ->assertJsonPath('capacidade_simultanea', 4);
+
+        $this->actingAs($alfa['dono'])->post(route('agendamentos.store'), [
+            'cliente_id' => $alfa['cliente']->id,
+            'veiculo_id' => $veiculos[4]->id,
+            'data_inicio' => $terca09->format('Y-m-d\TH:i'),
+            'servicos' => [['servico_id' => $alfa['servicoRapido']->id]],
+        ])->assertRedirect();
+
+        $this->actingAs($alfa['dono'])->post(route('agendamentos.store'), [
+            'cliente_id' => $alfa['cliente']->id,
+            'veiculo_id' => $veiculos[5]->id,
+            'data_inicio' => $terca09->format('Y-m-d\TH:i'),
+            'servicos' => [['servico_id' => $alfa['servicoRapido']->id]],
+        ])->assertSessionHasErrors('data_inicio');
+
+        // 4. Dono com 2 empresas mantém sua contagem na empresa Alfa mesmo ao alternar empresa_id ativa para Beta
+        $beta['empresa']->update(['dono_id' => $alfa['dono']->id]);
+        $alfa['dono']->update(['empresa_id' => $beta['empresa']->id]);
+        $this->assertSame(6, $alfa['empresa']->fresh()->contarEquipeOperacionalAtiva());
+        $this->assertSame(4, $alfa['empresa']->fresh()->calcularCapacidadeSimultanea());
     }
 }

@@ -1,0 +1,344 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1980" height="900" viewBox="0 0 1980 900" font-family="Segoe UI, Roboto, Arial, sans-serif">
+
+  <defs>
+    <pattern id="dotGrid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="14" cy="14" r="1.4" fill="#CBD5E1" opacity="0.65" />
+    </pattern>
+    <filter id="cardShadow" x="-10%" y="-15%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.08" />
+    </filter>
+    <filter id="rootShadow" x="-15%" y="-20%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0284C7" flood-opacity="0.22" />
+    </filter>
+  </defs>
+  <rect width="1980" height="900" fill="#F8FAFC" />
+  <rect width="1980" height="900" fill="url(#dotGrid)" />
+
+<path d="M 868 450 C 810.8 450, 815.2 165, 758 165" fill="none" stroke="#0284C7" stroke-width="6" stroke-linecap="round" />
+<path d="M 492 165 C 460.8 165, 463.2 66, 432 66" fill="none" stroke="#0284C7" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 165 C 460.8 165, 463.2 132, 432 132" fill="none" stroke="#0284C7" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 165 C 460.8 165, 463.2 198, 432 198" fill="none" stroke="#0284C7" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 165 C 460.8 165, 463.2 264, 432 264" fill="none" stroke="#0284C7" stroke-width="3" stroke-linecap="round" />
+<path d="M 868 450 C 810.8 450, 815.2 450, 758 450" fill="none" stroke="#2563EB" stroke-width="6" stroke-linecap="round" />
+<path d="M 492 450 C 460.8 450, 463.2 351, 432 351" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 450 C 460.8 450, 463.2 417, 432 417" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 450 C 460.8 450, 463.2 483, 432 483" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 450 C 460.8 450, 463.2 549, 432 549" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" />
+<path d="M 868 450 C 810.8 450, 815.2 735, 758 735" fill="none" stroke="#7C3AED" stroke-width="6" stroke-linecap="round" />
+<path d="M 492 735 C 460.8 735, 463.2 636, 432 636" fill="none" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 735 C 460.8 735, 463.2 702, 432 702" fill="none" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 735 C 460.8 735, 463.2 768, 432 768" fill="none" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" />
+<path d="M 492 735 C 460.8 735, 463.2 834, 432 834" fill="none" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" />
+<path d="M 1112 450 C 1169.2 450, 1164.8 165, 1222 165" fill="none" stroke="#D97706" stroke-width="6" stroke-linecap="round" />
+<path d="M 1488 165 C 1519.2 165, 1516.8 66, 1548 66" fill="none" stroke="#D97706" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 165 C 1519.2 165, 1516.8 132, 1548 132" fill="none" stroke="#D97706" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 165 C 1519.2 165, 1516.8 198, 1548 198" fill="none" stroke="#D97706" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 165 C 1519.2 165, 1516.8 264, 1548 264" fill="none" stroke="#D97706" stroke-width="3" stroke-linecap="round" />
+<path d="M 1112 450 C 1169.2 450, 1164.8 450, 1222 450" fill="none" stroke="#059669" stroke-width="6" stroke-linecap="round" />
+<path d="M 1488 450 C 1519.2 450, 1516.8 351, 1548 351" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 450 C 1519.2 450, 1516.8 417, 1548 417" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 450 C 1519.2 450, 1516.8 483, 1548 483" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 450 C 1519.2 450, 1516.8 549, 1548 549" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" />
+<path d="M 1112 450 C 1169.2 450, 1164.8 735, 1222 735" fill="none" stroke="#DB2777" stroke-width="6" stroke-linecap="round" />
+<path d="M 1488 735 C 1519.2 735, 1516.8 636, 1548 636" fill="none" stroke="#DB2777" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 735 C 1519.2 735, 1516.8 702, 1548 702" fill="none" stroke="#DB2777" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 735 C 1519.2 735, 1516.8 768, 1548 768" fill="none" stroke="#DB2777" stroke-width="3" stroke-linecap="round" />
+<path d="M 1488 735 C 1519.2 735, 1516.8 834, 1548 834" fill="none" stroke="#DB2777" stroke-width="3" stroke-linecap="round" />
+
+    <g filter="url(#cardShadow)">
+      <rect x="492" y="128" width="266" height="74" rx="18" fill="#FFFFFF" stroke="#0284C7" stroke-width="3.5" />
+      <rect x="498" y="134" width="254" height="62" rx="13" fill="#F0F9FF" />
+      <text x="625" y="159" text-anchor="middle" font-size="20" font-weight="800" fill="#0284C7">RF • Fluxo Operacional</text>
+      <text x="625" y="184" text-anchor="middle" font-size="14.5" font-weight="600" fill="#475569">Agenda → OS → Tarefa → Finanças</text>
+    </g>
+  
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="38" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="48" width="6" height="36" rx="3" fill="#0284C7" />
+        <rect x="30" y="49" width="94" height="34" rx="9" fill="#0284C7" />
+        <text x="77" y="72" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF04</text>
+        <text x="136" y="61" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Agendamentos</text>
+        <text x="136" y="82" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Múltiplos serviços e previsão</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="104" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="114" width="6" height="36" rx="3" fill="#0284C7" />
+        <rect x="30" y="115" width="94" height="34" rx="9" fill="#0284C7" />
+        <text x="77" y="138" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF05</text>
+        <text x="136" y="127" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Ordem de Serviço</text>
+        <text x="136" y="148" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Numeração única e gera tarefas</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="170" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="180" width="6" height="36" rx="3" fill="#0284C7" />
+        <rect x="30" y="181" width="94" height="34" rx="9" fill="#0284C7" />
+        <text x="77" y="204" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF06</text>
+        <text x="136" y="193" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Execução de Tarefas</text>
+        <text x="136" y="214" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Responsável, início/fim e insumos</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="236" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="246" width="6" height="36" rx="3" fill="#0284C7" />
+        <rect x="30" y="247" width="94" height="34" rx="9" fill="#0284C7" />
+        <text x="77" y="270" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF10</text>
+        <text x="136" y="259" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Financeiro &amp; Relatórios</text>
+        <text x="136" y="280" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Receita na conclusão e saldo</text>
+      </g>
+    
+
+    <g filter="url(#cardShadow)">
+      <rect x="492" y="413" width="266" height="74" rx="18" fill="#FFFFFF" stroke="#2563EB" stroke-width="3.5" />
+      <rect x="498" y="419" width="254" height="62" rx="13" fill="#EFF6FF" />
+      <text x="625" y="444" text-anchor="middle" font-size="20" font-weight="800" fill="#2563EB">RF • Base, Estoque &amp; Perfis</text>
+      <text x="625" y="469" text-anchor="middle" font-size="14.5" font-weight="600" fill="#475569">Cadastros, Insumos e Acesso</text>
+    </g>
+  
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="323" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="333" width="6" height="36" rx="3" fill="#2563EB" />
+        <rect x="30" y="334" width="94" height="34" rx="9" fill="#2563EB" />
+        <text x="77" y="357" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF01–03</text>
+        <text x="136" y="346" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Cadastros Base</text>
+        <text x="136" y="367" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Clientes, veículos e serviços</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="389" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="399" width="6" height="36" rx="3" fill="#2563EB" />
+        <rect x="30" y="400" width="94" height="34" rx="9" fill="#2563EB" />
+        <text x="77" y="423" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF07–09</text>
+        <text x="136" y="412" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Controle de Estoque</text>
+        <text x="136" y="433" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Produtos, histórico e alertas</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="455" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="465" width="6" height="36" rx="3" fill="#2563EB" />
+        <rect x="30" y="466" width="94" height="34" rx="9" fill="#2563EB" />
+        <text x="77" y="489" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF11–13</text>
+        <text x="136" y="478" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Acesso &amp; 4 Perfis</text>
+        <text x="136" y="499" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Admin, Dono, Func. e Cliente</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="521" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="531" width="6" height="36" rx="3" fill="#2563EB" />
+        <rect x="30" y="532" width="94" height="34" rx="9" fill="#2563EB" />
+        <text x="77" y="555" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RF14–15</text>
+        <text x="136" y="544" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Painéis &amp; Multi-empresa</text>
+        <text x="136" y="565" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Portal do cliente e isolamento</text>
+      </g>
+    
+
+    <g filter="url(#cardShadow)">
+      <rect x="492" y="698" width="266" height="74" rx="18" fill="#FFFFFF" stroke="#7C3AED" stroke-width="3.5" />
+      <rect x="498" y="704" width="254" height="62" rx="13" fill="#F5F3FF" />
+      <text x="625" y="729" text-anchor="middle" font-size="20" font-weight="800" fill="#7C3AED">RNF • Técnica &amp; Qualidade</text>
+      <text x="625" y="754" text-anchor="middle" font-size="14.5" font-weight="600" fill="#475569">8 Requisitos Não Funcionais</text>
+    </g>
+  
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="608" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="618" width="6" height="36" rx="3" fill="#7C3AED" />
+        <rect x="30" y="619" width="94" height="34" rx="9" fill="#7C3AED" />
+        <text x="77" y="642" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RNF01–02</text>
+        <text x="136" y="631" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Web &amp; Stack Laravel</text>
+        <text x="136" y="652" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">PHP 8.3, Laravel 13 e Blade</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="674" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="684" width="6" height="36" rx="3" fill="#7C3AED" />
+        <rect x="30" y="685" width="94" height="34" rx="9" fill="#7C3AED" />
+        <text x="77" y="708" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RNF03–04</text>
+        <text x="136" y="697" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">BD 3FN &amp; MVC + Services</text>
+        <text x="136" y="718" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">MySQL relacional e Migrations</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="740" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="750" width="6" height="36" rx="3" fill="#7C3AED" />
+        <rect x="30" y="751" width="94" height="34" rx="9" fill="#7C3AED" />
+        <text x="77" y="774" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RNF05–06</text>
+        <text x="136" y="763" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Segurança &amp; Atomicidade</text>
+        <text x="136" y="784" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Bcrypt, CSRF e lock de saldo</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="18" y="806" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="426" y="816" width="6" height="36" rx="3" fill="#7C3AED" />
+        <rect x="30" y="817" width="94" height="34" rx="9" fill="#7C3AED" />
+        <text x="77" y="840" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RNF07–08</text>
+        <text x="136" y="829" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Acessibilidade &amp; Testes</text>
+        <text x="136" y="850" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Tema escuro, VLibras e PHPUnit</text>
+      </g>
+    
+
+    <g filter="url(#cardShadow)">
+      <rect x="1222" y="128" width="266" height="74" rx="18" fill="#FFFFFF" stroke="#D97706" stroke-width="3.5" />
+      <rect x="1228" y="134" width="254" height="62" rx="13" fill="#FFFBEB" />
+      <text x="1355" y="159" text-anchor="middle" font-size="20" font-weight="800" fill="#D97706">RN • Regras de Agenda</text>
+      <text x="1355" y="184" text-anchor="middle" font-size="14.5" font-weight="600" fill="#475569">Horários, Frota &amp; Prazos</text>
+    </g>
+  
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="38" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="48" width="6" height="36" rx="3" fill="#D97706" />
+        <rect x="1560" y="49" width="94" height="34" rx="9" fill="#D97706" />
+        <text x="1607" y="72" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN01</text>
+        <text x="1666" y="61" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Vínculo Veículo–Cliente</text>
+        <text x="1666" y="82" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Veículo pertence ao contratante</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="104" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="114" width="6" height="36" rx="3" fill="#D97706" />
+        <rect x="1560" y="115" width="94" height="34" rx="9" fill="#D97706" />
+        <text x="1607" y="138" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN08</text>
+        <text x="1666" y="127" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Expediente &amp; Capacidade</text>
+        <text x="1666" y="148" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">08h–18h, sem dom., máx. 4 carros</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="170" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="180" width="6" height="36" rx="3" fill="#D97706" />
+        <rect x="1560" y="181" width="94" height="34" rx="9" fill="#D97706" />
+        <text x="1607" y="204" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN09</text>
+        <text x="1666" y="193" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Previsão de Conclusão</text>
+        <text x="1666" y="214" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Soma dos serviços + 30 minutos</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="236" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="246" width="6" height="36" rx="3" fill="#D97706" />
+        <rect x="1560" y="247" width="94" height="34" rx="9" fill="#D97706" />
+        <text x="1607" y="270" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN10</text>
+        <text x="1666" y="259" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Cancelamento no Portal</text>
+        <text x="1666" y="280" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Antecedência mínima de 1 hora</text>
+      </g>
+    
+
+    <g filter="url(#cardShadow)">
+      <rect x="1222" y="413" width="266" height="74" rx="18" fill="#FFFFFF" stroke="#059669" stroke-width="3.5" />
+      <rect x="1228" y="419" width="254" height="62" rx="13" fill="#ECFDF5" />
+      <text x="1355" y="444" text-anchor="middle" font-size="20" font-weight="800" fill="#059669">RN • OS, Tarefas &amp; Receita</text>
+      <text x="1355" y="469" text-anchor="middle" font-size="14.5" font-weight="600" fill="#475569">Encadeamento e Lançamento</text>
+    </g>
+  
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="323" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="333" width="6" height="36" rx="3" fill="#059669" />
+        <rect x="1560" y="334" width="94" height="34" rx="9" fill="#059669" />
+        <text x="1607" y="357" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN02</text>
+        <text x="1666" y="346" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Geração de OS e Tarefas</text>
+        <text x="1666" y="367" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">1 OS/agenda • 1 tarefa/serviço</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="389" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="399" width="6" height="36" rx="3" fill="#059669" />
+        <rect x="1560" y="400" width="94" height="34" rx="9" fill="#059669" />
+        <text x="1607" y="423" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN03</text>
+        <text x="1666" y="412" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Ciclo da Tarefa</text>
+        <text x="1666" y="433" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Exige responsável e início prévio</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="455" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="465" width="6" height="36" rx="3" fill="#059669" />
+        <rect x="1560" y="466" width="94" height="34" rx="9" fill="#059669" />
+        <text x="1607" y="489" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN04</text>
+        <text x="1666" y="478" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Receita sem Duplicidade</text>
+        <text x="1666" y="499" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">1 lançamento único por tarefa</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="521" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="531" width="6" height="36" rx="3" fill="#059669" />
+        <rect x="1560" y="532" width="94" height="34" rx="9" fill="#059669" />
+        <text x="1607" y="555" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN05</text>
+        <text x="1666" y="544" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Fechamento Automático</text>
+        <text x="1666" y="565" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Última tarefa encerra OS/agenda</text>
+      </g>
+    
+
+    <g filter="url(#cardShadow)">
+      <rect x="1222" y="698" width="266" height="74" rx="18" fill="#FFFFFF" stroke="#DB2777" stroke-width="3.5" />
+      <rect x="1228" y="704" width="254" height="62" rx="13" fill="#FDF2F8" />
+      <text x="1355" y="729" text-anchor="middle" font-size="20" font-weight="800" fill="#DB2777">RN • Estoque &amp; Integridade</text>
+      <text x="1355" y="754" text-anchor="middle" font-size="14.5" font-weight="600" fill="#475569">Saldo, Perfis &amp; Dados</text>
+    </g>
+  
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="608" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="618" width="6" height="36" rx="3" fill="#DB2777" />
+        <rect x="1560" y="619" width="94" height="34" rx="9" fill="#DB2777" />
+        <text x="1607" y="642" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN06</text>
+        <text x="1666" y="631" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Baixa &amp; Saldo Positivo</text>
+        <text x="1666" y="652" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Rejeita saída maior que o saldo</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="674" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="684" width="6" height="36" rx="3" fill="#DB2777" />
+        <rect x="1560" y="685" width="94" height="34" rx="9" fill="#DB2777" />
+        <text x="1607" y="708" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN07</text>
+        <text x="1666" y="697" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Alerta de Estoque Mín.</text>
+        <text x="1666" y="718" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Sinaliza saldo ≤ estoque mínimo</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="740" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="750" width="6" height="36" rx="3" fill="#DB2777" />
+        <rect x="1560" y="751" width="94" height="34" rx="9" fill="#DB2777" />
+        <text x="1607" y="774" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN11</text>
+        <text x="1666" y="763" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Isolamento de Acesso</text>
+        <text x="1666" y="784" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Restrição por perfil e empresa</text>
+      </g>
+    
+
+      <g filter="url(#cardShadow)">
+        <rect x="1548" y="806" width="414" height="56" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.8" />
+        <rect x="1548" y="816" width="6" height="36" rx="3" fill="#DB2777" />
+        <rect x="1560" y="817" width="94" height="34" rx="9" fill="#DB2777" />
+        <text x="1607" y="840" text-anchor="middle" font-size="17" font-weight="800" fill="#FFFFFF">RN12–13</text>
+        <text x="1666" y="829" text-anchor="start" font-size="17.5" font-weight="700" fill="#0F172A">Integridade &amp; Docs</text>
+        <text x="1666" y="850" text-anchor="start" font-size="14.5" font-weight="500" fill="#475569">Sem exclusão + valida CPF/CNPJ</text>
+      </g>
+    
+
+  <g filter="url(#rootShadow)">
+    <rect x="868" y="379" width="244" height="142" rx="28" fill="#0F172A" stroke="#0284C7" stroke-width="5" />
+    <text x="990" y="418" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="2" fill="#38BDF8">SISTEMA WEB</text>
+    <text x="990" y="458" text-anchor="middle" font-size="36" font-weight="900" fill="#FFFFFF">KR DETAIL</text>
+    <rect x="894" y="474" width="192" height="28" rx="14" fill="#1E293B" />
+    <text x="990" y="493" text-anchor="middle" font-size="14.5" font-weight="700" fill="#BAE6FD">15 RF • 8 RNF • 13 RN</text>
+  </g>
+
+</svg>

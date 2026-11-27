@@ -79,6 +79,17 @@ class EdgeCasesOperacionaisTest extends TestCase
     public function test_capacidade_de_quatro_boxes_sweep_line_e_limite_fim_expediente(): void
     {
         $ctx = $this->criarContextoOficina();
+        for ($f = 1; $f <= 3; $f++) {
+            User::create([
+                'empresa_id' => $ctx['empresa']->id,
+                'name' => "Tecnico Box {$f}",
+                'email' => "tec.edge{$f}@krdetail.test",
+                'password' => 'SenhaForte123',
+                'telefone' => "(11) 91234-000{$f}",
+                'tipo_usuario' => 'funcionario',
+                'ativo' => true,
+            ]);
+        }
         $this->actingAs($ctx['dono']);
 
         $segunda = Carbon::now()->next(Carbon::MONDAY)->setTime(9, 0);

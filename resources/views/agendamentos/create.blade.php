@@ -253,6 +253,12 @@
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
+                            @php
+                                $capacidadeAtualView = (int) ($capacidadeSimultanea ?? \App\Http\Controllers\AgendamentoController::CAPACIDADE_BOXES);
+                                $hintDataInicio = $isCliente
+                                    ? 'Atendimento de Segunda a Sábado, das 08:00 às 18:00 (janelas de 30 min).'
+                                    : "Atendimento de Segunda a Sábado, das 08:00 às 18:00 (janelas de 30 min • capacidade atual: {$capacidadeAtualView} de " . \App\Http\Controllers\AgendamentoController::CAPACIDADE_BOXES . ' boxes conforme equipe ativa).';
+                            @endphp
                             <x-input
                                 type="datetime-local"
                                 name="data_inicio"
@@ -260,7 +266,7 @@
                                 label="Data e Horário Desejados"
                                 min="{{ now()->format('Y-m-d\TH:i') }}"
                                 :value="old('data_inicio', $padraoInicio->format('Y-m-d\TH:i'))"
-                                hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00 (janelas de 30 min, 4 boxes simultâneos)."
+                                :hint="$hintDataInicio"
                                 required
                             />
                             <p id="erro_data_inicio" class="text-xs text-destructive mt-1 font-medium hidden">

@@ -130,6 +130,18 @@ class AgendamentoTest extends TestCase
     public function test_respeita_limite_de_capacidade_simultanea_de_4_boxes(): void
     {
         $dados = $this->criarCenarioBasico();
+        for ($f = 1; $f <= 3; $f++) {
+            User::create([
+                'empresa_id' => $dados['empresa']->id,
+                'name' => "Operador Box {$f}",
+                'email' => "operador.box{$f}@krdetail.test",
+                'password' => '12345678',
+                'telefone' => "(11) 98888-000{$f}",
+                'tipo_usuario' => 'funcionario',
+                'ativo' => true,
+            ]);
+        }
+
         $inicio = Carbon::now()->next(Carbon::FRIDAY)->setTime(10, 0, 0);
 
         for ($i = 1; $i <= 4; $i++) {

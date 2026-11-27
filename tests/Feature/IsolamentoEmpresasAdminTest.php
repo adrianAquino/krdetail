@@ -564,7 +564,18 @@ class IsolamentoEmpresasAdminTest extends TestCase
         $this->assertSame(150.0, (float) $servAlfa->preco_base);
         $this->assertSame(290.0, (float) $servBeta->preco_base);
 
-        // 2. Lotar os 4 boxes de Alfa na quarta-feira às 10:00 NÃO bloqueia agendamento em Beta no mesmo horário
+        // 2. Lotar os 4 boxes de Alfa (dono + tecnico + 2 extras = 4 profissionais ativos) na quarta às 10:00 NÃO bloqueia Beta
+        for ($f = 1; $f <= 2; $f++) {
+            User::create([
+                'empresa_id' => $alfa['empresa']->id,
+                'name' => "Tecnico Extra Alfa {$f}",
+                'email' => "func.alfa.extra{$f}@krdetail.test",
+                'password' => 'SenhaForte123',
+                'telefone' => "(11) 92222-100{$f}",
+                'tipo_usuario' => 'funcionario',
+                'ativo' => true,
+            ]);
+        }
         $this->actingAs($alfa['dono']);
         $quarta10 = now()->next(\Carbon\Carbon::WEDNESDAY)->setTime(10, 0, 0);
         for ($i = 1; $i <= 4; $i++) {

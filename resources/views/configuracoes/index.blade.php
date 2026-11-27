@@ -1034,8 +1034,22 @@
                     </div>
 
                     <div class="p-3.5 rounded-lg bg-secondary/20 border border-border">
-                        <p class="text-muted-foreground">Boxes Simultâneos (Capacidade)</p>
-                        <p class="font-bold text-foreground text-sm mt-1">4 boxes simultâneos</p>
+                        <p class="text-muted-foreground">Capacidade Simultânea (Boxes × Equipe)</p>
+                        @if(isset($empresaAtual) && $empresaAtual)
+                            @php
+                                $capAtualPref = $empresaAtual->calcularCapacidadeSimultanea();
+                                $eqAtualPref = $empresaAtual->contarEquipeOperacionalAtiva();
+                            @endphp
+                            <p class="font-bold text-foreground text-sm mt-1">
+                                {{ $capAtualPref }} {{ $capAtualPref === 1 ? 'vaga simultânea' : 'vagas simultâneas' }}
+                            </p>
+                            <p class="text-[11px] text-muted-foreground mt-0.5">
+                                {{ $eqAtualPref }} {{ $eqAtualPref === 1 ? 'profissional ativo' : 'profissionais ativos' }} (incluindo dono) • máx. 4 boxes
+                            </p>
+                        @else
+                            <p class="font-bold text-foreground text-sm mt-1">Até 4 boxes simultâneos</p>
+                            <p class="text-[11px] text-muted-foreground mt-0.5">Limitado à equipe ativa (funcionários + dono) de cada estética</p>
+                        @endif
                     </div>
 
                     <div class="p-3.5 rounded-lg bg-secondary/20 border border-border">
