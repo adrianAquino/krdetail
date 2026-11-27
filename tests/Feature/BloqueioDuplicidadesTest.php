@@ -92,7 +92,7 @@ class BloqueioDuplicidadesTest extends TestCase
         $this->actingAs($alfa['dono'])->put(route('servicos.update', $servicoAtivo), [
             'nome' => 'Lavagem   Técnica',
             'preco_base' => 170.00,
-            'tempo_estimado_minutos' => 75,
+            'tempo_estimado_minutos' => 90,
             'ativo' => true,
         ])->assertRedirect(route('servicos.index'))->assertSessionHas('success');
         $this->assertSame('Lavagem Técnica', $servicoAtivo->fresh()->nome);
@@ -101,7 +101,7 @@ class BloqueioDuplicidadesTest extends TestCase
         $this->actingAs($alfa['dono'])->put(route('servicos.update', $servicoAtivo), [
             'nome' => $servicoInativo->nome,
             'preco_base' => 170.00,
-            'tempo_estimado_minutos' => 75,
+            'tempo_estimado_minutos' => 90,
             'ativo' => true,
         ])->assertSessionHasErrors('nome');
         $this->assertSame('Lavagem Técnica', $servicoAtivo->fresh()->nome);

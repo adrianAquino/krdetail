@@ -68,16 +68,16 @@
                         <div>
                             <x-input
                                 type="number"
-                                min="10"
+                                min="30"
                                 max="1440"
-                                step="1"
+                                step="30"
                                 name="tempo_estimado_minutos"
                                 label="Tempo Estimado (em minutos)"
                                 placeholder="Ex: 180 (3 horas)"
                                 :value="old('tempo_estimado_minutos')"
                                 required
                             />
-                            <p class="text-[11px] text-muted-foreground mt-1">Ex: 60 = 1 hora, 120 = 2 horas, 240 = 4 horas.</p>
+                            <p class="text-[11px] text-muted-foreground mt-1">Múltiplos de 30 min (ex.: 30 = 30min, 60 = 1h, 90 = 1h30, 180 = 3h) para alinhar às janelas da agenda.</p>
                         </div>
                     </div>
 

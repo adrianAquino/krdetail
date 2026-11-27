@@ -48,6 +48,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Agendamentos (Clientes visualizam andamento/histórico e criam/cancelam agendamentos próprios)
     Route::get('/agendamentos', [AgendamentoController::class, 'index'])->name('agendamentos.index');
+    Route::get('/agendamentos/eventos', [AgendamentoController::class, 'eventos'])->name('agendamentos.eventos');
+    Route::get('/agendamentos/janelas-disponiveis', [AgendamentoController::class, 'janelasDisponiveis'])->name('agendamentos.janelas-disponiveis');
     Route::get('/agendamentos/create', [AgendamentoController::class, 'create'])->name('agendamentos.create');
     Route::post('/agendamentos', [AgendamentoController::class, 'store'])->name('agendamentos.store');
     Route::get('/agendamentos/{agendamento}', [AgendamentoController::class, 'show'])->name('agendamentos.show');

@@ -194,7 +194,8 @@
             if (!clienteSelect || !veiculoSelect) return;
             const clienteId = clienteSelect.value;
             const veiculos = clientesVeiculos[clienteId] || [];
-            const jaSelecionado = veiculoSelect.value || veiculoSelecionadoAtual;
+            const valorAntes = veiculoSelect.value;
+            const jaSelecionado = valorAntes || veiculoSelecionadoAtual;
 
             veiculoSelect.replaceChildren();
 
@@ -225,6 +226,10 @@
                 }
 
                 renderAvisoVeiculo(false);
+            }
+
+            if (veiculoSelect.value !== valorAntes) {
+                veiculoSelect.dispatchEvent(new Event('change'));
             }
         }
 
@@ -322,6 +327,7 @@
                         atualizarVeiculos();
                         if (veiculoSelect) {
                             veiculoSelect.value = String(data.veiculo.id);
+                            veiculoSelect.dispatchEvent(new Event('change'));
                         }
                     }
 

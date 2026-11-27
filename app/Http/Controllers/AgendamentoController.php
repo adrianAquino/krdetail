@@ -11,7 +11,9 @@ use App\Models\User;
 use App\Models\Veiculo;
 use App\Services\MovimentarEstoqueService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -22,6 +24,7 @@ use Illuminate\Validation\ValidationException;
 class AgendamentoController extends Controller
 {
     public const GARGALO_MINUTOS = 30;
+    public const INTERVALO_SLOT_MINUTOS = 30;
     public const CAPACIDADE_BOXES = 4;
     public const HORA_ABERTURA = 8;
     public const HORA_FECHAMENTO = 18;
@@ -49,27 +52,232 @@ class AgendamentoController extends Controller
             $query->where('cliente_id', $cliente->id);
         }
 
-        $status = trim($this->inputString($request, 'status'));
-        if (in_array($status, ['agendado', 'confirmado', 'em_andamento', 'concluido', 'cancelado'], true)) {
-            $query->where('status', $status);
-        }
-
-        $busca = trim($this->inputString($request, 'busca'));
-        if ($busca !== '') {
-            $query->where(function ($q) use ($busca, $isCliente) {
-                $q->whereHas('veiculo', fn ($vq) => $vq->where('placa', 'like', "%{$busca}%")
-                    ->orWhere('modelo', 'like', "%{$busca}%")
-                    ->orWhere('marca', 'like', "%{$busca}%"));
-
-                if (! $isCliente) {
-                    $q->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
-                }
-            });
-        }
+        $this->aplicarFiltrosListagem($query, $request, $isCliente);
 
         $agendamentos = $query->orderByDesc('data_inicio')->paginate(15)->withQueryString();
 
         return view('agendamentos.index', array_merge(compact('agendamentos'), $filtroAdmin));
+    }
+
+    /**
+     * Feed JSON de eventos para o FullCalendar na listagem de agendamentos.
+     */
+    public function eventos(Request $request): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isCliente = $user instanceof User && $user->isCliente();
+
+        if (! $isCliente) {
+            $this->resolverFiltroEmpresaAdmin($request);
+        }
+
+        [$inicioRange, $fimRange] = $this->parseRangeCalendario($request);
+
+        $query = Agendamento::with([
+            'empresa',
+            'cliente' => fn ($q) => $q->withoutGlobalScopes(),
+            'veiculo' => fn ($q) => $q->withoutGlobalScopes(),
+            'servicos',
+            'agendamentosServicos.servico',
+        ]);
+
+        if ($isCliente) {
+            $cliente = $user->ensureClienteProfile();
+            $query->where('cliente_id', $cliente->id);
+        }
+
+        $this->aplicarFiltrosListagem($query, $request, $isCliente);
+        $this->aplicarFiltroSobreposicao($query, $inicioRange, $fimRange);
+
+        $agendamentos = $query->orderBy('data_inicio')->get();
+
+        $eventos = $agendamentos->map(function (Agendamento $ag) use ($isCliente) {
+            $cfg = $this->configuracaoVisualStatus((string) $ag->status);
+            $start = $ag->data_inicio;
+            $end = $ag->data_fim ?? $start->copy()->addHour();
+            $placa = $ag->veiculo?->placa ?? '';
+            $veiculoTexto = trim(implode(' ', array_filter([
+                $ag->veiculo?->marca,
+                $ag->veiculo?->modelo,
+                $placa !== '' ? "({$placa})" : null,
+            ])));
+            $servicosTexto = $ag->servicos_nomes;
+
+            if ($isCliente) {
+                $titulo = $placa !== ''
+                    ? ($servicosTexto !== '' ? "{$placa} — {$servicosTexto}" : "Veículo {$placa}")
+                    : ($servicosTexto !== '' ? $servicosTexto : 'Meu Agendamento');
+            } else {
+                $clienteNome = $ag->cliente?->nome ?? 'Cliente';
+                $titulo = $placa !== '' ? "{$clienteNome} • {$placa}" : $clienteNome;
+            }
+
+            $extended = [
+                'tipo' => $isCliente ? 'proprio' : 'equipe',
+                'status' => $ag->status,
+                'statusLabel' => $cfg['label'],
+                'veiculo' => $veiculoTexto,
+                'placa' => $placa,
+                'servicos' => $servicosTexto,
+                'empresa' => $ag->empresa?->nome_fantasia,
+                'deixarVeiculo' => (bool) $ag->deixar_veiculo,
+            ];
+
+            if (! $isCliente) {
+                $extended['cliente'] = $ag->cliente?->nome ?? 'Cliente';
+                $extended['valorTotal'] = (float) $ag->valor_total;
+            }
+
+            return [
+                'id' => (string) $ag->id,
+                'title' => $titulo,
+                'start' => $start->format('Y-m-d\TH:i:s'),
+                'end' => $end->format('Y-m-d\TH:i:s'),
+                'url' => route('agendamentos.show', $ag->id),
+                'backgroundColor' => $cfg['bg'],
+                'borderColor' => $cfg['border'],
+                'textColor' => $cfg['text'],
+                'extendedProps' => $extended,
+            ];
+        })->values()->all();
+
+        if ($isCliente) {
+            $cliente = $user->ensureClienteProfile();
+            $empresaId = $cliente->empresa_id
+                ? (int) $cliente->empresa_id
+                : $user->getEmpresaAtivaId();
+
+            if ($empresaId) {
+                $eventos = array_merge(
+                    $eventos,
+                    $this->gerarEventosLotacaoAnonimos($empresaId, $inicioRange, $fimRange)
+                );
+            }
+        }
+
+        return response()->json($eventos);
+    }
+
+    /**
+     * Feed JSON de janelas de horários futuras (de 30 em 30 min) para planejamento no formulário.
+     */
+    public function janelasDisponiveis(Request $request): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+        [$semEstetica, $empresaId, $veiculoValidoId, $isCliente] = $this->resolverContextoJanelas($request, $user);
+
+        if ($semEstetica || ! $empresaId) {
+            return response()->json([
+                'sem_estetica' => true,
+                'duracao_servicos_minutos' => 0,
+                'gargalo_minutos' => self::GARGALO_MINUTOS,
+                'duracao_total_minutos' => 0,
+                'servicos_selecionados_count' => 0,
+                'usando_previa_padrao' => true,
+                'dias' => [],
+            ]);
+        }
+
+        $hoje = Carbon::today();
+        $dataBaseRaw = trim($this->inputString($request, 'data_base'));
+        try {
+            $dataBase = $dataBaseRaw !== ''
+                ? Carbon::createFromFormat('Y-m-d', $dataBaseRaw)->startOfDay()
+                : $hoje->copy();
+        } catch (\Throwable) {
+            $dataBase = $hoje->copy();
+        }
+
+        if ($dataBase->lt($hoje)) {
+            $dataBase = $hoje->copy();
+        } elseif ($dataBase->gt($hoje->copy()->addDays(365))) {
+            $dataBase = $hoje->copy()->addDays(365);
+        }
+
+        $diasQtd = min(21, max(1, $request->integer('dias', 14)));
+        $deixarVeiculo = $request->boolean('deixar_veiculo');
+        $ignorarAgendamentoId = $request->integer('ignorar_agendamento_id') ?: null;
+
+        $servicosRaw = $request->input('servicos', []);
+        $servicosIds = collect(is_array($servicosRaw) ? $servicosRaw : [])
+            ->map(fn ($item) => is_array($item) ? ($item['servico_id'] ?? null) : $item)
+            ->filter(fn ($v) => is_scalar($v) && is_numeric($v))
+            ->map(fn ($v) => (int) $v)
+            ->filter(fn ($v) => $v > 0)
+            ->unique()
+            ->values();
+
+        $servicosModels = $servicosIds->isNotEmpty()
+            ? Servico::withoutGlobalScopes()
+                ->where('empresa_id', $empresaId)
+                ->where('ativo', true)
+                ->whereIn('id', $servicosIds)
+                ->get(['id', 'tempo_estimado_minutos'])
+            : collect();
+
+        $servicosCount = $servicosModels->count();
+        $usandoPrevia = $servicosCount === 0;
+        $duracaoServicos = $usandoPrevia
+            ? self::INTERVALO_SLOT_MINUTOS
+            : (int) $servicosModels->sum('tempo_estimado_minutos');
+        $duracaoTotal = $duracaoServicos + self::GARGALO_MINUTOS;
+
+        $fimConsulta = $dataBase->copy()->addDays($diasQtd + 4)->endOfDay();
+
+        $agendamentosEmpresa = Agendamento::withoutGlobalScopes()
+            ->select(['id', 'veiculo_id', 'data_inicio', 'data_fim'])
+            ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
+            ->when($ignorarAgendamentoId, fn ($q) => $q->where('id', '!=', $ignorarAgendamentoId))
+            ->where(function ($q) use ($empresaId) {
+                $q->where('empresa_id', $empresaId)
+                    ->orWhere(function ($q2) use ($empresaId) {
+                        $q2->whereNull('empresa_id')
+                            ->whereHas('cliente', fn ($cq) => $cq->withoutGlobalScopes()->where('empresa_id', $empresaId));
+                    });
+            })
+            ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $dataBase, $fimConsulta))
+            ->get();
+
+        $agendamentosVeiculo = $veiculoValidoId
+            ? Agendamento::withoutGlobalScopes()
+                ->select(['id', 'veiculo_id', 'data_inicio', 'data_fim'])
+                ->where('veiculo_id', $veiculoValidoId)
+                ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
+                ->when($ignorarAgendamentoId, fn ($q) => $q->where('id', '!=', $ignorarAgendamentoId))
+                ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $dataBase, $fimConsulta))
+                ->get()
+            : collect();
+
+        $resultadoDias = [];
+        for ($i = 0; $i < $diasQtd; $i++) {
+            $dia = $dataBase->copy()->addDays($i)->startOfDay();
+            $resultadoDias[] = $this->avaliarDiaJanelas(
+                dia: $dia,
+                duracaoTotal: $duracaoTotal,
+                deixarVeiculo: $deixarVeiculo,
+                isCliente: $isCliente,
+                agendamentosEmpresa: $agendamentosEmpresa,
+                agendamentosVeiculo: $agendamentosVeiculo
+            );
+        }
+
+        $capacidadeDiariaMinutos = (self::HORA_FECHAMENTO - self::HORA_ABERTURA) * 60;
+
+        return response()->json([
+            'sem_estetica' => false,
+            'data_base' => $dataBase->format('Y-m-d'),
+            'dias_qtd' => $diasQtd,
+            'duracao_servicos_minutos' => $duracaoServicos,
+            'gargalo_minutos' => self::GARGALO_MINUTOS,
+            'duracao_total_minutos' => $duracaoTotal,
+            'servicos_selecionados_count' => $servicosCount,
+            'usando_previa_padrao' => $usandoPrevia,
+            'ultrapassa_um_dia_util' => $duracaoTotal > $capacidadeDiariaMinutos,
+            'deixar_veiculo' => $deixarVeiculo,
+            'dias' => $resultadoDias,
+        ]);
     }
 
     public function create(Request $request)
@@ -856,23 +1064,12 @@ class AgendamentoController extends Controller
         Carbon $dataFimEstimada,
         ?int $ignorarAgendamentoId = null
     ): void {
-        $aplicarSobreposicao = function ($query) use ($dataInicio, $dataFimEstimada) {
-            $query->where('data_inicio', '<', $dataFimEstimada)
-                ->where(function ($q) use ($dataInicio) {
-                    $q->where('data_fim', '>', $dataInicio)
-                        ->orWhere(function ($q2) use ($dataInicio) {
-                            $q2->whereNull('data_fim')
-                                ->where('data_inicio', '>', $dataInicio->copy()->subHours(2));
-                        });
-                });
-        };
-
         $conflitoVeiculo = Agendamento::withoutGlobalScopes()
             ->with(['veiculo' => fn ($q) => $q->withoutGlobalScopes()])
             ->where('veiculo_id', $veiculoId)
             ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
             ->when($ignorarAgendamentoId, fn ($q) => $q->where('id', '!=', $ignorarAgendamentoId))
-            ->tap($aplicarSobreposicao)
+            ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $dataInicio, $dataFimEstimada))
             ->orderBy('data_inicio')
             ->first();
 
@@ -902,7 +1099,7 @@ class AgendamentoController extends Controller
                         });
                 });
             })
-            ->tap($aplicarSobreposicao)
+            ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $dataInicio, $dataFimEstimada))
             ->get();
 
         $picoSimultaneo = $this->calcularPicoBoxes($sobrepostos, $dataInicio, $dataFimEstimada);
@@ -912,5 +1109,425 @@ class AgendamentoController extends Controller
                 'data_inicio' => 'Todos os ' . self::CAPACIDADE_BOXES . ' boxes de atendimento simultâneo estão ocupados nesta faixa de horário. Escolha outra data ou horário.',
             ]);
         }
+    }
+
+    /**
+     * Aplica filtros de status e busca compartilhados entre listagem e calendário.
+     */
+    private function aplicarFiltrosListagem(Builder $query, Request $request, bool $isCliente): void
+    {
+        $status = trim($this->inputString($request, 'status'));
+        if (in_array($status, ['agendado', 'confirmado', 'em_andamento', 'concluido', 'cancelado'], true)) {
+            $query->where('status', $status);
+        }
+
+        $busca = trim($this->inputString($request, 'busca'));
+        if ($busca !== '') {
+            $query->where(function ($q) use ($busca, $isCliente) {
+                $q->whereHas('veiculo', fn ($vq) => $vq->where('placa', 'like', "%{$busca}%")
+                    ->orWhere('modelo', 'like', "%{$busca}%")
+                    ->orWhere('marca', 'like', "%{$busca}%"));
+
+                if (! $isCliente) {
+                    $q->orWhereHas('cliente', fn ($cq) => $cq->where('nome', 'like', "%{$busca}%"));
+                }
+            });
+        }
+    }
+
+    /**
+     * Restringe a query a agendamentos cujo intervalo sobrepõe [inicio, fim].
+     */
+    private function aplicarFiltroSobreposicao(Builder $query, Carbon $inicio, Carbon $fim): void
+    {
+        $query->where('data_inicio', '<', $fim)
+            ->where(function ($q) use ($inicio) {
+                $q->where('data_fim', '>', $inicio)
+                    ->orWhere(function ($q2) use ($inicio) {
+                        $q2->whereNull('data_fim')
+                            ->where('data_inicio', '>', $inicio->copy()->subHours(2));
+                    });
+            });
+    }
+
+    /**
+     * Faz parse seguro do intervalo start/end enviado pelo FullCalendar (limitado a 93 dias).
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function parseRangeCalendario(Request $request): array
+    {
+        $tz = (string) config('app.timezone', 'America/Sao_Paulo');
+        $agora = Carbon::now($tz);
+
+        try {
+            $inicio = $request->filled('start')
+                ? Carbon::parse($this->inputString($request, 'start'))->setTimezone($tz)
+                : $agora->copy()->startOfMonth()->startOfDay();
+        } catch (\Throwable) {
+            $inicio = $agora->copy()->startOfMonth()->startOfDay();
+        }
+
+        try {
+            $fim = $request->filled('end')
+                ? Carbon::parse($this->inputString($request, 'end'))->setTimezone($tz)
+                : $agora->copy()->endOfMonth()->endOfDay();
+        } catch (\Throwable) {
+            $fim = $agora->copy()->endOfMonth()->endOfDay();
+        }
+
+        if ($fim->lte($inicio)) {
+            $fim = $inicio->copy()->addDays(7)->endOfDay();
+        }
+
+        if ($inicio->diffInDays($fim) > 93) {
+            $fim = $inicio->copy()->addDays(93)->endOfDay();
+        }
+
+        return [$inicio, $fim];
+    }
+
+    /**
+     * @return array{label: string, bg: string, border: string, text: string}
+     */
+    private function configuracaoVisualStatus(string $status): array
+    {
+        return match ($status) {
+            'confirmado' => [
+                'label' => 'Confirmado',
+                'bg' => '#10b981',
+                'border' => '#059669',
+                'text' => '#ffffff',
+            ],
+            'em_andamento' => [
+                'label' => 'Em Andamento',
+                'bg' => '#f59e0b',
+                'border' => '#d97706',
+                'text' => '#111827',
+            ],
+            'concluido' => [
+                'label' => 'Concluído',
+                'bg' => '#64748b',
+                'border' => '#475569',
+                'text' => '#ffffff',
+            ],
+            'cancelado' => [
+                'label' => 'Cancelado',
+                'bg' => '#ef4444',
+                'border' => '#dc2626',
+                'text' => '#ffffff',
+            ],
+            default => [
+                'label' => 'Agendado',
+                'bg' => '#3b82f6',
+                'border' => '#2563eb',
+                'text' => '#ffffff',
+            ],
+        };
+    }
+
+    /**
+     * Resolve empresa alvo e veículo autorizado para consulta de janelas disponíveis sem vazar dados entre empresas ou clientes.
+     *
+     * @return array{0: bool, 1: int|null, 2: int|null, 3: bool}
+     */
+    private function resolverContextoJanelas(Request $request, ?User $user): array
+    {
+        if (! $user instanceof User) {
+            return [true, null, null, false];
+        }
+
+        $isCliente = $user->isCliente();
+        $veiculoReqId = $request->integer('veiculo_id') ?: null;
+
+        if ($isCliente) {
+            if (! $user->possuiEsteticaVinculada()) {
+                return [true, null, null, true];
+            }
+
+            $cliente = $user->ensureClienteProfile();
+            $empresaId = $cliente->empresa_id
+                ? (int) $cliente->empresa_id
+                : $user->getEmpresaAtivaId();
+
+            $veiculoValidoId = null;
+            if ($veiculoReqId) {
+                $pertenceAoCliente = Veiculo::withoutGlobalScopes()
+                    ->whereKey($veiculoReqId)
+                    ->where('cliente_id', $cliente->id)
+                    ->exists();
+                if ($pertenceAoCliente) {
+                    $veiculoValidoId = $veiculoReqId;
+                }
+            }
+
+            return [false, $empresaId, $veiculoValidoId, true];
+        }
+
+        if ($user->isDono() || $user->isFuncionario()) {
+            $empresaId = $user->getEmpresaAtivaId();
+            if (! $empresaId) {
+                return [true, null, null, false];
+            }
+
+            $veiculoValidoId = null;
+            if ($veiculoReqId) {
+                $pertenceAEmpresa = Veiculo::withoutGlobalScopes()
+                    ->whereKey($veiculoReqId)
+                    ->whereHas('cliente', fn ($q) => $q->withoutGlobalScopes()->where('empresa_id', $empresaId))
+                    ->exists();
+                if ($pertenceAEmpresa) {
+                    $veiculoValidoId = $veiculoReqId;
+                }
+            }
+
+            return [false, $empresaId, $veiculoValidoId, false];
+        }
+
+        // Administrador Geral
+        $empReq = $request->integer('empresa_id') ?: null;
+        $empresaId = ($empReq && Empresa::whereKey($empReq)->exists()) ? $empReq : null;
+
+        if (! $empresaId) {
+            $clienteReq = $request->integer('cliente_id') ?: null;
+            if ($clienteReq) {
+                $empCli = Cliente::withoutGlobalScopes()->whereKey($clienteReq)->value('empresa_id');
+                $empresaId = $empCli ? (int) $empCli : null;
+            }
+        }
+
+        if (! $empresaId) {
+            $empPrimeira = Empresa::orderBy('id')->value('id');
+            $empresaId = $empPrimeira ? (int) $empPrimeira : null;
+        }
+
+        $veiculoValidoId = null;
+        if ($veiculoReqId && $empresaId) {
+            $pertenceAEmpresa = Veiculo::withoutGlobalScopes()
+                ->whereKey($veiculoReqId)
+                ->whereHas('cliente', fn ($q) => $q->withoutGlobalScopes()->where('empresa_id', $empresaId))
+                ->exists();
+            if ($pertenceAEmpresa) {
+                $veiculoValidoId = $veiculoReqId;
+            }
+        }
+
+        return [false, $empresaId, $veiculoValidoId, false];
+    }
+
+    /**
+     * Gera eventos de fundo anônimos apenas para faixas de 30 min com todos os 4 boxes ocupados (visão do cliente).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function gerarEventosLotacaoAnonimos(int $empresaId, Carbon $inicioRange, Carbon $fimRange): array
+    {
+        $ocupacaoEmpresa = Agendamento::withoutGlobalScopes()
+            ->select(['data_inicio', 'data_fim'])
+            ->whereIn('status', ['agendado', 'confirmado', 'em_andamento'])
+            ->where(function ($q) use ($empresaId) {
+                $q->where('empresa_id', $empresaId)
+                    ->orWhere(function ($q2) use ($empresaId) {
+                        $q2->whereNull('empresa_id')
+                            ->whereHas('cliente', fn ($cq) => $cq->withoutGlobalScopes()->where('empresa_id', $empresaId));
+                    });
+            })
+            ->tap(fn ($q) => $this->aplicarFiltroSobreposicao($q, $inicioRange, $fimRange))
+            ->get();
+
+        if ($ocupacaoEmpresa->isEmpty()) {
+            return [];
+        }
+
+        $eventos = [];
+        $cursorDia = $inicioRange->copy()->startOfDay();
+        $ultimoDia = $fimRange->copy()->subSecond()->startOfDay();
+        if ($ultimoDia->lt($cursorDia)) {
+            $ultimoDia = $cursorDia->copy();
+        }
+
+        while ($cursorDia->lte($ultimoDia)) {
+            if (! $cursorDia->isSunday()) {
+                $abertura = $cursorDia->copy()->setTime(self::HORA_ABERTURA, 0, 0);
+                $fechamento = $cursorDia->copy()->setTime(self::HORA_FECHAMENTO, 0, 0);
+
+                $agDoDia = $ocupacaoEmpresa->filter(function (Agendamento $ag) use ($abertura, $fechamento): bool {
+                    $agFim = $ag->data_fim ?? $ag->data_inicio->copy()->addHours(2);
+
+                    return $ag->data_inicio->lt($fechamento) && $agFim->gt($abertura);
+                })->values();
+
+                if ($agDoDia->isNotEmpty()) {
+                    $blocoInicio = null;
+                    $blocoFim = null;
+
+                    for ($min = self::HORA_ABERTURA * 60; $min < self::HORA_FECHAMENTO * 60; $min += self::INTERVALO_SLOT_MINUTOS) {
+                        $slotIni = $cursorDia->copy()->addMinutes($min);
+                        $slotFim = $slotIni->copy()->addMinutes(self::INTERVALO_SLOT_MINUTOS);
+                        $ocupados = $this->calcularPicoBoxes($agDoDia, $slotIni, $slotFim);
+
+                        if ($ocupados >= self::CAPACIDADE_BOXES) {
+                            $blocoInicio ??= $slotIni;
+                            $blocoFim = $slotFim;
+                        } elseif ($blocoInicio !== null && $blocoFim !== null) {
+                            $eventos[] = [
+                                'id' => 'lotado-' . $blocoInicio->format('YmdHi'),
+                                'start' => $blocoInicio->format('Y-m-d\TH:i:s'),
+                                'end' => $blocoFim->format('Y-m-d\TH:i:s'),
+                                'display' => 'background',
+                                'title' => 'Horário lotado',
+                                'classNames' => ['fc-slot-lotado'],
+                                'extendedProps' => ['tipo' => 'lotado'],
+                            ];
+                            $blocoInicio = null;
+                            $blocoFim = null;
+                        }
+                    }
+
+                    if ($blocoInicio !== null && $blocoFim !== null) {
+                        $eventos[] = [
+                            'id' => 'lotado-' . $blocoInicio->format('YmdHi'),
+                            'start' => $blocoInicio->format('Y-m-d\TH:i:s'),
+                            'end' => $blocoFim->format('Y-m-d\TH:i:s'),
+                            'display' => 'background',
+                            'title' => 'Horário lotado',
+                            'classNames' => ['fc-slot-lotado'],
+                            'extendedProps' => ['tipo' => 'lotado'],
+                        ];
+                    }
+                }
+            }
+
+            $cursorDia->addDay();
+        }
+
+        return $eventos;
+    }
+
+    /**
+     * Avalia todos os slots de 30 min de um dia e gera o resumo diário para o seletor de janelas.
+     *
+     * @param  Collection<int, Agendamento>  $agendamentosEmpresa
+     * @param  Collection<int, Agendamento>  $agendamentosVeiculo
+     * @return array<string, mixed>
+     */
+    private function avaliarDiaJanelas(
+        Carbon $dia,
+        int $duracaoTotal,
+        bool $deixarVeiculo,
+        bool $isCliente,
+        Collection $agendamentosEmpresa,
+        Collection $agendamentosVeiculo
+    ): array {
+        $diasSemanaCurto = [0 => 'Dom', 1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb'];
+        $base = [
+            'data' => $dia->format('Y-m-d'),
+            'dia_semana' => $diasSemanaCurto[$dia->dayOfWeek] ?? '',
+            'label_data' => $dia->format('d/m'),
+        ];
+
+        if ($dia->isSunday()) {
+            return array_merge($base, [
+                'fechado' => true,
+                'status' => 'fechado',
+                'livres' => 0,
+                'slots' => [],
+            ]);
+        }
+
+        $agoraLimite = Carbon::now()->subMinute();
+        $fechamentoStr = str_pad((string) self::HORA_FECHAMENTO, 2, '0', STR_PAD_LEFT) . ':00:00';
+        $slots = [];
+        $livresNoDia = 0;
+        $slotsFuturosNoDia = 0;
+
+        for ($min = self::HORA_ABERTURA * 60; $min < self::HORA_FECHAMENTO * 60; $min += self::INTERVALO_SLOT_MINUTOS) {
+            $slotInicio = $dia->copy()->addMinutes($min);
+            $slotFim = $this->calcularDataFimEstimada($slotInicio, $duracaoTotal, $deixarVeiculo);
+            $noPassado = $slotInicio->lt($agoraLimite);
+            $ultrapassaExpediente = ! $deixarVeiculo
+                && (! $slotFim->isSameDay($slotInicio) || $slotFim->format('H:i:s') > $fechamentoStr);
+
+            $conflitoVeiculo = $agendamentosVeiculo->contains(function (Agendamento $ag) use ($slotInicio, $slotFim): bool {
+                $agFim = $ag->data_fim ?? $ag->data_inicio->copy()->addHours(2);
+
+                return $ag->data_inicio->lt($slotFim) && $agFim->gt($slotInicio);
+            });
+
+            $ocupados = $this->calcularPicoBoxes($agendamentosEmpresa, $slotInicio, $slotFim);
+            $boxesLivres = max(0, self::CAPACIDADE_BOXES - $ocupados);
+            $lotado = $ocupados >= self::CAPACIDADE_BOXES;
+
+            if (! $noPassado) {
+                $slotsFuturosNoDia++;
+            }
+
+            if ($noPassado) {
+                $disponivel = false;
+                $motivo = 'passado';
+                $nivel = 'indisponivel';
+                $vagasLabel = 'Encerrado';
+            } elseif ($ultrapassaExpediente) {
+                $disponivel = false;
+                $motivo = 'ultrapassa_expediente';
+                $nivel = 'indisponivel';
+                $vagasLabel = 'Após 18:00';
+            } elseif ($conflitoVeiculo) {
+                $disponivel = false;
+                $motivo = 'conflito_veiculo';
+                $nivel = 'indisponivel';
+                $vagasLabel = 'Veículo agendado';
+            } elseif ($lotado) {
+                $disponivel = false;
+                $motivo = 'lotado';
+                $nivel = 'lotado';
+                $vagasLabel = 'Lotado';
+            } else {
+                $disponivel = true;
+                $motivo = null;
+                $nivel = $boxesLivres === 1 ? 'ultimas_vagas' : 'disponivel';
+                $vagasLabel = $isCliente
+                    ? ($boxesLivres === 1 ? 'Última vaga' : 'Disponível')
+                    : "{$boxesLivres}/" . self::CAPACIDADE_BOXES . ' boxes';
+                $livresNoDia++;
+            }
+
+            $slotData = [
+                'hora' => $slotInicio->format('H:i'),
+                'data_hora_iso' => $slotInicio->format('Y-m-d\TH:i'),
+                'fim_estimado' => $slotFim->isSameDay($slotInicio)
+                    ? $slotFim->format('H:i')
+                    : $slotFim->format('d/m H:i'),
+                'pernoite' => ! $slotFim->isSameDay($slotInicio),
+                'disponivel' => $disponivel,
+                'motivo' => $motivo,
+                'nivel' => $nivel,
+                'vagas_label' => $vagasLabel,
+            ];
+
+            if (! $isCliente) {
+                $slotData['boxes_livres'] = $disponivel ? $boxesLivres : 0;
+                $slotData['boxes_total'] = self::CAPACIDADE_BOXES;
+            }
+
+            $slots[] = $slotData;
+        }
+
+        if ($slotsFuturosNoDia === 0) {
+            $statusDia = 'passado';
+        } elseif ($livresNoDia === 0) {
+            $statusDia = 'lotado';
+        } elseif ($livresNoDia <= 4) {
+            $statusDia = 'poucas_vagas';
+        } else {
+            $statusDia = 'disponivel';
+        }
+
+        return array_merge($base, [
+            'fechado' => false,
+            'status' => $statusDia,
+            'livres' => $livresNoDia,
+            'slots' => $slots,
+        ]);
     }
 }

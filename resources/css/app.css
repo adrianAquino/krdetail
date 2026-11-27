@@ -144,3 +144,102 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
+
+/* Tema FullCalendar v6 integrado às variáveis Light / Dark do Tailwind */
+.krdetail-calendar .fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--card);
+  --fc-neutral-bg-color: var(--secondary);
+  --fc-neutral-text-color: var(--muted-foreground);
+  --fc-list-event-hover-bg-color: color-mix(in oklch, var(--primary) 12%, transparent);
+  --fc-today-bg-color: color-mix(in oklch, var(--primary) 9%, transparent);
+  --fc-highlight-color: color-mix(in oklch, var(--primary) 16%, transparent);
+  --fc-now-indicator-color: var(--destructive);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-bg-color: var(--secondary);
+  --fc-button-border-color: var(--border);
+  --fc-button-hover-bg-color: color-mix(in oklch, var(--primary) 16%, var(--secondary));
+  --fc-button-hover-border-color: var(--primary);
+  --fc-button-active-bg-color: var(--primary);
+  --fc-button-active-border-color: var(--primary);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+}
+
+.krdetail-calendar .fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.krdetail-calendar .fc .fc-toolbar-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--foreground);
+  text-transform: capitalize;
+}
+
+.krdetail-calendar .fc .fc-button {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  text-transform: capitalize;
+}
+
+.krdetail-calendar .fc .fc-button-primary:not(:disabled).fc-button-active,
+.krdetail-calendar .fc .fc-button-primary:not(:disabled):active {
+  color: var(--primary-foreground);
+}
+
+.krdetail-calendar .fc .fc-col-header-cell-cushion,
+.krdetail-calendar .fc .fc-daygrid-day-number,
+.krdetail-calendar .fc .fc-timegrid-slot-label-cushion,
+.krdetail-calendar .fc .fc-list-day-text,
+.krdetail-calendar .fc .fc-list-day-side-text {
+  color: var(--foreground);
+}
+
+.krdetail-calendar .fc .fc-col-header-cell {
+  background-color: color-mix(in oklch, var(--secondary) 65%, transparent);
+  padding: 0.35rem 0;
+}
+
+.krdetail-calendar .fc .fc-timegrid-slot {
+  height: 2.35rem;
+}
+
+.krdetail-calendar .fc .fc-event {
+  border-radius: 0.45rem;
+  padding: 1px 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.krdetail-calendar .fc .fc-timegrid-col.fc-day-today {
+  background-color: color-mix(in oklch, var(--primary) 6%, transparent);
+}
+
+.krdetail-calendar .fc .fc-slot-lotado {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in oklch, var(--destructive) 16%, transparent),
+    color-mix(in oklch, var(--destructive) 16%, transparent) 6px,
+    color-mix(in oklch, var(--destructive) 7%, transparent) 6px,
+    color-mix(in oklch, var(--destructive) 7%, transparent) 12px
+  );
+  opacity: 0.9;
+}
+
+.krdetail-calendar .fc .fc-popover {
+  background-color: var(--popover);
+  border-color: var(--border);
+  color: var(--popover-foreground);
+  border-radius: 0.75rem;
+}
+
+.krdetail-calendar .fc .fc-list-empty {
+  background-color: transparent;
+  color: var(--muted-foreground);
+}

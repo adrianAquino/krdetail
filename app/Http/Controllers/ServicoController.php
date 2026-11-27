@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 
 class ServicoController extends Controller
 {
+    public const INTERVALO_JANELA_MINUTOS = 30;
+
     public function index(Request $request)
     {
         $filtroAdmin = $this->resolverFiltroEmpresaAdmin($request);
@@ -67,7 +69,13 @@ class ServicoController extends Controller
             ],
             'descricao' => 'nullable|string|max:500',
             'preco_base' => 'required|numeric|min:0|max:99999.99',
-            'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
+            'tempo_estimado_minutos' => [
+                'required',
+                'integer',
+                'min:' . self::INTERVALO_JANELA_MINUTOS,
+                'max:1440',
+                'multiple_of:' . self::INTERVALO_JANELA_MINUTOS,
+            ],
             'ativo' => 'sometimes|boolean',
         ];
 
@@ -75,9 +83,7 @@ class ServicoController extends Controller
             $rules['empresa_id'] = 'required|integer|exists:empresas,id';
         }
 
-        $validated = $request->validate($rules, [
-            'empresa_id.required' => 'Selecione a empresa proprietária deste serviço.',
-        ]);
+        $validated = $request->validate($rules, $this->mensagensValidacaoTempo());
 
         if (! $isAdmin) {
             unset($validated['empresa_id']);
@@ -120,9 +126,15 @@ class ServicoController extends Controller
             ],
             'descricao' => 'nullable|string|max:500',
             'preco_base' => 'required|numeric|min:0|max:99999.99',
-            'tempo_estimado_minutos' => 'required|integer|min:10|max:1440',
+            'tempo_estimado_minutos' => [
+                'required',
+                'integer',
+                'min:' . self::INTERVALO_JANELA_MINUTOS,
+                'max:1440',
+                'multiple_of:' . self::INTERVALO_JANELA_MINUTOS,
+            ],
             'ativo' => 'sometimes|boolean',
-        ]);
+        ], $this->mensagensValidacaoTempo());
 
         $validated['ativo'] = $request->boolean('ativo');
 
@@ -166,6 +178,18 @@ class ServicoController extends Controller
             $nomeNormalizado = preg_replace('/\s+/', ' ', trim((string) $request->input('nome'))) ?? '';
             $request->merge(['nome' => $nomeNormalizado]);
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function mensagensValidacaoTempo(): array
+    {
+        return [
+            'empresa_id.required' => 'Selecione a empresa proprietária deste serviço.',
+            'tempo_estimado_minutos.min' => 'O tempo estimado mínimo do serviço é de 30 minutos.',
+            'tempo_estimado_minutos.multiple_of' => 'O tempo estimado deve ser múltiplo de 30 minutos (ex.: 30, 60, 90, 120) para não extrapolar as janelas de agendamento.',
+        ];
     }
 
     private function regraNomeUnicoPorEmpresa(?int $empresaId, ?int $ignorarId = null): \Closure

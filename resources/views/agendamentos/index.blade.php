@@ -2,6 +2,7 @@
     $usuarioAtual = auth()->user();
     $isCliente = $usuarioAtual && $usuarioAtual->isCliente();
     $possuiEsteticaVinculada = $isCliente ? $usuarioAtual->possuiEsteticaVinculada() : true;
+    $viewMode = request('view') === 'calendario' ? 'calendario' : 'lista';
 @endphp
 
 <x-layouts.app :title="$isCliente ? 'Meus Agendamentos' : 'Agendamentos'">
@@ -10,6 +11,27 @@
         :subtitle="$isCliente ? 'Acompanhe o andamento dos seus agendamentos, o progresso dos serviços e consulte seu histórico.' : 'Organização do fluxo de entrada de veículos, agendamento de serviços e acompanhamento de status.'"
     >
         <x-slot:actions>
+            <div class="inline-flex items-center rounded-lg border border-border bg-secondary/40 p-1 gap-1" role="group" aria-label="Modo de visualização">
+                <button
+                    type="button"
+                    id="btn-view-lista"
+                    aria-pressed="{{ $viewMode === 'lista' ? 'true' : 'false' }}"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer {{ $viewMode === 'lista' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60' }}"
+                >
+                    <x-icon name="list" class="w-3.5 h-3.5" />
+                    <span>Lista</span>
+                </button>
+                <button
+                    type="button"
+                    id="btn-view-calendario"
+                    aria-pressed="{{ $viewMode === 'calendario' ? 'true' : 'false' }}"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer {{ $viewMode === 'calendario' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60' }}"
+                >
+                    <x-icon name="calendar" class="w-3.5 h-3.5" />
+                    <span>Calendário</span>
+                </button>
+            </div>
+
             @if(!$isCliente || $possuiEsteticaVinculada)
                 <x-button href="{{ route('agendamentos.create', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" icon="plus" size="md">
                     Novo Agendamento
@@ -23,7 +45,7 @@
             :action="route('agendamentos.index')"
             :empresas="$empresasFiltro ?? collect()"
             :empresaSelecionadaId="$empresaFiltroId ?? null"
-            :preserve="['busca' => request('busca'), 'status' => request('status')]"
+            :preserve="['busca' => request('busca'), 'status' => request('status'), 'view' => $viewMode]"
             label="Empresa nos Agendamentos"
         />
     @endif
@@ -39,6 +61,7 @@
     <!-- Filters Bar -->
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form method="GET" action="{{ route('agendamentos.index') }}" class="flex-1 max-w-md flex items-center gap-2">
+            <input type="hidden" name="view" value="{{ $viewMode }}" class="js-agendamentos-view-input" />
             @if(($isAdmin ?? false) && !empty($empresaFiltroId))
                 <input type="hidden" name="empresa_id" value="{{ $empresaFiltroId }}" />
             @endif
@@ -53,7 +76,12 @@
                 icon="search"
             />
             @if(request('busca') || request('status'))
-                <x-button href="{{ route('agendamentos.index', ($isAdmin ?? false) && !empty($empresaFiltroId) ? ['empresa_id' => $empresaFiltroId] : []) }}" variant="ghost" size="sm">
+                <x-button
+                    href="{{ route('agendamentos.index', array_filter(['empresa_id' => (($isAdmin ?? false) && !empty($empresaFiltroId)) ? $empresaFiltroId : null, 'view' => $viewMode], fn ($v) => $v !== null && $v !== '')) }}"
+                    variant="ghost"
+                    size="sm"
+                    class="js-agendamentos-preserve-view"
+                >
                     Limpar
                 </x-button>
             @endif
@@ -73,8 +101,8 @@
             @endphp
             @foreach($statusList as $key => $label)
                 <a
-                    href="{{ route('agendamentos.index', array_merge(request()->except('page'), ['status' => $key])) }}"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap transition-colors {{ $currentStatus === $key ? 'bg-primary/15 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
+                    href="{{ route('agendamentos.index', array_merge(request()->except('page'), ['status' => $key, 'view' => $viewMode])) }}"
+                    class="js-agendamentos-preserve-view px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap transition-colors {{ $currentStatus === $key ? 'bg-primary/15 border-primary text-primary font-semibold' : 'bg-secondary/40 border-border text-muted-foreground hover:text-foreground' }}"
                 >
                     {{ $label }}
                 </a>
@@ -82,6 +110,7 @@
         </div>
     </div>
 
+    <div id="agendamentos-lista-wrapper" class="{{ $viewMode === 'calendario' ? 'hidden' : '' }}">
     <div class="space-y-3">
         @forelse($agendamentos as $ag)
             @php
@@ -248,4 +277,53 @@
             {{ $agendamentos->links() }}
         </div>
     @endif
+    </div>
+
+    <div id="agendamentos-calendario-wrapper" class="{{ $viewMode === 'calendario' ? '' : 'hidden' }}">
+        <x-card class="p-4 sm:p-5">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4 mb-4 border-b border-border/70">
+                <div class="flex flex-wrap items-center gap-3 text-xs">
+                    <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#3b82f6]"></span> Agendado
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span> Confirmado
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></span> Em Andamento
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span> Concluído
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span> Cancelado
+                    </span>
+                    @if($isCliente)
+                        <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                            <span class="w-2.5 h-2.5 rounded border border-destructive/60 bg-destructive/20"></span> Horário lotado
+                        </span>
+                    @endif
+                </div>
+
+                <p class="text-[11px] text-muted-foreground">
+                    Clique em um agendamento para ver detalhes{{ (!$isCliente || $possuiEsteticaVinculada) ? ' ou em um horário livre para agendar.' : '.' }}
+                </p>
+            </div>
+
+            <div id="calendario-feedback" class="hidden mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400"></div>
+
+            <div
+                id="agendamentos-calendario-root"
+                class="krdetail-calendar"
+                data-eventos-url="{{ route('agendamentos.eventos') }}"
+                data-create-url="{{ route('agendamentos.create') }}"
+                data-can-create="{{ (!$isCliente || $possuiEsteticaVinculada) ? '1' : '0' }}"
+                data-status="{{ request('status', '') }}"
+                data-busca="{{ request('busca', '') }}"
+                data-empresa-id="{{ $empresaFiltroId ?? '' }}"
+                data-is-cliente="{{ $isCliente ? '1' : '0' }}"
+                data-initial-view-mode="{{ $viewMode }}"
+            ></div>
+        </x-card>
+    </div>
 </x-layouts.app>
