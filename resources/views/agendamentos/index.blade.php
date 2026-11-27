@@ -218,6 +218,23 @@
                                     Acompanhar Serviço
                                 </x-button>
                             @else
+                                @if($ag->status === 'agendado')
+                                    <form method="POST" action="{{ route('agendamentos.confirmar', $ag->id) }}" class="inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <x-button
+                                            type="submit"
+                                            variant="outline"
+                                            size="sm"
+                                            icon="check-circle"
+                                            title="Confirmar Agendamento"
+                                            class="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/25 font-semibold"
+                                        >
+                                            Confirmar
+                                        </x-button>
+                                    </form>
+                                @endif
+
                                 @if($osObj)
                                     <x-button href="{{ route('ordens-servico.show', $osObj->id) }}" variant="secondary" size="sm" icon="clipboard-list">
                                         Ver OS

@@ -45,6 +45,22 @@
     >
         <x-slot:actions>
             @if(!$isCliente)
+                @if($agendamentoObj?->status === 'agendado')
+                    <form method="POST" action="{{ route('agendamentos.confirmar', $agendamentoObj->id) }}" class="inline">
+                        @csrf
+                        @method('PATCH')
+                        <x-button
+                            type="submit"
+                            variant="outline"
+                            size="sm"
+                            icon="check-circle"
+                            class="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/25 font-semibold"
+                        >
+                            Confirmar Agendamento
+                        </x-button>
+                    </form>
+                @endif
+
                 @if($osObj)
                     <x-button href="{{ route('ordens-servico.show', $osObj?->id ?? 0) }}" variant="primary" size="sm" icon="clipboard-list">
                         Acessar Ordem de Serviço ({{ $osObj?->numero ?? '' }})

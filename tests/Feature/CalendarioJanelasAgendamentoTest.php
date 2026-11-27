@@ -398,4 +398,97 @@ class CalendarioJanelasAgendamentoTest extends TestCase
             ->assertSee($alvo->format('Y-m-d\TH:i'), false)
             ->assertDontSee('step="1800"', false);
     }
+
+    public function test_equipe_pode_confirmar_agendamento_rapidamente_com_isolamento_e_bloqueio_cliente(): void
+    {
+        $alfa = $this->criarEsteticaCompleta('CfA');
+        $beta = $this->criarEsteticaCompleta('CfB');
+
+        $funcionarioAlfa = User::create([
+            'name' => 'Func ConfAlf',
+            'email' => 'func.conf@agenda.test',
+            'password' => 'SenhaForte123',
+            'telefone' => '(11) 95555-0000',
+            'tipo_usuario' => 'funcionario',
+            'empresa_id' => $alfa['empresa']->id,
+            'ativo' => true,
+        ]);
+
+        $quinta = Carbon::now()->next(Carbon::THURSDAY)->setTime(9, 0);
+
+        $agAgendado = Agendamento::withoutGlobalScopes()->create([
+            'empresa_id' => $alfa['empresa']->id,
+            'cliente_id' => $alfa['cliente']->id,
+            'veiculo_id' => $alfa['veiculo']->id,
+            'data_inicio' => $quinta->copy(),
+            'data_fim' => $quinta->copy()->addMinutes(90),
+            'status' => 'agendado',
+            'origem' => 'Site',
+        ]);
+
+        $agCancelado = Agendamento::withoutGlobalScopes()->create([
+            'empresa_id' => $alfa['empresa']->id,
+            'cliente_id' => $alfa['outroCliente']->id,
+            'veiculo_id' => $alfa['veiculoTerceiro']->id,
+            'data_inicio' => $quinta->copy()->addHours(2),
+            'data_fim' => $quinta->copy()->addHours(3)->addMinutes(30),
+            'status' => 'cancelado',
+            'origem' => 'Balcão',
+        ]);
+
+        // 1. Cliente bloqueado (redirect no web, 403 em JSON) e não vê o botão de confirmar
+        $this->actingAs($alfa['clienteUser'])
+            ->get(route('agendamentos.show', $agAgendado))
+            ->assertOk()
+            ->assertDontSee('Confirmar Agendamento');
+
+        $this->actingAs($alfa['clienteUser'])
+            ->patch(route('agendamentos.confirmar', $agAgendado))
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas('error');
+        $this->actingAs($alfa['clienteUser'])
+            ->patchJson(route('agendamentos.confirmar', $agAgendado))
+            ->assertForbidden();
+        $this->assertSame('agendado', $agAgendado->fresh()->status);
+
+        // 2. Dono da outra empresa recebe 404 (multi-tenant)
+        $this->actingAs($beta['dono'])
+            ->patch(route('agendamentos.confirmar', $agAgendado))
+            ->assertNotFound();
+        $this->assertSame('agendado', $agAgendado->fresh()->status);
+
+        // 3. Dono vê o botão quando agendado; Funcionário consegue confirmar com 1 clique
+        $this->actingAs($alfa['dono'])
+            ->get(route('agendamentos.show', $agAgendado))
+            ->assertOk()
+            ->assertSee('Confirmar Agendamento');
+
+        $this->actingAs($funcionarioAlfa)
+            ->from(route('agendamentos.show', $agAgendado))
+            ->patch(route('agendamentos.confirmar', $agAgendado))
+            ->assertRedirect(route('agendamentos.show', $agAgendado))
+            ->assertSessionHas('success');
+
+        $this->assertSame('confirmado', $agAgendado->fresh()->status);
+
+        // 4. Após confirmado, botão não aparece mais e nova tentativa falha em segurança
+        $this->actingAs($alfa['dono'])
+            ->get(route('agendamentos.show', $agAgendado))
+            ->assertOk()
+            ->assertDontSee('Confirmar Agendamento');
+
+        $this->actingAs($alfa['dono'])
+            ->from(route('agendamentos.show', $agAgendado))
+            ->patch(route('agendamentos.confirmar', $agAgendado))
+            ->assertRedirect(route('agendamentos.show', $agAgendado))
+            ->assertSessionHas('error');
+
+        $this->actingAs($alfa['dono'])
+            ->from(route('agendamentos.show', $agCancelado))
+            ->patch(route('agendamentos.confirmar', $agCancelado))
+            ->assertRedirect(route('agendamentos.show', $agCancelado))
+            ->assertSessionHas('error');
+
+        $this->assertSame('cancelado', $agCancelado->fresh()->status);
+    }
 }

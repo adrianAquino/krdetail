@@ -66,6 +66,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('/agendamentos/{agendamento}/edit', [AgendamentoController::class, 'edit'])->name('agendamentos.edit');
         Route::put('/agendamentos/{agendamento}', [AgendamentoController::class, 'update'])->name('agendamentos.update');
+        Route::patch('/agendamentos/{agendamento}/confirmar', [AgendamentoController::class, 'confirmar'])->name('agendamentos.confirmar');
         Route::delete('/agendamentos/{agendamento}', [AgendamentoController::class, 'destroy'])->name('agendamentos.destroy');
 
         // Clientes

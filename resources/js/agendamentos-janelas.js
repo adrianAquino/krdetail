@@ -243,6 +243,7 @@ export function initAgendamentosJanelas() {
         const todosUltrapassam = dia.slots.every(
             (s) => s.motivo === 'ultrapassa_expediente' || s.motivo === 'passado'
         );
+        const temConflitoVeiculo = dia.slots.some((s) => s.motivo === 'conflito_veiculo');
 
         dia.slots.forEach((slot) => {
             const isSelected = valorAtualInput === slot.data_hora_iso;
@@ -322,6 +323,14 @@ export function initAgendamentosJanelas() {
             aviso.className = 'col-span-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400';
             aviso.textContent = 'Todos os horários deste dia ultrapassariam o fechamento das 18:00. Selecione uma data com janela livre ou ative a opção de deixar o veículo na estética (pernoite).';
             slotsGridEl.appendChild(aviso);
+        }
+
+        if (temConflitoVeiculo) {
+            const avisoVeiculo = document.createElement('div');
+            avisoVeiculo.className = 'col-span-full rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[11px] text-blue-600 dark:text-blue-300';
+            avisoVeiculo.textContent =
+                'Os horários marcados como "Veículo agendado" estão bloqueados porque este mesmo veículo já possui um agendamento ativo nesse período (os demais boxes da estética continuam disponíveis para outros veículos).';
+            slotsGridEl.appendChild(avisoVeiculo);
         }
 
         atualizarBadgeSelecionada(slotEncontrado, dia);

@@ -766,6 +766,31 @@ class AgendamentoController extends Controller
         return redirect()->route('agendamentos.show', $agendamento)->with('success', 'Agendamento atualizado com sucesso!');
     }
 
+    public function confirmar(Agendamento $agendamento)
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+        if ($user instanceof User && $user->isCliente()) {
+            abort(403, 'Você não tem permissão para confirmar agendamentos.');
+        }
+
+        try {
+            DB::transaction(function () use ($agendamento) {
+                $agTravado = Agendamento::lockForUpdate()->findOrFail($agendamento->id);
+
+                if ($agTravado->status !== 'agendado') {
+                    throw new \DomainException('Apenas agendamentos com status Agendado podem ser confirmados.');
+                }
+
+                $agTravado->update(['status' => 'confirmado']);
+            });
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Agendamento confirmado com sucesso!');
+    }
+
     public function cancelar(Agendamento $agendamento, MovimentarEstoqueService $estoqueService)
     {
         /** @var User|null $user */
