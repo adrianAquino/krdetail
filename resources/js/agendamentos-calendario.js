@@ -154,12 +154,79 @@ export function initAgendamentosCalendario() {
             eventContent: (arg) => {
                 const props = arg.event.extendedProps || {};
                 if (arg.event.display === 'background' || props.tipo === 'lotado') {
-                    return undefined;
+                    return true;
                 }
 
                 const viewType = arg.view.type || '';
                 if (viewType.startsWith('list')) {
-                    return undefined;
+                    const wrap = document.createElement('div');
+                    wrap.className = 'kr-ev-list';
+
+                    const header = document.createElement('div');
+                    header.className = 'kr-ev-list-header';
+
+                    const titleEl = document.createElement('span');
+                    titleEl.className = 'kr-ev-list-title';
+                    titleEl.textContent = props.tipo === 'proprio'
+                        ? (props.veiculo || arg.event.title || 'Meu Agendamento')
+                        : (props.cliente || arg.event.title || 'Cliente');
+                    header.appendChild(titleEl);
+
+                    if (props.tipo !== 'proprio' && props.veiculo) {
+                        const vehicleEl = document.createElement('span');
+                        vehicleEl.className = 'kr-ev-list-vehicle';
+                        vehicleEl.textContent = `• ${props.veiculo}`;
+                        header.appendChild(vehicleEl);
+                    }
+
+                    if (props.statusLabel) {
+                        const statusBadge = document.createElement('span');
+                        statusBadge.className = 'kr-ev-list-badge';
+                        statusBadge.textContent = props.statusLabel;
+                        header.appendChild(statusBadge);
+                    }
+
+                    if (props.deixarVeiculo) {
+                        const pernoiteBadge = document.createElement('span');
+                        pernoiteBadge.className = 'kr-ev-list-badge kr-ev-list-badge-neutral';
+                        pernoiteBadge.textContent = 'Pernoite';
+                        header.appendChild(pernoiteBadge);
+                    }
+
+                    if (props.empresa) {
+                        const empresaBadge = document.createElement('span');
+                        empresaBadge.className = 'kr-ev-list-badge kr-ev-list-badge-neutral';
+                        empresaBadge.textContent = props.empresa;
+                        header.appendChild(empresaBadge);
+                    }
+
+                    wrap.appendChild(header);
+
+                    const temServicos = Boolean(props.servicos);
+                    const valorNum = typeof props.valorTotal === 'number' ? props.valorTotal : Number(props.valorTotal || 0);
+                    const temValor = props.tipo !== 'proprio' && valorNum > 0;
+
+                    if (temServicos || temValor) {
+                        const meta = document.createElement('div');
+                        meta.className = 'kr-ev-list-meta';
+
+                        if (temServicos) {
+                            const servSpan = document.createElement('span');
+                            servSpan.textContent = props.servicos;
+                            meta.appendChild(servSpan);
+                        }
+
+                        if (temValor) {
+                            const valorSpan = document.createElement('span');
+                            valorSpan.className = 'kr-ev-list-valor';
+                            valorSpan.textContent = `R$ ${valorNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            meta.appendChild(valorSpan);
+                        }
+
+                        wrap.appendChild(meta);
+                    }
+
+                    return { domNodes: [wrap] };
                 }
 
                 if (viewType === 'dayGridMonth') {

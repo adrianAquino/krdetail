@@ -425,6 +425,77 @@
   background-color: color-mix(in oklch, var(--secondary) 75%, var(--card));
 }
 
+.krdetail-calendar.fc .fc-list-event-title a {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.krdetail-calendar.fc .kr-ev-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.15rem 0;
+}
+
+.krdetail-calendar.fc .kr-ev-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.krdetail-calendar.fc .kr-ev-list-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.krdetail-calendar.fc .kr-ev-status-cancelado .kr-ev-list-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  opacity: 0.8;
+}
+
+.krdetail-calendar.fc .kr-ev-list-vehicle {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.krdetail-calendar.fc .kr-ev-list-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--kr-ev-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kr-ev-accent) 40%, transparent);
+  color: var(--kr-ev-accent);
+  white-space: nowrap;
+}
+
+.krdetail-calendar.fc .kr-ev-list-badge-neutral {
+  background-color: var(--secondary);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+}
+
+.krdetail-calendar.fc .kr-ev-list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.krdetail-calendar.fc .kr-ev-list-valor {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
 .krdetail-calendar.fc .fc-list-empty {
   background-color: transparent;
   color: var(--muted-foreground);
