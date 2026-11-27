@@ -116,11 +116,19 @@ export function initAgendamentosCalendario() {
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
             },
+            dayHeaderFormat: {
+                weekday: 'short',
+                day: '2-digit',
+                month: '2-digit',
+            },
             hiddenDays: [0],
             slotMinTime: '08:00:00',
             slotMaxTime: '18:00:00',
             slotDuration: '00:30:00',
             slotLabelInterval: '01:00:00',
+            slotEventOverlap: false,
+            eventMinHeight: 34,
+            eventShortHeight: 42,
             slotLabelFormat: {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -138,6 +146,91 @@ export function initAgendamentosCalendario() {
             dayMaxEvents: true,
             navLinks: true,
             selectable: false,
+            eventClassNames: (arg) => {
+                if (arg.event.display === 'background') return [];
+                const status = arg.event.extendedProps?.status || 'agendado';
+                return ['kr-ev-card-root', `kr-ev-status-${status}`];
+            },
+            eventContent: (arg) => {
+                const props = arg.event.extendedProps || {};
+                if (arg.event.display === 'background' || props.tipo === 'lotado') {
+                    return undefined;
+                }
+
+                const viewType = arg.view.type || '';
+                if (viewType.startsWith('list')) {
+                    return undefined;
+                }
+
+                if (viewType === 'dayGridMonth') {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'kr-ev-month';
+
+                    const dot = document.createElement('span');
+                    dot.className = 'kr-ev-dot';
+                    wrap.appendChild(dot);
+
+                    if (arg.timeText) {
+                        const timeEl = document.createElement('span');
+                        timeEl.className = 'kr-ev-month-time';
+                        timeEl.textContent = arg.timeText;
+                        wrap.appendChild(timeEl);
+                    }
+
+                    const titleEl = document.createElement('span');
+                    titleEl.className = 'kr-ev-month-title';
+                    titleEl.textContent = props.tipo === 'proprio'
+                        ? (props.placa || arg.event.title || 'Agendamento')
+                        : (props.cliente || arg.event.title || 'Agendamento');
+                    wrap.appendChild(titleEl);
+
+                    return { domNodes: [wrap] };
+                }
+
+                const card = document.createElement('div');
+                card.className = 'kr-ev-card';
+
+                const top = document.createElement('div');
+                top.className = 'kr-ev-top';
+
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'kr-ev-time';
+                timeSpan.textContent = arg.timeText || '';
+                top.appendChild(timeSpan);
+
+                if (props.deixarVeiculo) {
+                    const pill = document.createElement('span');
+                    pill.className = 'kr-ev-pill';
+                    pill.textContent = 'Pernoite';
+                    top.appendChild(pill);
+                } else if (props.status === 'cancelado') {
+                    const pill = document.createElement('span');
+                    pill.className = 'kr-ev-pill';
+                    pill.textContent = 'Cancelado';
+                    top.appendChild(pill);
+                }
+
+                card.appendChild(top);
+
+                const titleEl = document.createElement('div');
+                titleEl.className = 'kr-ev-title';
+                titleEl.textContent = props.tipo === 'proprio'
+                    ? (props.placa ? `Veículo ${props.placa}` : (arg.event.title || 'Meu Agendamento'))
+                    : (props.cliente || arg.event.title || 'Cliente');
+                card.appendChild(titleEl);
+
+                const metaPartes = [];
+                if (props.tipo !== 'proprio' && props.placa) metaPartes.push(props.placa);
+                if (props.servicos) metaPartes.push(props.servicos);
+                if (metaPartes.length > 0) {
+                    const metaEl = document.createElement('div');
+                    metaEl.className = 'kr-ev-meta';
+                    metaEl.textContent = metaPartes.join(' • ');
+                    card.appendChild(metaEl);
+                }
+
+                return { domNodes: [card] };
+            },
             events: async (fetchInfo, successCallback, failureCallback) => {
                 try {
                     const params = new URLSearchParams();

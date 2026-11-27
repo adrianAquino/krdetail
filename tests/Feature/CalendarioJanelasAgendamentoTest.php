@@ -395,6 +395,7 @@ class CalendarioJanelasAgendamentoTest extends TestCase
             ->get(route('agendamentos.create', ['data_inicio' => $alvo->format('Y-m-d\TH:i')]))
             ->assertOk()
             ->assertSee('id="janelas-disponiveis-root"', false)
-            ->assertSee($alvo->format('Y-m-d\TH:i'), false);
+            ->assertSee($alvo->format('Y-m-d\TH:i'), false)
+            ->assertDontSee('step="1800"', false);
     }
 }

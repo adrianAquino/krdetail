@@ -267,15 +267,15 @@ export function initAgendamentosJanelas() {
                     `flex flex-col items-start rounded-xl border px-3 py-2 text-left transition-all cursor-pointer ${cls}`;
 
                 const topRow = document.createElement('div');
-                topRow.className = 'flex items-center justify-between w-full gap-1';
+                topRow.className = 'flex items-baseline justify-between w-full gap-1.5';
 
                 const horaSpan = document.createElement('span');
-                horaSpan.className = 'text-sm font-extrabold tracking-tight';
+                horaSpan.className = 'text-sm font-extrabold tracking-tight tabular-nums shrink-0';
                 horaSpan.textContent = slot.hora;
 
                 const fimSpan = document.createElement('span');
-                fimSpan.className = isSelected ? 'text-[10px] opacity-90' : 'text-[10px] text-muted-foreground';
-                fimSpan.textContent = `até ${slot.fim_estimado}`;
+                fimSpan.className = (isSelected ? 'opacity-90' : 'text-muted-foreground') + ' text-[10px] font-medium whitespace-nowrap tabular-nums';
+                fimSpan.textContent = `→ ${slot.fim_estimado}`;
 
                 topRow.appendChild(horaSpan);
                 topRow.appendChild(fimSpan);

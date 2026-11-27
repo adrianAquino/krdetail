@@ -248,7 +248,7 @@
                             </div>
                         </div>
 
-                        <div id="janelas-slots-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2"></div>
+                        <div id="janelas-slots-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
                     </div>
 
                     <div class="grid gap-4 sm:grid-cols-2">
@@ -258,7 +258,6 @@
                                 name="data_inicio"
                                 id="data_inicio"
                                 label="Data e Horário Desejados"
-                                step="1800"
                                 min="{{ now()->format('Y-m-d\TH:i') }}"
                                 :value="old('data_inicio', $padraoInicio->format('Y-m-d\TH:i'))"
                                 hint="Atendimento de Segunda a Sábado, das 08:00 às 18:00 (janelas de 30 min, 4 boxes simultâneos)."
